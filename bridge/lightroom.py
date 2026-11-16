@@ -17,11 +17,10 @@ from typing import Any, Callable, Optional
 
 import websockets
 
+from bridge import platform
+
 log = logging.getLogger("lightroom")
 
-CONNECTIONS_JSON = Path.home() / "Library/Application Support/Adobe/Lightroom CC/Connections/connections.json"
-# Outside iCloud on purpose: the client GUID lets this app connect without the Allow dialog.
-STATE_FILE = Path.home() / "Library/Application Support/loupedeck-lr-bridge/client.json"
 DEFAULT_PORT = 7682
 
 
@@ -33,18 +32,24 @@ class LightroomError(Exception):
         self.reply = reply
 
 
-def lightroom_port() -> int:
+def lightroom_port(path: Optional[Path] = None) -> int:
     """The port Lightroom actually listens on (it falls back if 7682 is busy)."""
+    if path is None:
+        path = platform.current().lightroom_connections_json()
     try:
-        return int(json.loads(CONNECTIONS_JSON.read_text())["port"])
+        return int(json.loads(path.read_text())["port"])
     except (OSError, ValueError, KeyError, TypeError):
         return DEFAULT_PORT
 
 
 class Lightroom:
-    def __init__(self, app_name: str, app_version: str, frame_log: Optional[Path] = None):
+    def __init__(self, app_name: str, app_version: str, frame_log: Optional[Path] = None,
+                 state_file: Optional[Path] = None):
         self.app_name, self.app_version = app_name, app_version
         self.frame_log = frame_log
+        # The client GUID lets this app connect without the Allow dialog, so it lives in the
+        # per-user state dir (outside the repo and outside iCloud), never in the project.
+        self.state_file = state_file or platform.current().state_dir() / "client.json"
         self.ws = None
         self._pending: dict[str, asyncio.Future] = {}
         self._listeners: dict[str, Callable[[dict], None]] = {}
@@ -53,8 +58,8 @@ class Lightroom:
         self._reader: Optional[asyncio.Task] = None
 
     # ---- connection -------------------------------------------------------
-    async def connect(self) -> None:
-        url = f"ws://127.0.0.1:{lightroom_port()}"
+    async def connect(self, port: Optional[int] = None) -> None:
+        url = f"ws://127.0.0.1:{port or lightroom_port()}"
         self.ws = await websockets.connect(url, max_size=None)  # renderImage can be large
         self._reader = asyncio.create_task(self._read_loop())
         log.info("connected to %s", url)
@@ -124,7 +129,7 @@ class Lightroom:
     async def register(self, timeout: float = 120) -> Any:
         """First call on every connection. Without a saved GUID, Lightroom shows an
         Allow dialog, so the timeout is long. Saves the GUID it hands back."""
-        state = _load_state()
+        state = _load_state(self.state_file)
         guid = state.get("clientGUID")
         if guid:
             self._redact.add(guid)
@@ -135,8 +140,8 @@ class Lightroom:
         if new_guid:
             self._redact.add(new_guid)
             if new_guid != guid:
-                _save_state({**state, "clientGUID": new_guid})
-                log.info("saved new client GUID to %s", STATE_FILE)
+                _save_state(self.state_file, {**state, "clientGUID": new_guid})
+                log.info("saved new client GUID to %s", self.state_file)
         else:
             log.warning("couldn't find a client GUID in the register reply; nothing saved")
         return resp
@@ -164,14 +169,14 @@ def _find_guid(resp: Any) -> Optional[str]:
     return None
 
 
-def _load_state() -> dict:
+def _load_state(path: Path) -> dict:
     try:
-        return json.loads(STATE_FILE.read_text())
+        return json.loads(path.read_text())
     except (OSError, ValueError):
         return {}
 
 
-def _save_state(state: dict) -> None:
-    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    STATE_FILE.write_text(json.dumps(state, indent=2))
-    STATE_FILE.chmod(0o600)
+def _save_state(path: Path, state: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(state, indent=2))
+    path.chmod(0o600)
