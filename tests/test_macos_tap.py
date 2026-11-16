@@ -39,12 +39,52 @@ def test_other_event_types_untouched():
     assert tap(ALT).adjust(29, 0) is None  # e.g. a gesture event
 
 
-def test_refuses_without_permission():
-    # In a context without Accessibility (like this test run), macOS refuses the tap;
-    # start() must say so instead of raising, and leave nothing running.
-    from bridge.platform import macos_ax
-    if macos_ax.is_trusted():
-        pytest.skip("this context has Accessibility; covered by the live check")
+class FakeCG:
+    """Stands in for CoreGraphics so tests never create a real, system-wide event tap."""
+
+    def __init__(self, tap_handle=0):
+        self.tap_handle, self.flag_reads, self.enabled = tap_handle, 0, []
+
+    def CGEventTapCreate(self, *args):
+        return self.tap_handle
+
+    def CGEventGetFlags(self, event):
+        self.flag_reads += 1
+        return 0
+
+    def CGEventSetFlags(self, event, flags):
+        pass
+
+    def CGEventTapEnable(self, tap, on):
+        self.enabled.append(on)
+
+
+def test_refused_tap_returns_false(monkeypatch):
+    from bridge.platform import macos_tap
+    monkeypatch.setattr(macos_tap, "_lib", lambda: FakeCG(tap_handle=0))  # macOS says no
     t = tap(0)
     assert t.start() is False
     t.stop()  # safe even though it never started
+
+
+def test_callback_fast_path_when_nothing_held(monkeypatch):
+    # Review: the callback read every event's flags before checking whether anything was held.
+    from bridge.platform import macos_tap
+    cg = FakeCG()
+    monkeypatch.setattr(macos_tap, "_lib", lambda: cg)
+    t = tap(0)
+    assert t._on_event(None, MOUSE_MOVED, 1234, None) == 1234
+    assert cg.flag_reads == 0
+
+
+def test_disabled_tap_reenabled_only_while_held(monkeypatch):
+    from bridge.platform import macos_tap
+    cg = FakeCG()
+    monkeypatch.setattr(macos_tap, "_lib", lambda: cg)
+    t = tap(0)
+    t._tap = 1
+    t._on_event(None, 0xFFFFFFFE, 99, None)  # macOS disabled the tap (timeout) while idle
+    assert cg.enabled == []                  # stays off: nothing is held
+    t.enable(True)
+    t._on_event(None, 0xFFFFFFFE, 99, None)  # disabled while a modifier is held
+    assert cg.enabled == [True, True]

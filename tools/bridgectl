@@ -16,7 +16,14 @@ case "${1:-}" in
     [ -d "$APP" ] || { echo "Build it first: tools/bridgectl build" >&2; exit 1; }
     if running; then echo "already running"; exit 0; fi
     open -g "$APP"
-    echo "started. Logs: tools/bridgectl logs" ;;
+    sleep 1.5
+    if running; then
+      echo "started. Logs: tools/bridgectl logs"
+    else
+      echo "LoupedeckBridge didn't stay running. Last log lines:" >&2
+      tail -n 8 "$LOG" >&2
+      exit 1
+    fi ;;
   stop)
     # SIGTERM → the launcher passes it on → the bridge releases any held keys and exits.
     if ! running; then echo "not running"; exit 0; fi

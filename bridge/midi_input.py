@@ -34,19 +34,26 @@ class MidiInput:
                     self.on_open()
                 except Exception:
                     log.exception("on_open hook failed")
+            getter: Optional[asyncio.Future] = None
             try:
                 while True:
-                    try:
-                        msg = await asyncio.wait_for(queue.get(), timeout=self.poll)
-                    except asyncio.TimeoutError:
+                    # Not asyncio.wait_for: on Python 3.9 it swallows a cancel that lands as a
+                    # message arrives, which could hang `bridgectl stop` mid-spin.
+                    if getter is None:
+                        getter = asyncio.ensure_future(queue.get())
+                    done, _ = await asyncio.wait({getter}, timeout=self.poll)
+                    if not done:
                         if name not in self.list_ports():
                             log.info("Loupedeck disconnected; waiting for it to come back")
                             break
                         continue
+                    msg, getter = getter.result(), None
                     event = self._decode(msg)
                     if event is not None:
                         yield event
             finally:
+                if getter is not None:
+                    getter.cancel()
                 port.close()
                 if self.on_close is not None:
                     try:

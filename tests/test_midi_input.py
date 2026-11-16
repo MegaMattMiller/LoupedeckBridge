@@ -121,6 +121,30 @@ def test_on_close_called_on_unplug():
     asyncio.run(main())
 
 
+def test_cancel_not_swallowed_when_a_message_arrives():
+    # Review: on Python 3.9, asyncio.wait_for returns the result instead of raising when a cancel
+    # lands just as a MIDI message arrives, so `bridgectl stop` mid-spin could hang the bridge.
+    async def one(k):
+        midi = FakeMidi()
+        events = MidiInput(HW, list_ports=midi.list_ports, open_port=midi.open_port, poll=10).events()
+        nxt = asyncio.ensure_future(events.__anext__())
+        await wait_until(lambda: len(midi.ports) == 1)
+        await asyncio.sleep(0.01)          # waiting for the next message
+        midi.ports[0].send_in(cc(33, 1))   # a detent arrives…
+        for _ in range(k):
+            await asyncio.sleep(0)
+        nxt.cancel()                       # …just as the bridge is stopped
+        try:
+            await nxt
+            return "swallowed"
+        except asyncio.CancelledError:
+            return "cancelled"
+        except StopAsyncIteration:
+            return "ended"
+    results = [asyncio.run(one(k)) for k in range(4)]
+    assert "swallowed" not in results, results
+
+
 def test_unknown_messages_skipped():
     async def main():
         midi = FakeMidi()

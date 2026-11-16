@@ -71,15 +71,9 @@ async def run(debug: bool = False, midi_port: str = "Loupedeck", lightroom_port:
     frame_log = plat.log_dir() / "frames.jsonl" if debug else None
     log.info("settings: %s", plat.config_dir() / "mapping.json")
     keyboard = plat.keyboard()
-    tap = plat.modifier_tap(keyboard) if keyboard is not None else None
-    if tap is not None and not tap.start():
-        log.warning("Loupedeck Shift/Ctrl/Alt/Cmd won't combine with your mouse or keyboard: macOS refused the "
-                    "input tap. It needs the Accessibility permission for LoupedeckBridge (some macOS "
-                    "versions also ask for Input Monitoring).")
-        tap = None
     try:
         await build(plat.config_dir(), MidiInput(HardwareMap.load(), port_hint=midi_port), port=lightroom_port,
                     frame_log=frame_log, keyboard=keyboard).run()
     finally:
-        if tap is not None:
-            tap.stop()  # after App.run has released any held keys
+        if keyboard is not None:
+            keyboard.close()  # stops the modifier tap, after App.run has released any held keys

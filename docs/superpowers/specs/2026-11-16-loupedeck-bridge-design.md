@@ -56,7 +56,7 @@ device's plain USB-MIDI, and a small amount of our own code.
 
 | | Approach | Trade-off | Verdict |
 |---|---|---|---|
-| **A** | Python bridge + settings page in the browser, served by the bridge | Builds on existing code, few dependencies, easy to search 1,572 presets; but it's a browser tab, not an app window, and on Mac the keyboard permission goes to Python | **Chosen** |
+| **A** | Python bridge + settings page in the browser, served by the bridge | Builds on existing code, few dependencies, easy to search 1,572 presets; but it's a browser tab, not an app window (on Mac a small launcher app holds the keyboard permission) | **Chosen** |
 | B | Native Swift menu-bar app | Most self-contained, own permission entry; but a rewrite in a new language, Mac-only, bigger build | Possible later; config/map carry over |
 | C | Python + Qt window | Real window; but a very large dependency and A's permission issue | Dropped |
 
@@ -112,8 +112,10 @@ Loupedeck+ ─MIDI─▶ input ─▶ events ─▶ mapper ─▶ actions ─┬
   - `none`.
 - **Lightroom client:** the existing one, plus reconnect logic (re-read the port file on every attempt,
   re-register with the saved GUID) and a status flag the settings page can show.
-- **Keyboard backend (per OS):** key down/up for named keys, and a permission check. Mac: CoreGraphics keyboard events and `AXIsProcessTrusted` through `ctypes`. Windows: `SendInput`
-  and `GetForegroundWindow` through `ctypes`. No new libraries.
+- **Keyboard backend (per OS):** key down/up for named keys, and a permission check. Mac: CoreGraphics
+  keyboard events and `AXIsProcessTrusted` through `ctypes`, plus a modifier tap. The tap is enabled only
+  while a Loupedeck modifier is held, so those modifiers survive real mouse/keyboard input. Windows:
+  `SendInput` through `ctypes`. No new libraries.
 - **Settings page:** served by the bridge on `127.0.0.1`.
   - *Presets* tab: a search box over all presets and eight P-slots; assign or clear.
   - *Remapper* tab: every control. Select one by clicking it on screen **or pressing it on the device**
@@ -171,7 +173,7 @@ could remap a button to type keystrokes. So:
 ### Per-OS module
 
 `bridge/platform/macos.py`, `bridge/platform/windows.py`, each providing: paths (Lightroom port file, state,
-config, logs), keyboard backend, "Lightroom in front?", and autostart install/remove (Mac: launchd agent;
+config, logs), keyboard backend, and autostart install/remove (Mac: launchd agent;
 Windows: logon task or Startup-folder entry). Everything else is shared.
 
 ### Running
@@ -206,7 +208,7 @@ Windows: logon task or Startup-folder entry). Everything else is shared.
 - Is `increment`'s amount in the parameter's own units, and does Lightroom clamp at the range ends?
 - Does `applyPreset` hit the photo in Loupe view (it says "selected photos")?
 - Lightroom's keyboard shortcuts for **Before/After** and the **screen-mode** equivalent, on Mac and on Windows.
-- Lightroom's process name on Windows, for the "in front?" check.
+- Windows: whether `SendInput` modifiers combine with real mouse input (the macOS modifier-tap problem).
 
 ## Left to the builder
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import os
 import signal
 import sys
 from logging.handlers import RotatingFileHandler
@@ -65,10 +66,19 @@ async def _run(args) -> None:
             loop.add_signal_handler(sig, main_task.cancel)
         except (NotImplementedError, RuntimeError):  # Windows: Ctrl-C still raises KeyboardInterrupt
             pass
+
+    async def stop_when_parent_gone() -> None:
+        await instance.parent_gone(os.getppid())
+        log.warning("the app that started the bridge has gone (force-quit?); stopping")
+        main_task.cancel()
+
+    watcher = asyncio.create_task(stop_when_parent_gone())
     try:
         await app.run(debug=args.debug, midi_port=args.midi_port, lightroom_port=args.lightroom_port)
     except asyncio.CancelledError:
         pass
+    finally:
+        watcher.cancel()
 
 
 def _check_permission() -> None:

@@ -6,8 +6,8 @@ Loupedeck's own software only supports Lightroom Classic. Lightroom 10 has an ex
 WebSocket API, so this is a small local Python bridge: Loupedeck+ MIDI in → Lightroom API calls out,
 over `127.0.0.1` only.
 
-**Status:** milestone 1 (the core bridge) works on macOS: dials, dial clicks, and the Lightroom
-buttons in the default layout. Keyboard keys and the settings page come next. See the
+**Status:** on macOS, milestones 1–2 work: dials, dial clicks, Lightroom buttons and presets, plus
+real keyboard keys and shortcuts (run as LoupedeckBridge.app). The settings page comes next. See the
 [design](docs/superpowers/specs/2026-11-16-loupedeck-bridge-design.md) and
 [docs/FINDINGS.md](docs/FINDINGS.md) for everything verified so far.
 
@@ -33,7 +33,10 @@ Stop it with Ctrl-C. Add `--debug` for a verbose log plus a Lightroom frame log 
 
 - **Your layout:** `mapping.json` in `~/Library/Application Support/loupedeck-lr-bridge/`
   (Windows: `%APPDATA%\loupedeck-lr-bridge\`). It's created from `config/default_mapping.json` on
-  first run. Edit it and restart. A broken file falls back to the default and is left untouched.
+  first run. Edit it and restart.
+  - A broken file falls back to the default and is left untouched.
+  - While you haven't edited it, it follows improvements to the default layout automatically.
+  - Once you've edited it, it's kept, and the log mentions when a newer default exists.
 - **Logs:** `~/Library/Logs/loupedeck-lr-bridge/bridge.log`.
 - **Dial feel:** the four constants at the top of `bridge/dial_feel.py`.
 - **Behaviour:** dials and Lightroom buttons work even when Lightroom is in the background.
@@ -57,7 +60,18 @@ tools/bridgectl start
 On the first start, macOS asks twice. Allow both:
 1. **Documents access**, because the bridge's code lives in this repo under `~/Documents`.
 2. **Accessibility:** click *Open System Settings* and turn on **LoupedeckBridge**. Check it any
-   time with `open build/LoupedeckBridge.app --args --check-permission` (the result goes to the log).
+   time with `open -n build/LoupedeckBridge.app --args --check-permission` (the result goes to the log).
+
+**What these permissions cover, plainly:**
+- Accessibility lets LoupedeckBridge send key presses, and watch and adjust real mouse and keyboard
+  input. It uses that in two ways only:
+  - it sends the keys you map to Loupedeck buttons;
+  - **while a Loupedeck Shift/Ctrl/Alt/Cmd is held**, an input tap adds that modifier to your real
+    mouse and keyboard events, so Alt-drag and Shift-click work.
+- The tap is switched off whenever no Loupedeck modifier is held. It only ever reads and changes
+  modifier flags, and logs nothing about your input.
+- The permission belongs to the app, and the app runs whatever code is in this repo and its `.venv`.
+  Treat changes to those like changes to any app you've given Accessibility.
 
 `tools/bridgectl stop | restart | status | logs` do what they say. `stop` releases any held keys first.
 Editing the Python code never needs a rebuild. Rebuilding the app may make macOS ask again.
@@ -73,7 +87,7 @@ Keys go to whichever app is in front, like a second keyboard.
 ## Roadmap
 
 1. ✅ Core bridge on macOS: dials, dial clicks, Lightroom buttons, presets, reconnects
-2. Keyboard keys and shortcuts: Shift/Ctrl/Cmd/Alt/Tab and arrows (only while Lightroom is in front), Before/After, screen mode
+2. ✅ Keyboard keys and shortcuts on macOS: Shift/Ctrl/Cmd/Alt/Tab and arrows, Before/After, screen mode (sent to whichever app is in front)
 3. Settings page: search presets and assign them to P1–P8
 4. Settings page: remap any control
 5. Start at login, plus a status display

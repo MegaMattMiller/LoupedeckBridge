@@ -2,9 +2,11 @@
 every dial turn twice (e.g. one in a terminal, one from LoupedeckBridge.app)."""
 from __future__ import annotations
 
+import asyncio
+import os
 import sys
 from pathlib import Path
-from typing import IO, Optional
+from typing import IO, Callable, Optional
 
 
 def acquire(path: Path) -> Optional[IO]:
@@ -24,3 +26,11 @@ def acquire(path: Path) -> Optional[IO]:
         fh.close()
         return None
     return fh
+
+
+async def parent_gone(parent_pid: int, getppid: Callable[[], int] = os.getppid, interval: float = 1.0) -> None:
+    """Return once the process that started us has gone (our parent pid changes). Then a
+    force-quit LoupedeckBridge.app (or a closed terminal) can't leave an invisible bridge
+    holding the Loupedeck and the single-instance lock. Under launchd the parent never changes."""
+    while getppid() == parent_pid:
+        await asyncio.sleep(interval)
