@@ -24,7 +24,12 @@ function el(tag, attrs, ...children) {
 }
 
 function send(msg) {
-  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(msg));
+    return true;
+  }
+  notice("Not connected to the bridge right now, so that wasn't saved. Try again in a moment.");
+  return false;
 }
 
 function setStatus(kind, text) {
@@ -53,20 +58,35 @@ function connect() {
     else if (msg.type === "error") onError(msg.message);
     else if (msg.type === "pressed") flash(msg.slot);
   });
-  ws.addEventListener("close", () => {
-    setStatus("down", "Bridge not reachable. Retrying…");
+  ws.addEventListener("close", (e) => {
     presetsRequested = false;
+    if (e.code === 1008) return reloadForNewToken();
+    setStatus("down", "Bridge not reachable. Retrying…");
     setTimeout(connect, 2000);
   });
 }
 
+// The bridge makes a new token each time it starts, so a page left open across a restart is
+// refused (1008). Reloading fetches the new one; the guard stops a loop if that ever fails.
+function reloadForNewToken() {
+  let last = 0;
+  try { last = Number(sessionStorage.getItem("reloadedAt")) || 0; } catch (_) { /* storage blocked */ }
+  if (Date.now() - last < 10000) {
+    setStatus("down", "The bridge refused this page. Reload it to try again.");
+    return;
+  }
+  try { sessionStorage.setItem("reloadedAt", String(Date.now())); } catch (_) { /* storage blocked */ }
+  setStatus("down", "The bridge restarted. Reloading…");
+  location.reload();
+}
+
 function requestPresets(refresh) {
+  if (!send({ op: "presets", refresh: Boolean(refresh) })) return;
   presetsRequested = true;
   $("retry").hidden = true;
   $("refresh").disabled = true;
   if (refresh) { presets = null; $("results").replaceChildren(); }
   $("presets-msg").textContent = "Loading presets from Lightroom…";
-  send({ op: "presets", refresh: Boolean(refresh) });
 }
 
 function onProgress(done, total) {
@@ -81,19 +101,25 @@ function onProgress(done, total) {
 // ---- messages ---------------------------------------------------------------
 function onState(msg) {
   state = msg;
+  setStatus(msg.lightroom ? "ok" : "warn",
+    msg.lightroom ? "Connected to the bridge and Lightroom"
+      : "Connected to the bridge. Lightroom isn't connected: open it to load your presets.");
   if (!msg.writable) {
     notice("Your mapping.json couldn't be read, so changes can't be saved. Fix or delete it, then restart the bridge.");
   } else {
     notice("");
   }
-  if (!presets && !presetsRequested) requestPresets();
+  if (!presets && !presetsRequested) {
+    if (msg.lightroom) requestPresets();  // also when Lightroom shows up after the page opened
+    else $("presets-msg").textContent = "Open Lightroom to load your presets.";
+  }
   renderSlots();
   renderResults();
 }
 
 function onPresets(items) {
   $("refresh").disabled = false;
-  presets = items.slice().sort((a, b) => a[1].localeCompare(b[1], undefined, { sensitivity: "base" }));
+  presets = items.slice().sort((a, b) => String(a[1]).localeCompare(String(b[1]), undefined, { sensitivity: "base" }));
   $("count").textContent = `(${presets.length.toLocaleString()})`;
   renderResults();
 }
@@ -101,6 +127,7 @@ function onPresets(items) {
 function onError(message) {
   $("refresh").disabled = false;
   if (!presets && presetsRequested) {
+    presetsRequested = false;  // so it's asked again when Lightroom connects
     $("presets-msg").textContent = message;
     $("retry").hidden = false;
   } else {
@@ -155,7 +182,7 @@ function renderResults() {
   list.replaceChildren();
   if (!presets) return;
   const q = $("search").value.trim().toLocaleLowerCase();
-  const matches = q ? presets.filter(([, name]) => name.toLocaleLowerCase().includes(q)) : presets;
+  const matches = q ? presets.filter(([, name]) => String(name).toLocaleLowerCase().includes(q)) : presets;
   const shown = matches.slice(0, MAX_RESULTS);
   const current = state && state.slots.find((s) => s.slot === selected);
   $("presets-msg").textContent = matches.length === 0

@@ -134,6 +134,8 @@ class Mapping:
             user = user_doc["controls"]
         except (OSError, ValueError, KeyError, TypeError):
             return  # no snapshot (older install) or an unreadable file: leave everything as is
+        if not isinstance(base, dict) or not isinstance(user, dict):
+            return  # a broken file: load() falls back to the default and leaves the file alone
         default_doc = json.loads(default_path.read_text())
         default = default_doc["controls"]
         if base == default:
@@ -170,9 +172,15 @@ class Mapping:
         good = _check("press", action)
         if good is None:
             raise ValueError(f"invalid press action {action!r}")
-        entry = self._doc["controls"].setdefault(control, {})
+        # Change a copy and keep it only once it's saved: a failed save (full disk) must not leave a
+        # change in memory that the next successful save would quietly write too.
+        doc = {**self._doc, "controls": dict(self._doc["controls"])}
+        entry = doc["controls"].get(control)
+        entry = dict(entry) if isinstance(entry, dict) else {}  # a hand-broken entry is replaced
         entry["press"] = good
-        _write_atomic(self.path, _dumps(self._doc))
+        doc["controls"][control] = entry
+        _write_atomic(self.path, _dumps(doc))
+        self._doc = doc
         self._controls.setdefault(control, {})["press"] = good
 
     def turn_action(self, control: str) -> dict:

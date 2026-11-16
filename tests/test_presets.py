@@ -108,6 +108,48 @@ def test_unreadable_cache_is_ignored(tmp_path):
     assert json.loads(cache.read_text())["ID0"] == "Name ID0"  # rewritten properly
 
 
+def test_concurrent_loads_share_one_fetch():
+    # Review: two tabs (or a page load plus a reconnect) each fetched every name: double the
+    # wait for Lightroom, and double the queue a dial turn waits behind.
+    s = Session(100)
+    c = PresetCatalog(s, chunk=10)
+
+    async def main():
+        a, b = await asyncio.gather(c.items(), c.items())
+        return a, b
+    a, b = run(main())
+    assert a == b and len(a) == 100
+    assert s.calls.count("getPresetName") == 100
+
+
+def test_cancelled_waiter_does_not_stop_the_shared_fetch():
+    s = Session(60)
+    c = PresetCatalog(s, chunk=10)
+
+    async def main():
+        first = asyncio.ensure_future(c.items())
+        await asyncio.sleep(0)
+        second = asyncio.ensure_future(c.items())
+        await asyncio.sleep(0)
+        first.cancel()                     # e.g. that tab was closed
+        return await second
+    assert len(run(main())) == 60
+    assert s.calls.count("getPresetName") == 60
+
+
+def test_odd_name_replies_do_not_break_the_list():
+    s = Session(3)
+
+    async def odd(message, *params):
+        s.calls.append(message)
+        if message == "getPresetIDs":
+            return [list(s.ids)]
+        return {"ID0": [], "ID1": [None], "ID2": ["Fine"]}[params[0]]
+    s.call = odd
+    names = dict(run(PresetCatalog(s).items()))
+    assert names == {"ID0": "(unnamed preset)", "ID1": "(unnamed preset)", "ID2": "Fine"}
+
+
 def test_catalog_raises_when_disconnected():
     s = Session(5)
     s.connected = False

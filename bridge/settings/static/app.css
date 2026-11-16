@@ -46,6 +46,7 @@ header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content:
 .status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
 .status[data-kind="ok"] .dot { background: var(--ok); }
 .status[data-kind="down"] .dot { background: var(--down); }
+.status[data-kind="warn"] .dot { background: var(--warn); }
 
 .notice { background: var(--warn-soft); color: var(--warn); border-radius: 8px; padding: 10px 14px; margin: 0 0 16px; }
 

@@ -301,6 +301,34 @@ def test_reload_presets_after_a_change(tmp_path):
     assert s.calls[-1] == ("applyPreset", ["ID-WARM"])
 
 
+def test_stale_reload_does_not_overwrite_a_newer_one(tmp_path):
+    # Review: a slow re-check started before a change finished after a newer one and put the
+    # old preset back on P3 — the page said one preset, the button applied another.
+    d, s, _ = setup(tmp_path, {"p3": {"press": {"type": "preset", "id": "ID-WARM", "name": "Warm"}}})
+    real_ids = d.catalog.ids
+    calls, gate = [], []
+
+    async def slow_first_ids():
+        calls.append(1)
+        if len(calls) == 1:
+            await gate[0].wait()
+        return await real_ids()
+    d.catalog.ids = slow_first_ids
+
+    async def main():
+        gate.append(asyncio.Event())                     # made inside the loop (Python 3.9)
+        old = asyncio.ensure_future(d.reload_presets())   # e.g. the reconnect check, stuck waiting
+        await asyncio.sleep(0)
+        d.mapping.set_press_action("p3", {"type": "preset", "id": "ID-H2", "name": "Heavy"})
+        await d.reload_presets()                         # the page's check after the change
+        gate[0].set()
+        await old
+        await d.handle(Press("p3"))
+    run(main())
+    assert s.calls[-1] == ("applyPreset", ["ID-H2"])
+    assert d.slot_status("p3")["id"] == "ID-H2"
+
+
 def test_open_settings_opens_url(tmp_path):
     opened = []
     path = tmp_path / "m.json"

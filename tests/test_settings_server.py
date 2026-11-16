@@ -290,6 +290,74 @@ def test_device_press_highlights_slot(tmp_path):
     asyncio.run(main())
 
 
+def test_foreign_origin_refused_quietly(tmp_path, caplog):
+    # Review: websockets logged every refused origin at ERROR with a traceback, so any web page
+    # the user visited could fill the bridge log.
+    async def main():
+        async with Rig(tmp_path) as rig:
+            for origin in ("http://evil.example", None):
+                with pytest.raises(InvalidStatus) as refused:
+                    async with websockets.connect(f"ws://127.0.0.1:{rig.port}/ws", origin=origin):
+                        pass
+                assert refused.value.response.status_code == 403
+    with caplog.at_level(logging.WARNING):
+        asyncio.run(main())
+    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
+
+
+def test_non_ascii_token_refused_cleanly(tmp_path):
+    async def main():
+        async with Rig(tmp_path) as rig:
+            async with rig.connect() as ws:
+                await ws.send(json.dumps({"op": "hello", "token": "pâté"}))
+                with pytest.raises(ConnectionClosed) as closed:
+                    await asyncio.wait_for(ws.recv(), 3)
+                assert closed.value.rcvd.code == 1008
+    asyncio.run(main())
+
+
+def test_save_error_reported(tmp_path, monkeypatch):
+    async def main():
+        async with Rig(tmp_path) as rig:
+            def full_disk(slot, action):
+                raise OSError("No space left on device")
+            monkeypatch.setattr(rig.mapping, "set_press_action", full_disk)
+            async with rig.connect() as ws:
+                await rig.hello(ws)
+                await ws.send(json.dumps({"op": "assign", "slot": "p1", "id": "ID-WARM", "name": "Warm"}))
+                msg = await rig.next(ws, "error")
+                assert "couldn't save" in msg["message"] and "No space" in msg["message"]
+                await ws.send(json.dumps({"op": "presets"}))   # the connection is still fine
+                await rig.next(ws, "presets")
+    asyncio.run(main())
+
+
+def test_state_broadcast_when_lightroom_changes(tmp_path):
+    # Review: the page was never told when Lightroom came or went.
+    async def main():
+        async with Rig(tmp_path) as rig:
+            async with rig.connect() as a, rig.connect() as b:
+                assert (await rig.hello(a))["lightroom"] is True
+                await rig.hello(b)
+                rig.session.connected = False
+                await rig.server.broadcast_state()
+                assert (await rig.next(a, "state"))["lightroom"] is False
+                assert (await rig.next(b, "state"))["lightroom"] is False
+    asyncio.run(main())
+
+
+def test_progress_reaches_every_tab(tmp_path):
+    async def main():
+        async with Rig(tmp_path) as rig:
+            rig.catalog.chunk = 1
+            async with rig.connect() as a, rig.connect() as b:
+                await rig.hello(a)
+                await rig.hello(b)
+                await a.send(json.dumps({"op": "presets"}))
+                assert (await rig.next(b, "progress"))["total"] == 3   # the other tab sees the load too
+    asyncio.run(main())
+
+
 def test_port_busy_does_not_stop_bridge(tmp_path, caplog):
     async def main():
         rig = Rig(tmp_path)

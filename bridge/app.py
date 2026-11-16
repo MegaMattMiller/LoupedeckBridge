@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Set
 
 from bridge import platform
 from bridge.actions import Dispatcher
@@ -72,8 +72,24 @@ def build(config_dir: Path, midi, port: Optional[int] = None, state_file: Option
     if settings_port:
         settings = SettingsServer(settings_port, mapping, dispatcher, catalog)
         dispatcher.settings_url = settings.url        # the custom mode button opens it
-    session.on_connect = dispatcher.resolve_presets   # logs preset warnings after every connect
-    session.on_disconnect = dials.reset               # never replay stale detents
+    background: Set[asyncio.Task] = set()            # keeps fire-and-forget announcements alive
+
+    async def lightroom_connected() -> None:
+        if settings is not None:
+            await settings.broadcast_state()          # open pages can start loading presets now
+        await dispatcher.resolve_presets()            # logs preset warnings after every connect
+        if settings is not None:
+            await settings.broadcast_state()          # with each slot's badge checked
+
+    def lightroom_disconnected() -> None:
+        dials.reset()                                 # never replay stale detents
+        if settings is not None:
+            task = asyncio.get_running_loop().create_task(settings.broadcast_state())
+            background.add(task)
+            task.add_done_callback(background.discard)
+
+    session.on_connect = lightroom_connected
+    session.on_disconnect = lightroom_disconnected
     if hasattr(midi, "on_open"):                      # a replugged device may be in another mode
         midi.on_open = dispatcher.device_reconnected
     if hasattr(midi, "on_close"):                     # unplugged mid-press: let go of held keys

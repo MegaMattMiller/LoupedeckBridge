@@ -78,6 +78,21 @@ def test_settings_page_wired(tmp_path):
                           cache_dir=tmp_path / "state")
     assert cached.dispatcher.catalog.cache_path == tmp_path / "state" / "preset_names.json"
 
+    # Lightroom coming and going is announced to open pages: once on a disconnect; on a connect
+    # right away (the page starts loading presets) and again once the slots are checked.
+    announced = []
+
+    async def spy():
+        announced.append(1)
+    bridge.settings.broadcast_state = spy
+
+    async def main():
+        bridge.session.on_disconnect()
+        await asyncio.sleep(0)
+        await bridge.session.on_connect()
+    asyncio.run(main())
+    assert announced == [1, 1, 1]
+
 
 def test_held_keys_released_on_device_disconnect(tmp_path):
     from bridge import app as appmod

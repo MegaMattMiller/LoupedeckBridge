@@ -35,6 +35,7 @@ class Dispatcher:
         self.preset_warnings: List[str] = []
         self._presets: Dict[str, str] = {}  # control → resolved preset id
         self._preset_problems: Dict[str, str] = {}  # control → "missing" | "ambiguous"
+        self._generation = 0  # counts reload_presets runs; only the newest one commits
         self._settings_noted = False
         self._held: Dict[str, str] = {}     # control → key name it's holding down
         self._repeats: Dict[str, asyncio.Task] = {}
@@ -197,32 +198,49 @@ class Dispatcher:
         await self.reload_presets()
 
     async def reload_presets(self) -> None:
-        """Re-match the slots (e.g. after a slot was changed in the settings page)."""
-        self._presets, self._preset_problems, self.preset_warnings = {}, {}, []
+        """Re-match the slots (e.g. after a slot was changed in the settings page).
+
+        Only the newest run keeps its result: an older, slower one (say the check after a reconnect,
+        waiting on 1,500 names) saw the slots as they were before a later change."""
+        self._generation += 1
+        mine = self._generation
+        presets: Dict[str, str] = {}
+        problems: Dict[str, str] = {}
+        warnings: List[str] = []
+
+        def problem(control: str, kind: str, message: str) -> None:
+            problems[control] = kind
+            warnings.append(message)
+
         slots = [(c, a) for c, a in self.mapping.press_items()
                  if a["type"] == "preset" and (a.get("id") or a.get("name"))]
         try:
             ids = await self.catalog.ids() if slots else []
             for control, action in slots:
                 if action.get("id") in ids:
-                    self._presets[control] = action["id"]
+                    presets[control] = action["id"]
                     continue
                 name = action.get("name")
                 if not name:
-                    self._problem(control, "missing", f"{control}: preset id {action.get('id')!r} no longer exists "
-                                                      "in Lightroom")
+                    problem(control, "missing", f"{control}: preset id {action.get('id')!r} no longer exists "
+                                                "in Lightroom")
                     continue
                 names = await self.catalog.items()  # only when an id didn't match (1,500+ calls)
                 matches = [i for i, n in names if n == name]
                 if len(matches) == 1:
-                    self._presets[control] = matches[0]
+                    presets[control] = matches[0]
                 elif matches:
-                    self._problem(control, "ambiguous", f"{control}: {len(matches)} presets named {name!r}; "
-                                                        "assign it again in the settings")
+                    problem(control, "ambiguous", f"{control}: {len(matches)} presets named {name!r}; "
+                                                  "assign it again in the settings")
                 else:
-                    self._problem(control, "missing", f"{control}: no preset named {name!r} in Lightroom")
+                    problem(control, "missing", f"{control}: no preset named {name!r} in Lightroom")
         except _ERRORS as e:
             log.warning("couldn't resolve presets: %s", e)
+        if mine != self._generation:
+            return  # a newer run started meanwhile; its result stands
+        self._presets, self._preset_problems, self.preset_warnings = presets, problems, warnings
+        for message in warnings:
+            log.warning(message)
 
     def slot_status(self, control: str) -> dict:
         """What the settings page shows for a preset slot."""
@@ -239,10 +257,3 @@ class Dispatcher:
             status = "unknown"  # Lightroom hasn't been asked yet (e.g. not connected)
         return {"slot": control, "id": pid, "name": name, "status": status}
 
-    def _problem(self, control: str, kind: str, message: str) -> None:
-        self._preset_problems[control] = kind
-        self._warn(message)
-
-    def _warn(self, message: str) -> None:
-        self.preset_warnings.append(message)
-        log.warning(message)

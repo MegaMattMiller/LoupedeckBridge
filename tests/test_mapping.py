@@ -199,6 +199,46 @@ def test_unreadable_file_is_never_overwritten(tmp_path):
     assert user.read_text() == "{not json"
 
 
+def test_failed_save_leaves_no_phantom_change(tmp_path, monkeypatch):
+    # Review: the in-memory document changed before the write; after a failed save, the next
+    # successful one wrote the "failed" change too.
+    from bridge import mapping as mapping_module
+    user = tmp_path / "m.json"
+    m = Mapping.load(user)
+    real_write = mapping_module._write_atomic
+
+    def full_disk(path, text):
+        raise OSError("No space left on device")
+    monkeypatch.setattr(mapping_module, "_write_atomic", full_disk)
+    with pytest.raises(OSError):
+        m.set_press_action("p3", PRESET)
+    assert m.press_action("p3") != PRESET
+    monkeypatch.setattr(mapping_module, "_write_atomic", real_write)
+    m.set_press_action("p4", {"type": "preset", "id": "B", "name": "Cool"})
+    saved = json.loads(user.read_text())["controls"]
+    assert saved["p3"]["press"] == {"type": "preset", "id": None, "name": None}  # no phantom P3
+    assert saved["p4"]["press"]["id"] == "B"
+
+
+def test_assign_replaces_a_hand_broken_entry(tmp_path):
+    user = write(tmp_path / "m.json", {"p3": "oops"})
+    m = Mapping.load(user)
+    m.set_press_action("p3", PRESET)
+    assert Mapping.load(user).press_action("p3") == PRESET
+
+
+def test_broken_controls_with_a_new_default_still_start(tmp_path):
+    # Review: a broken file plus a changed default made Mapping.load raise, so the bridge
+    # wouldn't start — instead of falling back to the default as the README promises.
+    old_default, new_default = two_defaults(tmp_path)
+    user = tmp_path / "m.json"
+    Mapping.load(user, default_path=old_default)
+    user.write_text(json.dumps({"version": 1, "controls": []}))
+    m = Mapping.load(user, default_path=new_default)
+    assert m.turn_action("exposure") == {"type": "adjust", "param": "Exposure2012"}
+    assert m.writable is False
+
+
 def test_open_settings_action(tmp_path):
     m = Mapping.load(tmp_path / "m.json")
     assert m.press_action("custom_mode") == {"type": "open_settings"}
