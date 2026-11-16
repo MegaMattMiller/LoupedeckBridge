@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 
 import pytest
 
@@ -52,6 +53,59 @@ def test_ids_without_names():
     c = PresetCatalog(s)
     assert run(c.ids()) == [f"ID{i}" for i in range(30)]
     assert s.calls == ["getPresetIDs"]         # resolving by id never fetches 1,500 names
+
+
+def test_cache_makes_the_next_load_instant(tmp_path):
+    # Live check: the real Lightroom needs ~27 s for 1,572 names, so names are remembered on disk.
+    cache = tmp_path / "preset_names.json"
+    s = Session(120)
+    run(PresetCatalog(s, cache_path=cache).items())
+    assert s.calls.count("getPresetName") == 120
+    s2 = Session(120)                                  # e.g. the next start of the bridge
+    items = run(PresetCatalog(s2, cache_path=cache).items())
+    assert s2.calls == ["getPresetIDs"] and len(items) == 120
+
+
+def test_only_new_presets_are_looked_up_and_removed_ones_dropped(tmp_path):
+    cache = tmp_path / "preset_names.json"
+    s = Session(10)
+    run(PresetCatalog(s, cache_path=cache).items())
+    s2 = Session(10)
+    s2.ids = s2.ids[1:] + ["NEW1", "NEW2"]           # one preset deleted, two added
+    items = run(PresetCatalog(s2, cache_path=cache).items())
+    assert s2.calls.count("getPresetName") == 2
+    assert [i for i, _ in items] == s2.ids              # Lightroom's order, without the deleted one
+    assert "ID0" not in json.loads(cache.read_text())    # pruned from the cache file too
+
+
+def test_refresh_refetches_every_name(tmp_path):
+    cache = tmp_path / "preset_names.json"
+    s = Session(5)
+    c = PresetCatalog(s, cache_path=cache)
+    run(c.items())
+
+    async def renamed(message, *params):              # a preset renamed in Lightroom keeps its id
+        s.calls.append(message)
+        return [list(s.ids)] if message == "getPresetIDs" else [f"Renamed {params[0]}"]
+    s.call = renamed
+    c.invalidate()
+    items = run(c.items(refresh=True))
+    assert items[0] == ("ID0", "Renamed ID0")
+
+
+def test_progress_reported_while_loading():
+    s = Session(40)
+    seen = []
+    run(PresetCatalog(s, chunk=16).items(progress=lambda done, total: seen.append((done, total))))
+    assert seen == [(16, 40), (32, 40), (40, 40)]
+
+
+def test_unreadable_cache_is_ignored(tmp_path):
+    cache = tmp_path / "preset_names.json"
+    cache.write_text("{not json")
+    s = Session(3)
+    assert len(run(PresetCatalog(s, cache_path=cache).items())) == 3
+    assert json.loads(cache.read_text())["ID0"] == "Name ID0"  # rewritten properly
 
 
 def test_catalog_raises_when_disconnected():

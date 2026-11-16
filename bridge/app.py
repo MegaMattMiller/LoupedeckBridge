@@ -62,11 +62,11 @@ class App:
 
 def build(config_dir: Path, midi, port: Optional[int] = None, state_file: Optional[Path] = None,
           feel=detent_amount, frame_log: Optional[Path] = None, keyboard=None,
-          settings_port: Optional[int] = None) -> App:
+          settings_port: Optional[int] = None, cache_dir: Optional[Path] = None) -> App:
     mapping = Mapping.load(config_dir / "mapping.json")  # logs its own warnings
     session = LightroomSession(APP_NAME, APP_VERSION, port=port, state_file=state_file, frame_log=frame_log)
     dials = DialEngine(session, feel=feel)
-    catalog = PresetCatalog(session)
+    catalog = PresetCatalog(session, cache_path=cache_dir / "preset_names.json" if cache_dir else None)
     dispatcher = Dispatcher(mapping, session, dials, keyboard=keyboard, catalog=catalog)
     settings = None
     if settings_port:
@@ -89,7 +89,8 @@ async def run(debug: bool = False, midi_port: str = "Loupedeck", lightroom_port:
     keyboard = plat.keyboard()
     try:
         await build(plat.config_dir(), MidiInput(HardwareMap.load(), port_hint=midi_port), port=lightroom_port,
-                    frame_log=frame_log, keyboard=keyboard, settings_port=settings_port).run()
+                    frame_log=frame_log, keyboard=keyboard, settings_port=settings_port,
+                    cache_dir=plat.state_dir()).run()
     finally:
         if keyboard is not None:
             keyboard.close()  # stops the modifier tap, after App.run has released any held keys

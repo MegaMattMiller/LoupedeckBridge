@@ -107,8 +107,12 @@ class SettingsServer:
         except (ValueError, AttributeError):
             return await self._error(ws, "couldn't read that request")
         if op == "presets":
+            async def progress(done: int, total: int) -> None:
+                await ws.send(json.dumps({"type": "progress", "done": done, "total": total}))
             try:
-                items = await self.catalog.items()
+                if msg.get("refresh"):
+                    self.catalog.invalidate()
+                items = await self.catalog.items(refresh=bool(msg.get("refresh")), progress=progress)
             except ConnectionError:
                 return await self._error(ws, "Lightroom isn't connected; open Lightroom to load your presets")
             except (LightroomError, asyncio.TimeoutError) as e:

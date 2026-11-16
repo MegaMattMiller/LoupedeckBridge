@@ -49,6 +49,7 @@ function connect() {
     const msg = JSON.parse(e.data);
     if (msg.type === "state") onState(msg);
     else if (msg.type === "presets") onPresets(msg.items);
+    else if (msg.type === "progress") onProgress(msg.done, msg.total);
     else if (msg.type === "error") onError(msg.message);
     else if (msg.type === "pressed") flash(msg.slot);
   });
@@ -59,11 +60,22 @@ function connect() {
   });
 }
 
-function requestPresets() {
+function requestPresets(refresh) {
   presetsRequested = true;
   $("retry").hidden = true;
+  $("refresh").disabled = true;
+  if (refresh) { presets = null; $("results").replaceChildren(); }
   $("presets-msg").textContent = "Loading presets from Lightroom…";
-  send({ op: "presets" });
+  send({ op: "presets", refresh: Boolean(refresh) });
+}
+
+function onProgress(done, total) {
+  // Only shown while names are being fetched (the first time, or after Refresh list).
+  if (!presets) {
+    $("presets-msg").textContent =
+      `Loading preset names from Lightroom… ${done.toLocaleString()} of ${total.toLocaleString()}. ` +
+      "This only takes long the first time.";
+  }
 }
 
 // ---- messages ---------------------------------------------------------------
@@ -80,12 +92,14 @@ function onState(msg) {
 }
 
 function onPresets(items) {
+  $("refresh").disabled = false;
   presets = items.slice().sort((a, b) => a[1].localeCompare(b[1], undefined, { sensitivity: "base" }));
   $("count").textContent = `(${presets.length.toLocaleString()})`;
   renderResults();
 }
 
 function onError(message) {
+  $("refresh").disabled = false;
   if (!presets && presetsRequested) {
     $("presets-msg").textContent = message;
     $("retry").hidden = false;
@@ -161,5 +175,6 @@ function renderResults() {
 }
 
 $("search").addEventListener("input", renderResults);
-$("retry").addEventListener("click", requestPresets);
+$("retry").addEventListener("click", () => requestPresets(false));
+$("refresh").addEventListener("click", () => requestPresets(true));
 connect();

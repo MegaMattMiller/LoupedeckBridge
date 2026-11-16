@@ -20,7 +20,10 @@
       <ol id="slots"></ol>
     </section>
     <section class="presets" aria-labelledby="presets-title">
-      <h2 id="presets-title">Lightroom presets <span id="count" class="dim"></span></h2>
+      <div class="title-row">
+        <h2 id="presets-title">Lightroom presets <span id="count" class="dim"></span></h2>
+        <button id="refresh" type="button" class="link" title="Re-read every preset name from Lightroom (e.g. after renaming one)">Refresh list</button>
+      </div>
       <input id="search" type="search" placeholder="Search presets…" autocomplete="off" spellcheck="false"
              aria-label="Search presets">
       <p id="presets-msg" class="hint"></p>

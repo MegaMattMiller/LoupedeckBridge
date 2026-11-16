@@ -74,6 +74,9 @@ def test_settings_page_wired(tmp_path):
     assert bridge.dispatcher.settings_url == bridge.settings.url        # custom mode opens it
     assert bridge.settings.catalog is bridge.dispatcher.catalog          # one preset cache
     assert appmod.build(config_dir=tmp_path, midi=NoMidi(), port=1, state_file=tmp_path / "c.json").settings is None
+    cached = appmod.build(config_dir=tmp_path, midi=NoMidi(), port=1, state_file=tmp_path / "c.json",
+                          cache_dir=tmp_path / "state")
+    assert cached.dispatcher.catalog.cache_path == tmp_path / "state" / "preset_names.json"
 
 
 def test_held_keys_released_on_device_disconnect(tmp_path):

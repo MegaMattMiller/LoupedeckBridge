@@ -37,7 +37,8 @@ def main() -> None:
     for h in handlers:
         h.setFormatter(fmt)
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO, handlers=handlers)
-    logging.getLogger("websockets").setLevel(logging.INFO)  # its DEBUG output is per-frame noise
+    # websockets logs every page load as "connection rejected (200 OK)" at INFO: noise, so warnings only.
+    logging.getLogger("websockets").setLevel(logging.WARNING)
     log.info("log file: %s", log_dir / "bridge.log")
 
     if args.check_permission:

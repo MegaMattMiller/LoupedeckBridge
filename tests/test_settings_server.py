@@ -163,6 +163,38 @@ def test_presets_list(tmp_path):
     asyncio.run(main())
 
 
+def test_presets_progress_then_list(tmp_path):
+    async def main():
+        async with Rig(tmp_path) as rig:
+            rig.catalog.chunk = 1                       # 3 fake presets → 3 progress steps
+            async with rig.connect() as ws:
+                await rig.hello(ws)
+                await ws.send(json.dumps({"op": "presets"}))
+                progress = []
+                while True:
+                    msg = json.loads(await asyncio.wait_for(ws.recv(), 3))
+                    if msg["type"] == "progress":
+                        progress.append((msg["done"], msg["total"]))
+                    elif msg["type"] == "presets":
+                        break
+                assert progress == [(1, 3), (2, 3), (3, 3)]
+    asyncio.run(main())
+
+
+def test_refresh_refetches_names(tmp_path):
+    async def main():
+        async with Rig(tmp_path) as rig:
+            async with rig.connect() as ws:
+                await rig.hello(ws)
+                await ws.send(json.dumps({"op": "presets"}))
+                await rig.next(ws, "presets")
+                before = [m for m, _ in rig.session.calls].count("getPresetName")
+                await ws.send(json.dumps({"op": "presets", "refresh": True}))
+                await rig.next(ws, "presets")
+                assert [m for m, _ in rig.session.calls].count("getPresetName") == before + 3
+    asyncio.run(main())
+
+
 def test_presets_while_lightroom_down(tmp_path):
     async def main():
         async with Rig(tmp_path, connected=False) as rig:
