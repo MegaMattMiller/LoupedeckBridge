@@ -104,6 +104,20 @@ joining Loupedeck keys), a live re-check passed:
 
 **Lightroom blocks every client while an Allow dialog is open:** WebSocket handshakes time out until it's answered. A stray test bridge triggered one; the tests now pin `--lightroom-port` and kill every process they start.
 
+## Milestone 3 live check (settings page, 2026-11-16)
+All passed with the real bridge, Lightroom and Loupedeck:
+- The custom mode button opens the page.
+- Presets assigned to P-slots apply when pressed, and their slots flash on the page.
+- Clearing a slot works, and changes show live in two tabs.
+- Quitting Lightroom shows "Lightroom isn't connected". The list comes back after reopening.
+- An unedited mapping picked up the new `custom_mode → open_settings` default by itself (per-control following).
+
+**Lightroom lists preset names slowly:** `getPresetIDs` returns 1,572 ids in ~64 ms, but each
+`getPresetName` takes ~26 ms (~17 ms when 50 are in flight). So the full list takes ~27 s; the design
+had estimated 1–2 s. **Fixed:**
+- Names are cached in `preset_names.json` (state dir), so only new presets are looked up and later loads are instant.
+- The first load shows progress, and "Refresh list" re-reads every name (a renamed preset keeps its id).
+
 ## API notes the handoff didn't capture
 - **How object handles come about:** `addAdjustmentChangeObserver(param?)` and `addHapticsObserver()` return a GUID/object. Later notifications arrive as extra responses for that same original `requestId` (this is the "one request, many responses" case). Call `close` on the handle when done.
 - **Tracking:** `startTracking(param)` turns itself off **2 s** after the last change, or as soon as a *different* parameter is adjusted. `stopTracking()` commits **one** history state. `setMultipleAdjustmentThreshold` defaults to **0.5 s** and has no effect if it's larger than the tracking delay.
