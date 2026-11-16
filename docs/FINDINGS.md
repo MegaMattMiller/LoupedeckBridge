@@ -68,6 +68,16 @@ From [`tools/lr_verify_writes.py`](../tools/lr_verify_writes.py) on a test photo
 - **`applyPreset` applies to the photo in Loupe view**, and `undo()` reverts it completely (8 sampled settings matched the pre-preset values).
 - So the dial engine uses `increment`/`decrement` for every parameter, and no `setValue` fallback is needed.
 
+## Milestone 1 live check (2026-11-16, Mac, Lightroom 10.0)
+`python -m bridge --debug` with the default layout on a test photo; ~1,000 Lightroom calls, **none failed**.
+- ✅ All tone dials, D1/D2 (Texture/Dehaze), the control dial (straighten), and the colour dials in HUE/SAT/LUM. Each dial click resets its slider.
+- ✅ C1/C2 pick/reject toggles, undo/redo, copy/paste settings, export (opens the dialog), clr/bw.
+- ✅ The B&W guard: in the device's B&W mode on a colour photo, the colour dials logged "GrayMixerRed ignored…" and changed nothing.
+- ✅ Lightroom quit and reopen: the bridge waited and reconnected about 10 s later with no Allow dialog. Loupedeck unplug/replug: detected, then resumed about 9 s later.
+- **Device behaviour learned:** clr/bw flips the device between B&W mode (all lights off, colour dials send 25–32) and colour mode (back to HUE lit), on its own. A blind `toggleBlackAndWhite` could therefore leave the lights and the photo opposite each other. **Fixed:** the bridge tracks the device's mode and makes the photo match it. The re-test confirmed they stay in step.
+- Fast spins hit the slider ends (Lightroom clamps). Dial-feel tuning is up to the user (`bridge/dial_feel.py`).
+- Ctrl-C shutdown takes a few seconds (websocket close / MIDI port close); it isn't a hang.
+
 ## API notes the handoff didn't capture
 - **How object handles come about:** `addAdjustmentChangeObserver(param?)` and `addHapticsObserver()` return a GUID/object. Later notifications arrive as extra responses for that same original `requestId` (this is the "one request, many responses" case). Call `close` on the handle when done.
 - **Tracking:** `startTracking(param)` turns itself off **2 s** after the last change, or as soon as a *different* parameter is adjusted. `stopTracking()` commits **one** history state. `setMultipleAdjustmentThreshold` defaults to **0.5 s** and has no effect if it's larger than the tracking delay.
