@@ -276,6 +276,42 @@ def test_device_mode_forgotten_on_reconnect(tmp_path):
     assert "isBlackAndWhiteOn" not in [m for m, _ in s.calls]
 
 
+def test_slot_status(tmp_path):
+    d, s, _ = setup(tmp_path, {
+        "p1": {"press": {"type": "preset", "id": "ID-WARM", "name": "Warm"}},
+        "p2": {"press": {"type": "preset", "id": None, "name": "Heavy"}},   # two presets have this name
+        "p3": {"press": {"type": "preset", "id": None, "name": "Nope"}},    # no such preset
+        "p4": {"press": {"type": "preset", "id": None, "name": None}},      # empty
+    })
+    assert d.slot_status("p1")["status"] == "unknown"   # before Lightroom has been asked
+    assert d.slot_status("p4")["status"] == "empty"
+    run(d.resolve_presets())
+    assert d.slot_status("p1") == {"slot": "p1", "id": "ID-WARM", "name": "Warm", "status": "ok"}
+    assert d.slot_status("p2")["status"] == "ambiguous"
+    assert d.slot_status("p3")["status"] == "missing"
+    assert d.slot_status("p4") == {"slot": "p4", "id": None, "name": None, "status": "empty"}
+
+
+def test_reload_presets_after_a_change(tmp_path):
+    d, s, _ = setup(tmp_path)  # default layout: p5 empty
+    run(d.resolve_presets())
+    d.mapping.set_press_action("p5", {"type": "preset", "id": "ID-WARM", "name": "Warm"})
+    run(d.reload_presets())
+    run(d.handle(Press("p5")))
+    assert s.calls[-1] == ("applyPreset", ["ID-WARM"])
+
+
+def test_open_settings_opens_url(tmp_path):
+    opened = []
+    path = tmp_path / "m.json"
+    session, dials = FakeSession(), SpyDials()
+    d = Dispatcher(Mapping.load(path), session, dials, opener=opened.append, settings_url="http://127.0.0.1:7690/")
+    session.connected = False                  # works without Lightroom
+    run(d.handle(Press("custom_mode")))        # default layout: custom mode opens the settings page
+    assert opened == ["http://127.0.0.1:7690/"]
+    assert session.calls == []
+
+
 def test_lightroom_error_does_not_raise(tmp_path):
     d, s, _ = setup(tmp_path)
     s.failing.update({"flagPickToggle", "getPresetIDs"})

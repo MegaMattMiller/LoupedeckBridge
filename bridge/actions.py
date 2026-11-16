@@ -4,11 +4,13 @@ from __future__ import annotations
 import asyncio
 import logging
 import sys
-from typing import Dict, List, Optional
+import webbrowser
+from typing import Callable, Dict, List, Optional
 
 from bridge.hardware import Event, Press, Release, Turn
 from bridge.lightroom import LightroomError
 from bridge.mapping import Mapping
+from bridge.presets import PresetCatalog
 
 log = logging.getLogger("actions")
 
@@ -22,12 +24,18 @@ PERMISSION_HELP = ("Keyboard keys need macOS's Accessibility permission: System 
 
 class Dispatcher:
     def __init__(self, mapping: Mapping, session, dials, keyboard=None,
-                 repeat_delay: float = 0.4, repeat_interval: float = 0.05):
+                 repeat_delay: float = 0.4, repeat_interval: float = 0.05,
+                 catalog: Optional[PresetCatalog] = None,
+                 opener: Callable[[str], object] = webbrowser.open, settings_url: Optional[str] = None):
         self.mapping, self.session, self.dials, self.keyboard = mapping, session, dials, keyboard
         # Synthetic key-downs don't auto-repeat on macOS, so held non-modifier keys repeat here.
         self.repeat_delay, self.repeat_interval = repeat_delay, repeat_interval
+        self.catalog = catalog or PresetCatalog(session)
+        self.opener, self.settings_url = opener, settings_url
         self.preset_warnings: List[str] = []
         self._presets: Dict[str, str] = {}  # control → resolved preset id
+        self._preset_problems: Dict[str, str] = {}  # control → "missing" | "ambiguous"
+        self._settings_noted = False
         self._held: Dict[str, str] = {}     # control → key name it's holding down
         self._repeats: Dict[str, asyncio.Task] = {}
         self._keys_noted = False
@@ -63,6 +71,9 @@ class Dispatcher:
             action = self.mapping.press_action(event.control)
             if action["type"] in ("key", "shortcut"):
                 self._press_key(event.control, action)
+                return
+            if action["type"] == "open_settings":  # also works while Lightroom is away
+                self._open_settings()
                 return
         if not self.session.connected:
             log.debug("dropped %s: Lightroom isn't connected", event)
@@ -168,35 +179,69 @@ class Dispatcher:
             elif action.get("id") or action.get("name"):
                 log.warning("%s: its preset couldn't be found in Lightroom; nothing applied", event.control)
 
-    async def resolve_presets(self) -> None:
-        """Match each preset slot to a Lightroom preset: by id, else by an exact, unique name."""
-        self._presets, self.preset_warnings = {}, []
-        slots = [(c, a) for c, a in self.mapping.press_items()
-                 if a["type"] == "preset" and (a.get("id") or a.get("name"))]
-        if not slots:
+    def _open_settings(self) -> None:
+        if self.settings_url is None:
+            if not self._settings_noted:
+                self._settings_noted = True
+                log.info("the settings page isn't running, so there's nothing to open")
             return
         try:
-            ids = (await self.session.call("getPresetIDs"))[0]
-            names: Optional[Dict[str, str]] = None
+            self.opener(self.settings_url)
+        except Exception as e:  # a browser problem mustn't affect the bridge
+            log.warning("couldn't open %s: %s", self.settings_url, e)
+
+    async def resolve_presets(self) -> None:
+        """Match each preset slot to a Lightroom preset: by id, else by an exact, unique name.
+        Called after each connect; Lightroom's presets may have changed, so the catalog is refreshed."""
+        self.catalog.invalidate()
+        await self.reload_presets()
+
+    async def reload_presets(self) -> None:
+        """Re-match the slots (e.g. after a slot was changed in the settings page)."""
+        self._presets, self._preset_problems, self.preset_warnings = {}, {}, []
+        slots = [(c, a) for c, a in self.mapping.press_items()
+                 if a["type"] == "preset" and (a.get("id") or a.get("name"))]
+        try:
+            ids = await self.catalog.ids() if slots else []
             for control, action in slots:
                 if action.get("id") in ids:
                     self._presets[control] = action["id"]
                     continue
                 name = action.get("name")
                 if not name:
-                    self._warn(f"{control}: preset id {action.get('id')!r} no longer exists in Lightroom")
+                    self._problem(control, "missing", f"{control}: preset id {action.get('id')!r} no longer exists "
+                                                      "in Lightroom")
                     continue
-                if names is None:  # only fetched when an id didn't match (1,500+ calls)
-                    names = {i: (await self.session.call("getPresetName", i))[0] for i in ids}
-                matches = [i for i, n in names.items() if n == name]
+                names = await self.catalog.items()  # only when an id didn't match (1,500+ calls)
+                matches = [i for i, n in names if n == name]
                 if len(matches) == 1:
                     self._presets[control] = matches[0]
                 elif matches:
-                    self._warn(f"{control}: {len(matches)} presets named {name!r}; assign it again in the settings")
+                    self._problem(control, "ambiguous", f"{control}: {len(matches)} presets named {name!r}; "
+                                                        "assign it again in the settings")
                 else:
-                    self._warn(f"{control}: no preset named {name!r} in Lightroom")
+                    self._problem(control, "missing", f"{control}: no preset named {name!r} in Lightroom")
         except _ERRORS as e:
             log.warning("couldn't resolve presets: %s", e)
+
+    def slot_status(self, control: str) -> dict:
+        """What the settings page shows for a preset slot."""
+        action = self.mapping.press_action(control)
+        pid = action.get("id") if action["type"] == "preset" else None
+        name = action.get("name") if action["type"] == "preset" else None
+        if not pid and not name:
+            status = "empty"
+        elif control in self._presets:
+            status = "ok"
+        elif control in self._preset_problems:
+            status = self._preset_problems[control]
+        else:
+            status = "unknown"  # Lightroom hasn't been asked yet (e.g. not connected)
+        return {"slot": control, "id": pid, "name": name, "status": status}
+
+    def _problem(self, control: str, kind: str, message: str) -> None:
+        self._preset_problems[control] = kind
+        self._warn(message)
 
     def _warn(self, message: str) -> None:
         self.preset_warnings.append(message)
