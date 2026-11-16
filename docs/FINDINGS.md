@@ -96,6 +96,12 @@ All passed after two fixes, running as LoupedeckBridge.app:
 
 **Fix 2: stale personal mapping.** A `mapping.json` created from an older default never picked up new defaults (Before/After and screen mode stayed "none"). **Fixed:** `mapping.base.json` records the default a mapping started from. Unedited mappings follow new defaults; edited ones are kept, with a notice.
 
+**After the review fixes** (tap enabled only while a Loupedeck modifier is held, real modifiers
+joining Loupedeck keys), a live re-check passed:
+- Alt-drag and Shift-click still work.
+- Real Shift + Loupedeck → selects text.
+- `bridgectl stop` mid-dial-spin stops promptly.
+
 **Lightroom blocks every client while an Allow dialog is open:** WebSocket handshakes time out until it's answered. A stray test bridge triggered one; the tests now pin `--lightroom-port` and kill every process they start.
 
 ## API notes the handoff didn't capture
