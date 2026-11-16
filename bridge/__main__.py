@@ -1,13 +1,18 @@
-"""python -m bridge [--debug]"""
+"""python -m bridge [--debug] [--midi-port NAME] [--check-permission]"""
 from __future__ import annotations
 
 import argparse
 import asyncio
 import logging
+import signal
 import sys
 from logging.handlers import RotatingFileHandler
 
-from bridge import app, platform
+from bridge import app, instance, platform
+
+log = logging.getLogger("app")
+
+EXIT_ALREADY_RUNNING = 3
 
 
 def main() -> None:
@@ -18,7 +23,8 @@ def main() -> None:
                     help="macOS: check (and prompt for) the keyboard permission, then exit")
     args = ap.parse_args()
 
-    log_dir = platform.current().log_dir()
+    plat = platform.current()
+    log_dir = plat.log_dir()
     log_dir.mkdir(parents=True, exist_ok=True)
     fmt = logging.Formatter("%(asctime)s %(levelname)-7s %(name)s: %(message)s")
     handlers = [logging.StreamHandler(sys.stderr),
@@ -27,19 +33,43 @@ def main() -> None:
         h.setFormatter(fmt)
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO, handlers=handlers)
     logging.getLogger("websockets").setLevel(logging.INFO)  # its DEBUG output is per-frame noise
-    logging.getLogger("app").info("log file: %s", log_dir / "bridge.log")
+    log.info("log file: %s", log_dir / "bridge.log")
 
     if args.check_permission:
         _check_permission()
         return
+
+    lock = instance.acquire(plat.state_dir() / "bridge.lock")
+    if lock is None:
+        log.error("Another LoupedeckBridge is already running; not starting a second one "
+                  "(it would apply every dial turn twice).")
+        sys.exit(EXIT_ALREADY_RUNNING)
     try:
-        asyncio.run(app.run(debug=args.debug, midi_port=args.midi_port))
+        asyncio.run(_run(args))
     except KeyboardInterrupt:
+        pass
+    log.info("bridge stopped")
+
+
+async def _run(args) -> None:
+    # Ctrl-C, SIGTERM (`bridgectl stop`, the launcher) and SIGHUP all cancel the bridge, so its
+    # cleanup runs: held keys are released and ports closed. A plain SIGTERM would just kill it.
+    main_task = asyncio.current_task()
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM, getattr(signal, "SIGHUP", None)):
+        if sig is None:
+            continue
+        try:
+            loop.add_signal_handler(sig, main_task.cancel)
+        except (NotImplementedError, RuntimeError):  # Windows: Ctrl-C still raises KeyboardInterrupt
+            pass
+    try:
+        await app.run(debug=args.debug, midi_port=args.midi_port)
+    except asyncio.CancelledError:
         pass
 
 
 def _check_permission() -> None:
-    log = logging.getLogger("app")
     if sys.platform != "darwin":
         log.info("Accessibility permission: not needed on this system")
         return

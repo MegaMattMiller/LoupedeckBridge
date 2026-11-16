@@ -42,6 +42,32 @@ Stop it with Ctrl-C. Add `--debug` for a verbose log plus a Lightroom frame log 
 
 Tests: `.venv/bin/python -m pip install -r requirements-dev.txt && .venv/bin/python -m pytest -q`
 
+## Run as an app (macOS, needed for keyboard keys)
+
+The Loupedeck's Shift/Ctrl/Cmd/Alt/Tab/arrow buttons and the Before/After and screen-mode shortcuts
+send real key presses. macOS only allows that with the **Accessibility** permission, which it grants
+to the *app* that started the bridge. Run the bridge from the small **LoupedeckBridge.app** so the
+permission covers only the bridge, not your terminal:
+
+```bash
+tools/bridgectl build    # builds build/LoupedeckBridge.app (needs Xcode's command-line tools)
+tools/bridgectl start
+```
+
+On the first start, macOS asks twice. Allow both:
+1. **Documents access**, because the bridge's code lives in this repo under `~/Documents`.
+2. **Accessibility:** click *Open System Settings* and turn on **LoupedeckBridge**. Check it any
+   time with `open build/LoupedeckBridge.app --args --check-permission` (the result goes to the log).
+
+`tools/bridgectl stop | restart | status | logs` do what they say. `stop` releases any held keys first.
+Editing the Python code never needs a rebuild. Rebuilding the app may make macOS ask again.
+Only one bridge runs at a time: a second one, e.g. from a terminal, refuses to start.
+
+Keys go to whichever app is in front, like a second keyboard.
+- Before/After sends `\` (Lightroom's Show Original).
+- Screen mode sends `f` (Full Screen Loupe).
+- Tab and the arrows repeat while held.
+
 ## Roadmap
 
 1. ✅ Core bridge on macOS: dials, dial clicks, Lightroom buttons, presets, reconnects

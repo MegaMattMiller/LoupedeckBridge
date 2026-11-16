@@ -1,0 +1,34 @@
+#!/bin/bash
+# Control the macOS LoupedeckBridge.app:  tools/bridgectl {build|start|stop|restart|status|logs}
+set -euo pipefail
+
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
+APP="$REPO/build/LoupedeckBridge.app"
+LOG="$HOME/Library/Logs/loupedeck-lr-bridge/bridge.log"
+LAUNCHER='LoupedeckBridge.app/Contents/MacOS/LoupedeckBridge'
+
+running() { pgrep -f "$LAUNCHER" >/dev/null; }
+
+case "${1:-}" in
+  build)
+    "$REPO/tools/build_mac_app.sh" ;;
+  start)
+    [ -d "$APP" ] || { echo "Build it first: tools/bridgectl build" >&2; exit 1; }
+    if running; then echo "already running"; exit 0; fi
+    open -g "$APP"
+    echo "started. Logs: tools/bridgectl logs" ;;
+  stop)
+    # SIGTERM → the launcher passes it on → the bridge releases any held keys and exits.
+    if ! running; then echo "not running"; exit 0; fi
+    pkill -TERM -f "$LAUNCHER"
+    for _ in $(seq 1 50); do running || { echo "stopped"; exit 0; }; sleep 0.1; done
+    echo "still running after 5 s" >&2; exit 1 ;;
+  restart)
+    "$0" stop && "$0" start ;;
+  status)
+    if running; then echo "running"; else echo "not running"; fi ;;
+  logs)
+    tail -n 30 -f "$LOG" ;;
+  *)
+    echo "usage: tools/bridgectl {build|start|stop|restart|status|logs}" >&2; exit 2 ;;
+esac
