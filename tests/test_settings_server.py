@@ -305,6 +305,16 @@ def test_foreign_origin_refused_quietly(tmp_path, caplog):
     assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
 
 
+def test_localhost_address_also_works(tmp_path):
+    # Guards the bridge's own Origin check: the page may be opened as localhost as well as 127.0.0.1.
+    async def main():
+        async with Rig(tmp_path) as rig:
+            url = f"ws://localhost:{rig.port}/ws"
+            async with websockets.connect(url, origin=f"http://localhost:{rig.port}") as ws:
+                assert (await rig.hello(ws))["type"] == "state"
+    asyncio.run(main())
+
+
 def test_non_ascii_token_refused_cleanly(tmp_path):
     async def main():
         async with Rig(tmp_path) as rig:

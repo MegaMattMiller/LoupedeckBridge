@@ -60,7 +60,10 @@ matches several presets, is marked so you can assign it again.
 The page is local only:
 - It only answers on 127.0.0.1, and only to requests addressed to it.
 - Changes need a secret that only the page itself has, so other websites open in your browser can't
-  change your buttons.
+  change your buttons. (It doesn't stop other programs on your Mac, which can read the page too.)
+- The first time, loading the names of ~1,500 presets takes about half a minute; after that they're
+  remembered. If you rename a preset in Lightroom, click **Refresh list** to see the new name.
+- If the bridge restarts while the page is open, the page reloads itself.
 - It loads nothing from the internet.
 - `--settings-port N` moves it to another port, and `--settings-port 0` turns it off.
 - To work on the page without Lightroom or the device, run `.venv/bin/python tools/preview_settings.py`.

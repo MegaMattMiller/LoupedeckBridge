@@ -102,8 +102,7 @@ function onProgress(done, total) {
 function onState(msg) {
   state = msg;
   setStatus(msg.lightroom ? "ok" : "warn",
-    msg.lightroom ? "Connected to the bridge and Lightroom"
-      : "Connected to the bridge. Lightroom isn't connected: open it to load your presets.");
+    msg.lightroom ? "Connected to the bridge and Lightroom" : "Connected to the bridge · waiting for Lightroom");
   if (!msg.writable) {
     notice("Your mapping.json couldn't be read, so changes can't be saved. Fix or delete it, then restart the bridge.");
   } else {

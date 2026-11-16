@@ -23,7 +23,13 @@ hand-editing JSON. Changes apply immediately, with no restart.
   - the server binds 127.0.0.1 only
   - requests with a `Host` other than `127.0.0.1:<port>` or `localhost:<port>` are refused (guards against DNS rebinding)
   - the WebSocket requires the page's own `Origin` **and** a random per-run token embedded in the page
-- **Preset names** load when the page asks for them (~1–2 s), and are cached until Lightroom reconnects.
+- **Preset names** load when the page asks for them. *(Revised after the live check: Lightroom takes
+  ~17–26 ms per name, so 1,572 names take ~27 s.)* Names are remembered on disk
+  (`preset_names.json` in the bridge's state folder), so later loads only ask for the id list and
+  any new presets. The page shows progress, and every caller (tabs, a reconnect) shares one load.
+  A preset renamed in Lightroom keeps its id, so it shows its old name until **Refresh list**.
+- **The token** stops other websites, not other programs on the Mac: anything that can reach the
+  port can read the page and its token. A local program already has wider access than P1–P8.
 - **Defaults follow control by control** (user-approved change): a control the user never changed
   follows new default layouts, and a control they changed (e.g. P1–P8) stays as they set it. This
   replaces "an edited file stops following defaults altogether".
