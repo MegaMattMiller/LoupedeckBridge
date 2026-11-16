@@ -1,0 +1,136 @@
+{"t": 1.048, "label": "", "type": "note_on", "bytes": "90 65 40", "channel": 0, "note": 101, "velocity": 64}
+{"t": 1.0481, "label": "", "type": "note_off", "bytes": "80 65 40", "channel": 0, "note": 101, "velocity": 64}
+{"t": 8.1442, "marker": "going into bw mode"}
+{"t": 9.6841, "label": "going into bw mode", "type": "note_on", "bytes": "90 65 40", "channel": 0, "note": 101, "velocity": 64}
+{"t": 9.8059, "label": "going into bw mode", "type": "note_off", "bytes": "80 65 40", "channel": 0, "note": 101, "velocity": 64}
+{"t": 16.236, "marker": "bw mode red"}
+{"t": 17.4572, "label": "bw mode red", "type": "control_change", "bytes": "B0 19 01", "channel": 0, "control": 25, "value": 1}
+{"t": 17.4664, "label": "bw mode red", "type": "control_change", "bytes": "B0 19 01", "channel": 0, "control": 25, "value": 1}
+{"t": 17.4999, "label": "bw mode red", "type": "control_change", "bytes": "B0 19 01", "channel": 0, "control": 25, "value": 1}
+{"t": 17.5115, "label": "bw mode red", "type": "control_change", "bytes": "B0 19 01", "channel": 0, "control": 25, "value": 1}
+{"t": 17.5499, "label": "bw mode red", "type": "control_change", "bytes": "B0 19 01", "channel": 0, "control": 25, "value": 1}
+{"t": 17.5666, "label": "bw mode red", "type": "control_change", "bytes": "B0 19 01", "channel": 0, "control": 25, "value": 1}
+{"t": 17.6387, "label": "bw mode red", "type": "control_change", "bytes": "B0 19 01", "channel": 0, "control": 25, "value": 1}
+{"t": 17.7724, "label": "bw mode red", "type": "control_change", "bytes": "B0 19 7F", "channel": 0, "control": 25, "value": 127}
+{"t": 17.8293, "label": "bw mode red", "type": "control_change", "bytes": "B0 19 7F", "channel": 0, "control": 25, "value": 127}
+{"t": 17.8505, "label": "bw mode red", "type": "control_change", "bytes": "B0 19 7F", "channel": 0, "control": 25, "value": 127}
+{"t": 17.9461, "label": "bw mode red", "type": "control_change", "bytes": "B0 19 7F", "channel": 0, "control": 25, "value": 127}
+{"t": 18.234, "label": "bw mode red", "type": "note_on", "bytes": "90 19 40", "channel": 0, "note": 25, "velocity": 64}
+{"t": 18.3909, "label": "bw mode red", "type": "note_off", "bytes": "80 19 40", "channel": 0, "note": 25, "velocity": 64}
+{"t": 22.9314, "marker": "bw orange"}
+{"t": 24.086, "label": "bw orange", "type": "control_change", "bytes": "B0 1A 01", "channel": 0, "control": 26, "value": 1}
+{"t": 24.0989, "label": "bw orange", "type": "control_change", "bytes": "B0 1A 01", "channel": 0, "control": 26, "value": 1}
+{"t": 24.1338, "label": "bw orange", "type": "control_change", "bytes": "B0 1A 01", "channel": 0, "control": 26, "value": 1}
+{"t": 24.1456, "label": "bw orange", "type": "control_change", "bytes": "B0 1A 01", "channel": 0, "control": 26, "value": 1}
+{"t": 24.1826, "label": "bw orange", "type": "control_change", "bytes": "B0 1A 01", "channel": 0, "control": 26, "value": 1}
+{"t": 24.1997, "label": "bw orange", "type": "control_change", "bytes": "B0 1A 01", "channel": 0, "control": 26, "value": 1}
+{"t": 24.2678, "label": "bw orange", "type": "control_change", "bytes": "B0 1A 01", "channel": 0, "control": 26, "value": 1}
+{"t": 24.373, "label": "bw orange", "type": "control_change", "bytes": "B0 1A 7F", "channel": 0, "control": 26, "value": 127}
+{"t": 24.4428, "label": "bw orange", "type": "control_change", "bytes": "B0 1A 7F", "channel": 0, "control": 26, "value": 127}
+{"t": 24.4814, "label": "bw orange", "type": "control_change", "bytes": "B0 1A 7F", "channel": 0, "control": 26, "value": 127}
+{"t": 24.6709, "label": "bw orange", "type": "note_on", "bytes": "90 1A 40", "channel": 0, "note": 26, "velocity": 64}
+{"t": 24.7295, "label": "bw orange", "type": "control_change", "bytes": "B0 1A 7F", "channel": 0, "control": 26, "value": 127}
+{"t": 24.7672, "label": "bw orange", "type": "note_off", "bytes": "80 1A 40", "channel": 0, "note": 26, "velocity": 64}
+{"t": 24.8069, "label": "bw orange", "type": "control_change", "bytes": "B0 1A 01", "channel": 0, "control": 26, "value": 1}
+{"t": 28.2663, "marker": "bw yellow"}
+{"t": 29.2395, "label": "bw yellow", "type": "control_change", "bytes": "B0 1B 01", "channel": 0, "control": 27, "value": 1}
+{"t": 29.2534, "label": "bw yellow", "type": "control_change", "bytes": "B0 1B 01", "channel": 0, "control": 27, "value": 1}
+{"t": 29.2795, "label": "bw yellow", "type": "control_change", "bytes": "B0 1B 01", "channel": 0, "control": 27, "value": 1}
+{"t": 29.2893, "label": "bw yellow", "type": "control_change", "bytes": "B0 1B 01", "channel": 0, "control": 27, "value": 1}
+{"t": 29.3142, "label": "bw yellow", "type": "control_change", "bytes": "B0 1B 01", "channel": 0, "control": 27, "value": 1}
+{"t": 29.3251, "label": "bw yellow", "type": "control_change", "bytes": "B0 1B 01", "channel": 0, "control": 27, "value": 1}
+{"t": 29.3595, "label": "bw yellow", "type": "control_change", "bytes": "B0 1B 01", "channel": 0, "control": 27, "value": 1}
+{"t": 29.3757, "label": "bw yellow", "type": "control_change", "bytes": "B0 1B 01", "channel": 0, "control": 27, "value": 1}
+{"t": 29.5194, "label": "bw yellow", "type": "control_change", "bytes": "B0 1B 7F", "channel": 0, "control": 27, "value": 127}
+{"t": 29.5283, "label": "bw yellow", "type": "control_change", "bytes": "B0 1B 7F", "channel": 0, "control": 27, "value": 127}
+{"t": 29.5547, "label": "bw yellow", "type": "control_change", "bytes": "B0 1B 7F", "channel": 0, "control": 27, "value": 127}
+{"t": 29.5632, "label": "bw yellow", "type": "control_change", "bytes": "B0 1B 7F", "channel": 0, "control": 27, "value": 127}
+{"t": 29.597, "label": "bw yellow", "type": "control_change", "bytes": "B0 1B 7F", "channel": 0, "control": 27, "value": 127}
+{"t": 29.6156, "label": "bw yellow", "type": "control_change", "bytes": "B0 1B 7F", "channel": 0, "control": 27, "value": 127}
+{"t": 29.8871, "label": "bw yellow", "type": "note_on", "bytes": "90 1B 40", "channel": 0, "note": 27, "velocity": 64}
+{"t": 29.9832, "label": "bw yellow", "type": "note_off", "bytes": "80 1B 40", "channel": 0, "note": 27, "velocity": 64}
+{"t": 31.9464, "marker": "bw green"}
+{"t": 32.9032, "label": "bw green", "type": "control_change", "bytes": "B0 1C 01", "channel": 0, "control": 28, "value": 1}
+{"t": 32.92, "label": "bw green", "type": "control_change", "bytes": "B0 1C 01", "channel": 0, "control": 28, "value": 1}
+{"t": 32.9551, "label": "bw green", "type": "control_change", "bytes": "B0 1C 01", "channel": 0, "control": 28, "value": 1}
+{"t": 32.9664, "label": "bw green", "type": "control_change", "bytes": "B0 1C 01", "channel": 0, "control": 28, "value": 1}
+{"t": 32.9942, "label": "bw green", "type": "control_change", "bytes": "B0 1C 01", "channel": 0, "control": 28, "value": 1}
+{"t": 33.005, "label": "bw green", "type": "control_change", "bytes": "B0 1C 01", "channel": 0, "control": 28, "value": 1}
+{"t": 33.0418, "label": "bw green", "type": "control_change", "bytes": "B0 1C 01", "channel": 0, "control": 28, "value": 1}
+{"t": 33.0568, "label": "bw green", "type": "control_change", "bytes": "B0 1C 01", "channel": 0, "control": 28, "value": 1}
+{"t": 33.1668, "label": "bw green", "type": "control_change", "bytes": "B0 1C 7F", "channel": 0, "control": 28, "value": 127}
+{"t": 33.1776, "label": "bw green", "type": "control_change", "bytes": "B0 1C 7F", "channel": 0, "control": 28, "value": 127}
+{"t": 33.2195, "label": "bw green", "type": "control_change", "bytes": "B0 1C 7F", "channel": 0, "control": 28, "value": 127}
+{"t": 33.2331, "label": "bw green", "type": "control_change", "bytes": "B0 1C 7F", "channel": 0, "control": 28, "value": 127}
+{"t": 33.4729, "label": "bw green", "type": "note_on", "bytes": "90 1C 40", "channel": 0, "note": 28, "velocity": 64}
+{"t": 33.5703, "label": "bw green", "type": "note_off", "bytes": "80 1C 40", "channel": 0, "note": 28, "velocity": 64}
+{"t": 35.4068, "marker": "bw aqua"}
+{"t": 36.9038, "label": "bw aqua", "type": "control_change", "bytes": "B0 1D 01", "channel": 0, "control": 29, "value": 1}
+{"t": 36.9535, "label": "bw aqua", "type": "control_change", "bytes": "B0 1D 01", "channel": 0, "control": 29, "value": 1}
+{"t": 36.9696, "label": "bw aqua", "type": "control_change", "bytes": "B0 1D 01", "channel": 0, "control": 29, "value": 1}
+{"t": 37.0112, "label": "bw aqua", "type": "control_change", "bytes": "B0 1D 01", "channel": 0, "control": 29, "value": 1}
+{"t": 37.0243, "label": "bw aqua", "type": "control_change", "bytes": "B0 1D 01", "channel": 0, "control": 29, "value": 1}
+{"t": 37.1985, "label": "bw aqua", "type": "control_change", "bytes": "B0 1D 7F", "channel": 0, "control": 29, "value": 127}
+{"t": 37.2081, "label": "bw aqua", "type": "control_change", "bytes": "B0 1D 7F", "channel": 0, "control": 29, "value": 127}
+{"t": 37.2513, "label": "bw aqua", "type": "control_change", "bytes": "B0 1D 7F", "channel": 0, "control": 29, "value": 127}
+{"t": 37.2663, "label": "bw aqua", "type": "control_change", "bytes": "B0 1D 7F", "channel": 0, "control": 29, "value": 127}
+{"t": 37.4101, "label": "bw aqua", "type": "note_on", "bytes": "90 1D 40", "channel": 0, "note": 29, "velocity": 64}
+{"t": 37.5186, "label": "bw aqua", "type": "note_off", "bytes": "80 1D 40", "channel": 0, "note": 29, "velocity": 64}
+{"t": 39.811, "marker": "bw blue"}
+{"t": 41.5356, "label": "bw blue", "type": "control_change", "bytes": "B0 1E 01", "channel": 0, "control": 30, "value": 1}
+{"t": 41.5514, "label": "bw blue", "type": "control_change", "bytes": "B0 1E 01", "channel": 0, "control": 30, "value": 1}
+{"t": 41.5886, "label": "bw blue", "type": "control_change", "bytes": "B0 1E 01", "channel": 0, "control": 30, "value": 1}
+{"t": 41.6011, "label": "bw blue", "type": "control_change", "bytes": "B0 1E 01", "channel": 0, "control": 30, "value": 1}
+{"t": 41.6335, "label": "bw blue", "type": "control_change", "bytes": "B0 1E 01", "channel": 0, "control": 30, "value": 1}
+{"t": 41.6466, "label": "bw blue", "type": "control_change", "bytes": "B0 1E 01", "channel": 0, "control": 30, "value": 1}
+{"t": 41.6818, "label": "bw blue", "type": "control_change", "bytes": "B0 1E 01", "channel": 0, "control": 30, "value": 1}
+{"t": 41.6987, "label": "bw blue", "type": "control_change", "bytes": "B0 1E 01", "channel": 0, "control": 30, "value": 1}
+{"t": 41.8532, "label": "bw blue", "type": "control_change", "bytes": "B0 1E 7F", "channel": 0, "control": 30, "value": 127}
+{"t": 41.8652, "label": "bw blue", "type": "control_change", "bytes": "B0 1E 7F", "channel": 0, "control": 30, "value": 127}
+{"t": 41.8934, "label": "bw blue", "type": "control_change", "bytes": "B0 1E 7F", "channel": 0, "control": 30, "value": 127}
+{"t": 41.906, "label": "bw blue", "type": "control_change", "bytes": "B0 1E 7F", "channel": 0, "control": 30, "value": 127}
+{"t": 41.9627, "label": "bw blue", "type": "control_change", "bytes": "B0 1E 7F", "channel": 0, "control": 30, "value": 127}
+{"t": 42.1183, "label": "bw blue", "type": "note_on", "bytes": "90 1E 40", "channel": 0, "note": 30, "velocity": 64}
+{"t": 42.275, "label": "bw blue", "type": "note_off", "bytes": "80 1E 40", "channel": 0, "note": 30, "velocity": 64}
+{"t": 42.2867, "label": "bw blue", "type": "control_change", "bytes": "B0 1E 7F", "channel": 0, "control": 30, "value": 127}
+{"t": 44.7537, "marker": "bw purple"}
+{"t": 45.7208, "label": "bw purple", "type": "control_change", "bytes": "B0 1F 01", "channel": 0, "control": 31, "value": 1}
+{"t": 45.7314, "label": "bw purple", "type": "control_change", "bytes": "B0 1F 01", "channel": 0, "control": 31, "value": 1}
+{"t": 45.7587, "label": "bw purple", "type": "control_change", "bytes": "B0 1F 01", "channel": 0, "control": 31, "value": 1}
+{"t": 45.7661, "label": "bw purple", "type": "control_change", "bytes": "B0 1F 01", "channel": 0, "control": 31, "value": 1}
+{"t": 45.7912, "label": "bw purple", "type": "control_change", "bytes": "B0 1F 01", "channel": 0, "control": 31, "value": 1}
+{"t": 45.8043, "label": "bw purple", "type": "control_change", "bytes": "B0 1F 01", "channel": 0, "control": 31, "value": 1}
+{"t": 45.9747, "label": "bw purple", "type": "control_change", "bytes": "B0 1F 7F", "channel": 0, "control": 31, "value": 127}
+{"t": 45.9853, "label": "bw purple", "type": "control_change", "bytes": "B0 1F 7F", "channel": 0, "control": 31, "value": 127}
+{"t": 46.0169, "label": "bw purple", "type": "control_change", "bytes": "B0 1F 7F", "channel": 0, "control": 31, "value": 127}
+{"t": 46.0268, "label": "bw purple", "type": "control_change", "bytes": "B0 1F 7F", "channel": 0, "control": 31, "value": 127}
+{"t": 46.0551, "label": "bw purple", "type": "control_change", "bytes": "B0 1F 7F", "channel": 0, "control": 31, "value": 127}
+{"t": 46.0667, "label": "bw purple", "type": "control_change", "bytes": "B0 1F 7F", "channel": 0, "control": 31, "value": 127}
+{"t": 46.1211, "label": "bw purple", "type": "control_change", "bytes": "B0 1F 7F", "channel": 0, "control": 31, "value": 127}
+{"t": 46.2726, "label": "bw purple", "type": "note_on", "bytes": "90 1F 40", "channel": 0, "note": 31, "velocity": 64}
+{"t": 46.2937, "label": "bw purple", "type": "control_change", "bytes": "B0 1F 7F", "channel": 0, "control": 31, "value": 127}
+{"t": 46.3262, "label": "bw purple", "type": "control_change", "bytes": "B0 1F 7F", "channel": 0, "control": 31, "value": 127}
+{"t": 46.3452, "label": "bw purple", "type": "note_off", "bytes": "80 1F 40", "channel": 0, "note": 31, "velocity": 64}
+{"t": 49.1082, "marker": "bw dark red"}
+{"t": 49.9166, "label": "bw dark red", "type": "control_change", "bytes": "B0 20 01", "channel": 0, "control": 32, "value": 1}
+{"t": 49.9237, "label": "bw dark red", "type": "control_change", "bytes": "B0 20 01", "channel": 0, "control": 32, "value": 1}
+{"t": 49.9357, "label": "bw dark red", "type": "control_change", "bytes": "B0 20 01", "channel": 0, "control": 32, "value": 1}
+{"t": 49.9427, "label": "bw dark red", "type": "control_change", "bytes": "B0 20 01", "channel": 0, "control": 32, "value": 1}
+{"t": 49.957, "label": "bw dark red", "type": "control_change", "bytes": "B0 20 01", "channel": 0, "control": 32, "value": 1}
+{"t": 49.9641, "label": "bw dark red", "type": "control_change", "bytes": "B0 20 01", "channel": 0, "control": 32, "value": 1}
+{"t": 49.9811, "label": "bw dark red", "type": "control_change", "bytes": "B0 20 01", "channel": 0, "control": 32, "value": 1}
+{"t": 49.9904, "label": "bw dark red", "type": "control_change", "bytes": "B0 20 01", "channel": 0, "control": 32, "value": 1}
+{"t": 50.0108, "label": "bw dark red", "type": "control_change", "bytes": "B0 20 01", "channel": 0, "control": 32, "value": 1}
+{"t": 50.02, "label": "bw dark red", "type": "control_change", "bytes": "B0 20 01", "channel": 0, "control": 32, "value": 1}
+{"t": 50.0701, "label": "bw dark red", "type": "control_change", "bytes": "B0 20 01", "channel": 0, "control": 32, "value": 1}
+{"t": 50.1465, "label": "bw dark red", "type": "control_change", "bytes": "B0 20 7F", "channel": 0, "control": 32, "value": 127}
+{"t": 50.1799, "label": "bw dark red", "type": "control_change", "bytes": "B0 20 7F", "channel": 0, "control": 32, "value": 127}
+{"t": 50.1884, "label": "bw dark red", "type": "control_change", "bytes": "B0 20 7F", "channel": 0, "control": 32, "value": 127}
+{"t": 50.2153, "label": "bw dark red", "type": "control_change", "bytes": "B0 20 7F", "channel": 0, "control": 32, "value": 127}
+{"t": 50.2246, "label": "bw dark red", "type": "control_change", "bytes": "B0 20 7F", "channel": 0, "control": 32, "value": 127}
+{"t": 50.2583, "label": "bw dark red", "type": "control_change", "bytes": "B0 20 7F", "channel": 0, "control": 32, "value": 127}
+{"t": 50.2704, "label": "bw dark red", "type": "control_change", "bytes": "B0 20 7F", "channel": 0, "control": 32, "value": 127}
+{"t": 50.3201, "label": "bw dark red", "type": "control_change", "bytes": "B0 20 7F", "channel": 0, "control": 32, "value": 127}
+{"t": 50.5466, "label": "bw dark red", "type": "note_on", "bytes": "90 20 40", "channel": 0, "note": 32, "velocity": 64}
+{"t": 50.6674, "label": "bw dark red", "type": "note_off", "bytes": "80 20 40", "channel": 0, "note": 32, "velocity": 64}
+{"t": 50.692, "label": "bw dark red", "type": "control_change", "bytes": "B0 20 01", "channel": 0, "control": 32, "value": 1}

@@ -1,0 +1,719 @@
+{"t": 15.5676, "marker": "contrast dial"}
+{"t": 17.8843, "label": "contrast dial", "type": "control_change", "bytes": "B0 2E 01", "channel": 0, "control": 46, "value": 1}
+{"t": 17.9076, "label": "contrast dial", "type": "control_change", "bytes": "B0 2E 01", "channel": 0, "control": 46, "value": 1}
+{"t": 17.9377, "label": "contrast dial", "type": "control_change", "bytes": "B0 2E 01", "channel": 0, "control": 46, "value": 1}
+{"t": 17.9671, "label": "contrast dial", "type": "control_change", "bytes": "B0 2E 01", "channel": 0, "control": 46, "value": 1}
+{"t": 17.9981, "label": "contrast dial", "type": "control_change", "bytes": "B0 2E 01", "channel": 0, "control": 46, "value": 1}
+{"t": 18.0582, "label": "contrast dial", "type": "control_change", "bytes": "B0 2E 01", "channel": 0, "control": 46, "value": 1}
+{"t": 18.2262, "label": "contrast dial", "type": "control_change", "bytes": "B0 2E 7F", "channel": 0, "control": 46, "value": 127}
+{"t": 18.2509, "label": "contrast dial", "type": "control_change", "bytes": "B0 2E 7F", "channel": 0, "control": 46, "value": 127}
+{"t": 18.2751, "label": "contrast dial", "type": "control_change", "bytes": "B0 2E 7F", "channel": 0, "control": 46, "value": 127}
+{"t": 18.3017, "label": "contrast dial", "type": "control_change", "bytes": "B0 2E 7F", "channel": 0, "control": 46, "value": 127}
+{"t": 18.3491, "label": "contrast dial", "type": "control_change", "bytes": "B0 2E 7F", "channel": 0, "control": 46, "value": 127}
+{"t": 23.3277, "marker": "clarity dial"}
+{"t": 27.0259, "label": "clarity dial", "type": "control_change", "bytes": "B0 2D 01", "channel": 0, "control": 45, "value": 1}
+{"t": 27.0629, "label": "clarity dial", "type": "control_change", "bytes": "B0 2D 01", "channel": 0, "control": 45, "value": 1}
+{"t": 27.0936, "label": "clarity dial", "type": "control_change", "bytes": "B0 2D 01", "channel": 0, "control": 45, "value": 1}
+{"t": 27.1259, "label": "clarity dial", "type": "control_change", "bytes": "B0 2D 01", "channel": 0, "control": 45, "value": 1}
+{"t": 27.1795, "label": "clarity dial", "type": "control_change", "bytes": "B0 2D 01", "channel": 0, "control": 45, "value": 1}
+{"t": 27.3437, "label": "clarity dial", "type": "control_change", "bytes": "B0 2D 7F", "channel": 0, "control": 45, "value": 127}
+{"t": 27.3951, "label": "clarity dial", "type": "control_change", "bytes": "B0 2D 7F", "channel": 0, "control": 45, "value": 127}
+{"t": 27.4419, "label": "clarity dial", "type": "control_change", "bytes": "B0 2D 7F", "channel": 0, "control": 45, "value": 127}
+{"t": 27.5747, "label": "clarity dial", "type": "control_change", "bytes": "B0 2D 7F", "channel": 0, "control": 45, "value": 127}
+{"t": 27.7413, "label": "clarity dial", "type": "control_change", "bytes": "B0 2D 01", "channel": 0, "control": 45, "value": 1}
+{"t": 27.7825, "label": "clarity dial", "type": "control_change", "bytes": "B0 2D 01", "channel": 0, "control": 45, "value": 1}
+{"t": 27.8179, "label": "clarity dial", "type": "control_change", "bytes": "B0 2D 01", "channel": 0, "control": 45, "value": 1}
+{"t": 27.8592, "label": "clarity dial", "type": "control_change", "bytes": "B0 2D 01", "channel": 0, "control": 45, "value": 1}
+{"t": 27.9423, "label": "clarity dial", "type": "control_change", "bytes": "B0 2D 01", "channel": 0, "control": 45, "value": 1}
+{"t": 28.0316, "label": "clarity dial", "type": "control_change", "bytes": "B0 2D 7F", "channel": 0, "control": 45, "value": 127}
+{"t": 28.0712, "label": "clarity dial", "type": "control_change", "bytes": "B0 2D 7F", "channel": 0, "control": 45, "value": 127}
+{"t": 28.117, "label": "clarity dial", "type": "control_change", "bytes": "B0 2D 7F", "channel": 0, "control": 45, "value": 127}
+{"t": 32.9118, "marker": "shadows dial"}
+{"t": 34.2368, "label": "shadows dial", "type": "control_change", "bytes": "B0 2C 01", "channel": 0, "control": 44, "value": 1}
+{"t": 34.2704, "label": "shadows dial", "type": "control_change", "bytes": "B0 2C 01", "channel": 0, "control": 44, "value": 1}
+{"t": 34.2944, "label": "shadows dial", "type": "control_change", "bytes": "B0 2C 01", "channel": 0, "control": 44, "value": 1}
+{"t": 34.3243, "label": "shadows dial", "type": "control_change", "bytes": "B0 2C 01", "channel": 0, "control": 44, "value": 1}
+{"t": 34.4011, "label": "shadows dial", "type": "control_change", "bytes": "B0 2C 7F", "channel": 0, "control": 44, "value": 127}
+{"t": 34.4222, "label": "shadows dial", "type": "control_change", "bytes": "B0 2C 7F", "channel": 0, "control": 44, "value": 127}
+{"t": 34.4444, "label": "shadows dial", "type": "control_change", "bytes": "B0 2C 7F", "channel": 0, "control": 44, "value": 127}
+{"t": 34.4654, "label": "shadows dial", "type": "control_change", "bytes": "B0 2C 7F", "channel": 0, "control": 44, "value": 127}
+{"t": 34.5767, "label": "shadows dial", "type": "control_change", "bytes": "B0 2C 01", "channel": 0, "control": 44, "value": 1}
+{"t": 34.5997, "label": "shadows dial", "type": "control_change", "bytes": "B0 2C 01", "channel": 0, "control": 44, "value": 1}
+{"t": 34.7041, "label": "shadows dial", "type": "control_change", "bytes": "B0 2C 7F", "channel": 0, "control": 44, "value": 127}
+{"t": 39.394, "marker": "highlights dial"}
+{"t": 40.7268, "label": "highlights dial", "type": "control_change", "bytes": "B0 28 01", "channel": 0, "control": 40, "value": 1}
+{"t": 40.7502, "label": "highlights dial", "type": "control_change", "bytes": "B0 28 01", "channel": 0, "control": 40, "value": 1}
+{"t": 40.7728, "label": "highlights dial", "type": "control_change", "bytes": "B0 28 01", "channel": 0, "control": 40, "value": 1}
+{"t": 40.808, "label": "highlights dial", "type": "control_change", "bytes": "B0 28 01", "channel": 0, "control": 40, "value": 1}
+{"t": 40.9655, "label": "highlights dial", "type": "control_change", "bytes": "B0 28 7F", "channel": 0, "control": 40, "value": 127}
+{"t": 40.9977, "label": "highlights dial", "type": "control_change", "bytes": "B0 28 7F", "channel": 0, "control": 40, "value": 127}
+{"t": 41.044, "label": "highlights dial", "type": "control_change", "bytes": "B0 28 7F", "channel": 0, "control": 40, "value": 127}
+{"t": 44.3177, "marker": "exposure dial"}
+{"t": 45.3185, "label": "exposure dial", "type": "control_change", "bytes": "B0 21 01", "channel": 0, "control": 33, "value": 1}
+{"t": 45.3436, "label": "exposure dial", "type": "control_change", "bytes": "B0 21 01", "channel": 0, "control": 33, "value": 1}
+{"t": 45.37, "label": "exposure dial", "type": "control_change", "bytes": "B0 21 01", "channel": 0, "control": 33, "value": 1}
+{"t": 45.4081, "label": "exposure dial", "type": "control_change", "bytes": "B0 21 01", "channel": 0, "control": 33, "value": 1}
+{"t": 45.5591, "label": "exposure dial", "type": "control_change", "bytes": "B0 21 7F", "channel": 0, "control": 33, "value": 127}
+{"t": 45.6114, "label": "exposure dial", "type": "control_change", "bytes": "B0 21 7F", "channel": 0, "control": 33, "value": 127}
+{"t": 50.5545, "marker": "blacks dial"}
+{"t": 52.0299, "label": "blacks dial", "type": "control_change", "bytes": "B0 22 01", "channel": 0, "control": 34, "value": 1}
+{"t": 52.0807, "label": "blacks dial", "type": "control_change", "bytes": "B0 22 01", "channel": 0, "control": 34, "value": 1}
+{"t": 52.1071, "label": "blacks dial", "type": "control_change", "bytes": "B0 22 01", "channel": 0, "control": 34, "value": 1}
+{"t": 52.1327, "label": "blacks dial", "type": "control_change", "bytes": "B0 22 01", "channel": 0, "control": 34, "value": 1}
+{"t": 52.1859, "label": "blacks dial", "type": "control_change", "bytes": "B0 22 01", "channel": 0, "control": 34, "value": 1}
+{"t": 52.2795, "label": "blacks dial", "type": "control_change", "bytes": "B0 22 7F", "channel": 0, "control": 34, "value": 127}
+{"t": 52.3312, "label": "blacks dial", "type": "control_change", "bytes": "B0 22 7F", "channel": 0, "control": 34, "value": 127}
+{"t": 52.4091, "label": "blacks dial", "type": "control_change", "bytes": "B0 22 7F", "channel": 0, "control": 34, "value": 127}
+{"t": 55.2878, "marker": "whites dial"}
+{"t": 56.4307, "label": "whites dial", "type": "control_change", "bytes": "B0 23 01", "channel": 0, "control": 35, "value": 1}
+{"t": 56.4827, "label": "whites dial", "type": "control_change", "bytes": "B0 23 01", "channel": 0, "control": 35, "value": 1}
+{"t": 56.5011, "label": "whites dial", "type": "control_change", "bytes": "B0 23 01", "channel": 0, "control": 35, "value": 1}
+{"t": 56.5238, "label": "whites dial", "type": "control_change", "bytes": "B0 23 01", "channel": 0, "control": 35, "value": 1}
+{"t": 56.5462, "label": "whites dial", "type": "control_change", "bytes": "B0 23 01", "channel": 0, "control": 35, "value": 1}
+{"t": 56.5774, "label": "whites dial", "type": "control_change", "bytes": "B0 23 01", "channel": 0, "control": 35, "value": 1}
+{"t": 56.6122, "label": "whites dial", "type": "control_change", "bytes": "B0 23 01", "channel": 0, "control": 35, "value": 1}
+{"t": 56.7195, "label": "whites dial", "type": "control_change", "bytes": "B0 23 7F", "channel": 0, "control": 35, "value": 127}
+{"t": 56.7478, "label": "whites dial", "type": "control_change", "bytes": "B0 23 7F", "channel": 0, "control": 35, "value": 127}
+{"t": 56.7862, "label": "whites dial", "type": "control_change", "bytes": "B0 23 7F", "channel": 0, "control": 35, "value": 127}
+{"t": 56.8385, "label": "whites dial", "type": "control_change", "bytes": "B0 23 7F", "channel": 0, "control": 35, "value": 127}
+{"t": 59.6515, "marker": "D2 dial"}
+{"t": 60.9022, "label": "D2 dial", "type": "control_change", "bytes": "B0 2A 01", "channel": 0, "control": 42, "value": 1}
+{"t": 60.9349, "label": "D2 dial", "type": "control_change", "bytes": "B0 2A 01", "channel": 0, "control": 42, "value": 1}
+{"t": 60.9617, "label": "D2 dial", "type": "control_change", "bytes": "B0 2A 01", "channel": 0, "control": 42, "value": 1}
+{"t": 60.9893, "label": "D2 dial", "type": "control_change", "bytes": "B0 2A 01", "channel": 0, "control": 42, "value": 1}
+{"t": 61.0191, "label": "D2 dial", "type": "control_change", "bytes": "B0 2A 01", "channel": 0, "control": 42, "value": 1}
+{"t": 61.1868, "label": "D2 dial", "type": "control_change", "bytes": "B0 2A 7F", "channel": 0, "control": 42, "value": 127}
+{"t": 61.2255, "label": "D2 dial", "type": "control_change", "bytes": "B0 2A 7F", "channel": 0, "control": 42, "value": 127}
+{"t": 61.2669, "label": "D2 dial", "type": "control_change", "bytes": "B0 2A 7F", "channel": 0, "control": 42, "value": 127}
+{"t": 63.2779, "marker": "D1 dial"}
+{"t": 64.511, "label": "D1 dial", "type": "control_change", "bytes": "B0 29 01", "channel": 0, "control": 41, "value": 1}
+{"t": 64.5593, "label": "D1 dial", "type": "control_change", "bytes": "B0 29 01", "channel": 0, "control": 41, "value": 1}
+{"t": 64.5997, "label": "D1 dial", "type": "control_change", "bytes": "B0 29 01", "channel": 0, "control": 41, "value": 1}
+{"t": 64.6275, "label": "D1 dial", "type": "control_change", "bytes": "B0 29 01", "channel": 0, "control": 41, "value": 1}
+{"t": 64.6473, "label": "D1 dial", "type": "control_change", "bytes": "B0 29 01", "channel": 0, "control": 41, "value": 1}
+{"t": 64.6647, "label": "D1 dial", "type": "control_change", "bytes": "B0 29 01", "channel": 0, "control": 41, "value": 1}
+{"t": 64.6817, "label": "D1 dial", "type": "control_change", "bytes": "B0 29 01", "channel": 0, "control": 41, "value": 1}
+{"t": 64.8104, "label": "D1 dial", "type": "control_change", "bytes": "B0 29 7F", "channel": 0, "control": 41, "value": 127}
+{"t": 64.8392, "label": "D1 dial", "type": "control_change", "bytes": "B0 29 7F", "channel": 0, "control": 41, "value": 127}
+{"t": 64.8688, "label": "D1 dial", "type": "control_change", "bytes": "B0 29 7F", "channel": 0, "control": 41, "value": 127}
+{"t": 64.8888, "label": "D1 dial", "type": "control_change", "bytes": "B0 29 7F", "channel": 0, "control": 41, "value": 127}
+{"t": 64.9119, "label": "D1 dial", "type": "control_change", "bytes": "B0 29 7F", "channel": 0, "control": 41, "value": 127}
+{"t": 68.7576, "marker": "control dial"}
+{"t": 69.651, "label": "control dial", "type": "control_change", "bytes": "B0 30 01", "channel": 0, "control": 48, "value": 1}
+{"t": 69.6835, "label": "control dial", "type": "control_change", "bytes": "B0 30 01", "channel": 0, "control": 48, "value": 1}
+{"t": 69.718, "label": "control dial", "type": "control_change", "bytes": "B0 30 01", "channel": 0, "control": 48, "value": 1}
+{"t": 69.7574, "label": "control dial", "type": "control_change", "bytes": "B0 30 01", "channel": 0, "control": 48, "value": 1}
+{"t": 69.8139, "label": "control dial", "type": "control_change", "bytes": "B0 30 01", "channel": 0, "control": 48, "value": 1}
+{"t": 69.9842, "label": "control dial", "type": "control_change", "bytes": "B0 30 7F", "channel": 0, "control": 48, "value": 127}
+{"t": 70.0383, "label": "control dial", "type": "control_change", "bytes": "B0 30 7F", "channel": 0, "control": 48, "value": 127}
+{"t": 70.0983, "label": "control dial", "type": "control_change", "bytes": "B0 30 7F", "channel": 0, "control": 48, "value": 127}
+{"t": 70.1819, "label": "control dial", "type": "control_change", "bytes": "B0 30 7F", "channel": 0, "control": 48, "value": 127}
+{"t": 70.3084, "label": "control dial", "type": "control_change", "bytes": "B0 30 7F", "channel": 0, "control": 48, "value": 127}
+{"t": 77.8223, "marker": "temperature dial"}
+{"t": 78.8682, "label": "temperature dial", "type": "control_change", "bytes": "B0 26 01", "channel": 0, "control": 38, "value": 1}
+{"t": 78.9255, "label": "temperature dial", "type": "control_change", "bytes": "B0 26 01", "channel": 0, "control": 38, "value": 1}
+{"t": 78.9719, "label": "temperature dial", "type": "control_change", "bytes": "B0 26 01", "channel": 0, "control": 38, "value": 1}
+{"t": 78.999, "label": "temperature dial", "type": "control_change", "bytes": "B0 26 01", "channel": 0, "control": 38, "value": 1}
+{"t": 79.0218, "label": "temperature dial", "type": "control_change", "bytes": "B0 26 01", "channel": 0, "control": 38, "value": 1}
+{"t": 79.0454, "label": "temperature dial", "type": "control_change", "bytes": "B0 26 01", "channel": 0, "control": 38, "value": 1}
+{"t": 79.0776, "label": "temperature dial", "type": "control_change", "bytes": "B0 26 01", "channel": 0, "control": 38, "value": 1}
+{"t": 79.2036, "label": "temperature dial", "type": "control_change", "bytes": "B0 26 7F", "channel": 0, "control": 38, "value": 127}
+{"t": 79.2417, "label": "temperature dial", "type": "control_change", "bytes": "B0 26 7F", "channel": 0, "control": 38, "value": 127}
+{"t": 79.2801, "label": "temperature dial", "type": "control_change", "bytes": "B0 26 7F", "channel": 0, "control": 38, "value": 127}
+{"t": 79.3452, "label": "temperature dial", "type": "control_change", "bytes": "B0 26 7F", "channel": 0, "control": 38, "value": 127}
+{"t": 79.3807, "label": "temperature dial", "type": "control_change", "bytes": "B0 26 7F", "channel": 0, "control": 38, "value": 127}
+{"t": 79.4081, "label": "temperature dial", "type": "control_change", "bytes": "B0 26 7F", "channel": 0, "control": 38, "value": 127}
+{"t": 79.4346, "label": "temperature dial", "type": "control_change", "bytes": "B0 26 7F", "channel": 0, "control": 38, "value": 127}
+{"t": 84.5608, "marker": "tint dial"}
+{"t": 85.6908, "label": "tint dial", "type": "control_change", "bytes": "B0 27 01", "channel": 0, "control": 39, "value": 1}
+{"t": 85.715, "label": "tint dial", "type": "control_change", "bytes": "B0 27 01", "channel": 0, "control": 39, "value": 1}
+{"t": 85.7295, "label": "tint dial", "type": "control_change", "bytes": "B0 27 01", "channel": 0, "control": 39, "value": 1}
+{"t": 85.7447, "label": "tint dial", "type": "control_change", "bytes": "B0 27 01", "channel": 0, "control": 39, "value": 1}
+{"t": 85.7575, "label": "tint dial", "type": "control_change", "bytes": "B0 27 01", "channel": 0, "control": 39, "value": 1}
+{"t": 85.7813, "label": "tint dial", "type": "control_change", "bytes": "B0 27 01", "channel": 0, "control": 39, "value": 1}
+{"t": 85.9629, "label": "tint dial", "type": "control_change", "bytes": "B0 27 7F", "channel": 0, "control": 39, "value": 127}
+{"t": 85.9816, "label": "tint dial", "type": "control_change", "bytes": "B0 27 7F", "channel": 0, "control": 39, "value": 127}
+{"t": 85.9946, "label": "tint dial", "type": "control_change", "bytes": "B0 27 7F", "channel": 0, "control": 39, "value": 127}
+{"t": 86.0056, "label": "tint dial", "type": "control_change", "bytes": "B0 27 7F", "channel": 0, "control": 39, "value": 127}
+{"t": 86.017, "label": "tint dial", "type": "control_change", "bytes": "B0 27 7F", "channel": 0, "control": 39, "value": 127}
+{"t": 86.0299, "label": "tint dial", "type": "control_change", "bytes": "B0 27 7F", "channel": 0, "control": 39, "value": 127}
+{"t": 86.0485, "label": "tint dial", "type": "control_change", "bytes": "B0 27 7F", "channel": 0, "control": 39, "value": 127}
+{"t": 86.079, "label": "tint dial", "type": "control_change", "bytes": "B0 27 7F", "channel": 0, "control": 39, "value": 127}
+{"t": 86.1575, "label": "tint dial", "type": "control_change", "bytes": "B0 27 7F", "channel": 0, "control": 39, "value": 127}
+{"t": 89.1713, "marker": "vibrance dial"}
+{"t": 90.1717, "label": "vibrance dial", "type": "control_change", "bytes": "B0 25 01", "channel": 0, "control": 37, "value": 1}
+{"t": 90.2047, "label": "vibrance dial", "type": "control_change", "bytes": "B0 25 01", "channel": 0, "control": 37, "value": 1}
+{"t": 90.2375, "label": "vibrance dial", "type": "control_change", "bytes": "B0 25 01", "channel": 0, "control": 37, "value": 1}
+{"t": 90.2631, "label": "vibrance dial", "type": "control_change", "bytes": "B0 25 01", "channel": 0, "control": 37, "value": 1}
+{"t": 90.2849, "label": "vibrance dial", "type": "control_change", "bytes": "B0 25 01", "channel": 0, "control": 37, "value": 1}
+{"t": 90.3035, "label": "vibrance dial", "type": "control_change", "bytes": "B0 25 01", "channel": 0, "control": 37, "value": 1}
+{"t": 90.3294, "label": "vibrance dial", "type": "control_change", "bytes": "B0 25 01", "channel": 0, "control": 37, "value": 1}
+{"t": 90.3577, "label": "vibrance dial", "type": "control_change", "bytes": "B0 25 01", "channel": 0, "control": 37, "value": 1}
+{"t": 90.4962, "label": "vibrance dial", "type": "control_change", "bytes": "B0 25 7F", "channel": 0, "control": 37, "value": 127}
+{"t": 90.5283, "label": "vibrance dial", "type": "control_change", "bytes": "B0 25 7F", "channel": 0, "control": 37, "value": 127}
+{"t": 90.5565, "label": "vibrance dial", "type": "control_change", "bytes": "B0 25 7F", "channel": 0, "control": 37, "value": 127}
+{"t": 90.5849, "label": "vibrance dial", "type": "control_change", "bytes": "B0 25 7F", "channel": 0, "control": 37, "value": 127}
+{"t": 90.6127, "label": "vibrance dial", "type": "control_change", "bytes": "B0 25 7F", "channel": 0, "control": 37, "value": 127}
+{"t": 90.6407, "label": "vibrance dial", "type": "control_change", "bytes": "B0 25 7F", "channel": 0, "control": 37, "value": 127}
+{"t": 94.6397, "marker": "saturation dial"}
+{"t": 95.859, "label": "saturation dial", "type": "control_change", "bytes": "B0 24 01", "channel": 0, "control": 36, "value": 1}
+{"t": 95.8955, "label": "saturation dial", "type": "control_change", "bytes": "B0 24 01", "channel": 0, "control": 36, "value": 1}
+{"t": 95.9252, "label": "saturation dial", "type": "control_change", "bytes": "B0 24 01", "channel": 0, "control": 36, "value": 1}
+{"t": 95.9486, "label": "saturation dial", "type": "control_change", "bytes": "B0 24 01", "channel": 0, "control": 36, "value": 1}
+{"t": 95.9702, "label": "saturation dial", "type": "control_change", "bytes": "B0 24 01", "channel": 0, "control": 36, "value": 1}
+{"t": 95.9932, "label": "saturation dial", "type": "control_change", "bytes": "B0 24 01", "channel": 0, "control": 36, "value": 1}
+{"t": 96.0202, "label": "saturation dial", "type": "control_change", "bytes": "B0 24 01", "channel": 0, "control": 36, "value": 1}
+{"t": 96.0523, "label": "saturation dial", "type": "control_change", "bytes": "B0 24 01", "channel": 0, "control": 36, "value": 1}
+{"t": 96.0982, "label": "saturation dial", "type": "control_change", "bytes": "B0 24 01", "channel": 0, "control": 36, "value": 1}
+{"t": 96.2513, "label": "saturation dial", "type": "control_change", "bytes": "B0 24 7F", "channel": 0, "control": 36, "value": 127}
+{"t": 96.2877, "label": "saturation dial", "type": "control_change", "bytes": "B0 24 7F", "channel": 0, "control": 36, "value": 127}
+{"t": 96.3141, "label": "saturation dial", "type": "control_change", "bytes": "B0 24 7F", "channel": 0, "control": 36, "value": 127}
+{"t": 96.3458, "label": "saturation dial", "type": "control_change", "bytes": "B0 24 7F", "channel": 0, "control": 36, "value": 127}
+{"t": 96.3739, "label": "saturation dial", "type": "control_change", "bytes": "B0 24 7F", "channel": 0, "control": 36, "value": 127}
+{"t": 96.4084, "label": "saturation dial", "type": "control_change", "bytes": "B0 24 7F", "channel": 0, "control": 36, "value": 127}
+{"t": 96.4477, "label": "saturation dial", "type": "control_change", "bytes": "B0 24 7F", "channel": 0, "control": 36, "value": 127}
+{"t": 124.5983, "marker": "undo button"}
+{"t": 126.0632, "label": "undo button", "type": "note_on", "bytes": "90 5F 40", "channel": 0, "note": 95, "velocity": 64}
+{"t": 126.1482, "label": "undo button", "type": "note_off", "bytes": "80 5F 40", "channel": 0, "note": 95, "velocity": 64}
+{"t": 129.5652, "marker": "redo button"}
+{"t": 130.5429, "label": "redo button", "type": "note_on", "bytes": "90 60 40", "channel": 0, "note": 96, "velocity": 64}
+{"t": 130.6157, "label": "redo button", "type": "note_off", "bytes": "80 60 40", "channel": 0, "note": 96, "velocity": 64}
+{"t": 133.8208, "marker": "L1 button"}
+{"t": 134.771, "label": "L1 button", "type": "note_on", "bytes": "90 72 40", "channel": 0, "note": 114, "velocity": 64}
+{"t": 134.8795, "label": "L1 button", "type": "note_off", "bytes": "80 72 40", "channel": 0, "note": 114, "velocity": 64}
+{"t": 140.5088, "marker": "L2 button"}
+{"t": 141.4104, "label": "L2 button", "type": "note_on", "bytes": "90 73 40", "channel": 0, "note": 115, "velocity": 64}
+{"t": 141.483, "label": "L2 button", "type": "note_off", "bytes": "80 73 40", "channel": 0, "note": 115, "velocity": 64}
+{"t": 143.9685, "marker": "L3 button"}
+{"t": 145.0711, "label": "L3 button", "type": "note_on", "bytes": "90 74 40", "channel": 0, "note": 116, "velocity": 64}
+{"t": 145.1429, "label": "L3 button", "type": "note_off", "bytes": "80 74 40", "channel": 0, "note": 116, "velocity": 64}
+{"t": 148.913, "marker": "custom mode button"}
+{"t": 149.9124, "label": "custom mode button", "type": "note_on", "bytes": "90 75 40", "channel": 0, "note": 117, "velocity": 64}
+{"t": 149.985, "label": "custom mode button", "type": "note_off", "bytes": "80 75 40", "channel": 0, "note": 117, "velocity": 64}
+{"t": 154.9186, "marker": "clr/bw button"}
+{"t": 155.7082, "label": "clr/bw button", "type": "note_on", "bytes": "90 65 40", "channel": 0, "note": 101, "velocity": 64}
+{"t": 155.8054, "label": "clr/bw button", "type": "note_off", "bytes": "80 65 40", "channel": 0, "note": 101, "velocity": 64}
+{"t": 158.6904, "marker": "hue button"}
+{"t": 160.5024, "label": "hue button", "type": "note_on", "bytes": "90 62 40", "channel": 0, "note": 98, "velocity": 64}
+{"t": 160.5862, "label": "hue button", "type": "note_off", "bytes": "80 62 40", "channel": 0, "note": 98, "velocity": 64}
+{"t": 163.2084, "marker": "sat button"}
+{"t": 164.1743, "label": "sat button", "type": "note_on", "bytes": "90 63 40", "channel": 0, "note": 99, "velocity": 64}
+{"t": 164.246, "label": "sat button", "type": "note_off", "bytes": "80 63 40", "channel": 0, "note": 99, "velocity": 64}
+{"t": 166.7507, "marker": "lum button"}
+{"t": 167.7951, "label": "lum button", "type": "note_on", "bytes": "90 64 40", "channel": 0, "note": 100, "velocity": 64}
+{"t": 167.8678, "label": "lum button", "type": "note_off", "bytes": "80 64 40", "channel": 0, "note": 100, "velocity": 64}
+{"t": 173.3147, "marker": "--/col button"}
+{"t": 174.1098, "label": "--/col button", "type": "note_on", "bytes": "90 41 40", "channel": 0, "note": 65, "velocity": 64}
+{"t": 174.2071, "label": "--/col button", "type": "note_off", "bytes": "80 41 40", "channel": 0, "note": 65, "velocity": 64}
+{"t": 179.102, "marker": "shift"}
+{"t": 182.7504, "marker": "shift button"}
+{"t": 184.9895, "label": "shift button", "type": "note_on", "bytes": "90 41 40", "channel": 0, "note": 65, "velocity": 64}
+{"t": 185.0623, "label": "shift button", "type": "note_off", "bytes": "80 41 40", "channel": 0, "note": 65, "velocity": 64}
+{"t": 188.1771, "label": "shift button", "type": "note_on", "bytes": "90 42 40", "channel": 0, "note": 66, "velocity": 64}
+{"t": 188.2387, "label": "shift button", "type": "note_off", "bytes": "80 42 40", "channel": 0, "note": 66, "velocity": 64}
+{"t": 188.5652, "label": "shift button", "type": "note_on", "bytes": "90 42 40", "channel": 0, "note": 66, "velocity": 64}
+{"t": 188.6257, "label": "shift button", "type": "note_off", "bytes": "80 42 40", "channel": 0, "note": 66, "velocity": 64}
+{"t": 188.9759, "label": "shift button", "type": "note_on", "bytes": "90 42 40", "channel": 0, "note": 66, "velocity": 64}
+{"t": 189.0362, "label": "shift button", "type": "note_off", "bytes": "80 42 40", "channel": 0, "note": 66, "velocity": 64}
+{"t": 192.4121, "marker": "shift button"}
+{"t": 193.2611, "label": "shift button", "type": "note_on", "bytes": "90 42 40", "channel": 0, "note": 66, "velocity": 64}
+{"t": 193.3461, "label": "shift button", "type": "note_off", "bytes": "80 42 40", "channel": 0, "note": 66, "velocity": 64}
+{"t": 193.5407, "label": "shift button", "type": "note_on", "bytes": "90 42 40", "channel": 0, "note": 66, "velocity": 64}
+{"t": 193.6134, "label": "shift button", "type": "note_off", "bytes": "80 42 40", "channel": 0, "note": 66, "velocity": 64}
+{"t": 194.1561, "label": "shift button", "type": "note_on", "bytes": "90 42 40", "channel": 0, "note": 66, "velocity": 64}
+{"t": 194.2165, "label": "shift button", "type": "note_off", "bytes": "80 42 40", "channel": 0, "note": 66, "velocity": 64}
+{"t": 197.3498, "marker": "ctrl button"}
+{"t": 198.2613, "label": "ctrl button", "type": "note_on", "bytes": "90 43 40", "channel": 0, "note": 67, "velocity": 64}
+{"t": 198.3574, "label": "ctrl button", "type": "note_off", "bytes": "80 43 40", "channel": 0, "note": 67, "velocity": 64}
+{"t": 198.551, "label": "ctrl button", "type": "note_on", "bytes": "90 43 40", "channel": 0, "note": 67, "velocity": 64}
+{"t": 198.636, "label": "ctrl button", "type": "note_off", "bytes": "80 43 40", "channel": 0, "note": 67, "velocity": 64}
+{"t": 198.8889, "label": "ctrl button", "type": "note_on", "bytes": "90 43 40", "channel": 0, "note": 67, "velocity": 64}
+{"t": 198.9616, "label": "ctrl button", "type": "note_off", "bytes": "80 43 40", "channel": 0, "note": 67, "velocity": 64}
+{"t": 204.6078, "marker": "command button"}
+{"t": 205.3973, "label": "command button", "type": "note_on", "bytes": "90 44 40", "channel": 0, "note": 68, "velocity": 64}
+{"t": 205.4567, "label": "command button", "type": "note_off", "bytes": "80 44 40", "channel": 0, "note": 68, "velocity": 64}
+{"t": 205.603, "label": "command button", "type": "note_on", "bytes": "90 44 40", "channel": 0, "note": 68, "velocity": 64}
+{"t": 205.6758, "label": "command button", "type": "note_off", "bytes": "80 44 40", "channel": 0, "note": 68, "velocity": 64}
+{"t": 205.773, "label": "command button", "type": "note_on", "bytes": "90 44 40", "channel": 0, "note": 68, "velocity": 64}
+{"t": 205.8446, "label": "command button", "type": "note_off", "bytes": "80 44 40", "channel": 0, "note": 68, "velocity": 64}
+{"t": 207.7093, "marker": "alt button"}
+{"t": 208.888, "label": "alt button", "type": "note_on", "bytes": "90 45 40", "channel": 0, "note": 69, "velocity": 64}
+{"t": 208.9359, "label": "alt button", "type": "note_off", "bytes": "80 45 40", "channel": 0, "note": 69, "velocity": 64}
+{"t": 209.0927, "label": "alt button", "type": "note_on", "bytes": "90 45 40", "channel": 0, "note": 69, "velocity": 64}
+{"t": 209.1644, "label": "alt button", "type": "note_off", "bytes": "80 45 40", "channel": 0, "note": 69, "velocity": 64}
+{"t": 209.2852, "label": "alt button", "type": "note_on", "bytes": "90 45 40", "channel": 0, "note": 69, "velocity": 64}
+{"t": 209.358, "label": "alt button", "type": "note_off", "bytes": "80 45 40", "channel": 0, "note": 69, "velocity": 64}
+{"t": 228.0664, "marker": "tab button"}
+{"t": 228.8963, "label": "tab button", "type": "note_on", "bytes": "90 46 40", "channel": 0, "note": 70, "velocity": 64}
+{"t": 228.968, "label": "tab button", "type": "note_off", "bytes": "80 46 40", "channel": 0, "note": 70, "velocity": 64}
+{"t": 229.0877, "label": "tab button", "type": "note_on", "bytes": "90 46 40", "channel": 0, "note": 70, "velocity": 64}
+{"t": 229.1481, "label": "tab button", "type": "note_off", "bytes": "80 46 40", "channel": 0, "note": 70, "velocity": 64}
+{"t": 229.221, "label": "tab button", "type": "note_on", "bytes": "90 46 40", "channel": 0, "note": 70, "velocity": 64}
+{"t": 229.2945, "label": "tab button", "type": "note_off", "bytes": "80 46 40", "channel": 0, "note": 70, "velocity": 64}
+{"t": 231.6719, "marker": "copy button"}
+{"t": 232.5427, "label": "copy button", "type": "note_on", "bytes": "90 5C 40", "channel": 0, "note": 92, "velocity": 64}
+{"t": 232.6031, "label": "copy button", "type": "note_off", "bytes": "80 5C 40", "channel": 0, "note": 92, "velocity": 64}
+{"t": 232.7127, "label": "copy button", "type": "note_on", "bytes": "90 5C 40", "channel": 0, "note": 92, "velocity": 64}
+{"t": 232.772, "label": "copy button", "type": "note_off", "bytes": "80 5C 40", "channel": 0, "note": 92, "velocity": 64}
+{"t": 232.8683, "label": "copy button", "type": "note_on", "bytes": "90 5C 40", "channel": 0, "note": 92, "velocity": 64}
+{"t": 232.9162, "label": "copy button", "type": "note_off", "bytes": "80 5C 40", "channel": 0, "note": 92, "velocity": 64}
+{"t": 237.0533, "marker": "paste button"}
+{"t": 237.7475, "label": "paste button", "type": "note_on", "bytes": "90 5D 40", "channel": 0, "note": 93, "velocity": 64}
+{"t": 239.1483, "label": "paste button", "type": "note_off", "bytes": "80 5D 40", "channel": 0, "note": 93, "velocity": 64}
+{"t": 241.9956, "marker": "fn button"}
+{"t": 242.7946, "label": "fn button", "type": "note_on", "bytes": "90 6E 40", "channel": 0, "note": 110, "velocity": 64}
+{"t": 242.9041, "label": "fn button", "type": "note_off", "bytes": "80 6E 40", "channel": 0, "note": 110, "velocity": 64}
+{"t": 246.6811, "marker": "c1 button"}
+{"t": 247.4558, "label": "c1 button", "type": "note_on", "bytes": "90 31 40", "channel": 0, "note": 49, "velocity": 64}
+{"t": 247.5633, "label": "c1 button", "type": "note_off", "bytes": "80 31 40", "channel": 0, "note": 49, "velocity": 64}
+{"t": 249.8371, "marker": "c2 button"}
+{"t": 250.8359, "label": "c2 button", "type": "note_on", "bytes": "90 32 40", "channel": 0, "note": 50, "velocity": 64}
+{"t": 250.9198, "label": "c2 button", "type": "note_off", "bytes": "80 32 40", "channel": 0, "note": 50, "velocity": 64}
+{"t": 255.122, "marker": "P1 button"}
+{"t": 256.2465, "label": "P1 button", "type": "note_on", "bytes": "90 50 40", "channel": 0, "note": 80, "velocity": 64}
+{"t": 256.3551, "label": "P1 button", "type": "note_off", "bytes": "80 50 40", "channel": 0, "note": 80, "velocity": 64}
+{"t": 259.4152, "marker": "p2 button"}
+{"t": 260.2073, "label": "p2 button", "type": "note_on", "bytes": "90 51 40", "channel": 0, "note": 81, "velocity": 64}
+{"t": 260.3158, "label": "p2 button", "type": "note_off", "bytes": "80 51 40", "channel": 0, "note": 81, "velocity": 64}
+{"t": 262.2673, "marker": "p3 button"}
+{"t": 263.443, "label": "p3 button", "type": "note_on", "bytes": "90 52 40", "channel": 0, "note": 82, "velocity": 64}
+{"t": 263.5516, "label": "p3 button", "type": "note_off", "bytes": "80 52 40", "channel": 0, "note": 82, "velocity": 64}
+{"t": 265.6935, "marker": "p4 button"}
+{"t": 266.5835, "label": "p4 button", "type": "note_on", "bytes": "90 53 40", "channel": 0, "note": 83, "velocity": 64}
+{"t": 266.6787, "label": "p4 button", "type": "note_off", "bytes": "80 53 40", "channel": 0, "note": 83, "velocity": 64}
+{"t": 270.351, "marker": "p5 button"}
+{"t": 271.6183, "label": "p5 button", "type": "note_on", "bytes": "90 54 40", "channel": 0, "note": 84, "velocity": 64}
+{"t": 271.7034, "label": "p5 button", "type": "note_off", "bytes": "80 54 40", "channel": 0, "note": 84, "velocity": 64}
+{"t": 274.2807, "marker": "p6 button"}
+{"t": 275.7951, "label": "p6 button", "type": "note_on", "bytes": "90 55 40", "channel": 0, "note": 85, "velocity": 64}
+{"t": 275.8546, "label": "p6 button", "type": "note_off", "bytes": "80 55 40", "channel": 0, "note": 85, "velocity": 64}
+{"t": 279.951, "marker": "p7 button"}
+{"t": 280.9867, "label": "p7 button", "type": "note_on", "bytes": "90 56 40", "channel": 0, "note": 86, "velocity": 64}
+{"t": 281.0838, "label": "p7 button", "type": "note_off", "bytes": "80 56 40", "channel": 0, "note": 86, "velocity": 64}
+{"t": 283.2283, "marker": "p8 button"}
+{"t": 284.0791, "label": "p8 button", "type": "note_on", "bytes": "90 57 40", "channel": 0, "note": 87, "velocity": 64}
+{"t": 284.1505, "label": "p8 button", "type": "note_off", "bytes": "80 57 40", "channel": 0, "note": 87, "velocity": 64}
+{"t": 288.1813, "marker": "Before After button"}
+{"t": 289.0668, "label": "Before After button", "type": "note_on", "bytes": "90 66 40", "channel": 0, "note": 102, "velocity": 64}
+{"t": 289.1386, "label": "Before After button", "type": "note_off", "bytes": "80 66 40", "channel": 0, "note": 102, "velocity": 64}
+{"t": 292.7805, "marker": "screen mode button"}
+{"t": 293.5826, "label": "screen mode button", "type": "note_on", "bytes": "90 61 40", "channel": 0, "note": 97, "velocity": 64}
+{"t": 293.6306, "label": "screen mode button", "type": "note_off", "bytes": "80 61 40", "channel": 0, "note": 97, "velocity": 64}
+{"t": 296.1833, "marker": "export button"}
+{"t": 297.1079, "label": "export button", "type": "note_on", "bytes": "90 58 40", "channel": 0, "note": 88, "velocity": 64}
+{"t": 297.1808, "label": "export button", "type": "note_off", "bytes": "80 58 40", "channel": 0, "note": 88, "velocity": 64}
+{"t": 299.8498, "marker": "c5 button"}
+{"t": 301.0206, "label": "c5 button", "type": "note_on", "bytes": "90 35 40", "channel": 0, "note": 53, "velocity": 64}
+{"t": 301.1056, "label": "c5 button", "type": "note_off", "bytes": "80 35 40", "channel": 0, "note": 53, "velocity": 64}
+{"t": 303.7429, "marker": "c6 button"}
+{"t": 304.751, "label": "c6 button", "type": "note_on", "bytes": "90 36 40", "channel": 0, "note": 54, "velocity": 64}
+{"t": 304.8607, "label": "c6 button", "type": "note_off", "bytes": "80 36 40", "channel": 0, "note": 54, "velocity": 64}
+{"t": 307.555, "marker": "up arrow"}
+{"t": 308.4219, "label": "up arrow", "type": "note_on", "bytes": "90 4C 40", "channel": 0, "note": 76, "velocity": 64}
+{"t": 308.5059, "label": "up arrow", "type": "note_off", "bytes": "80 4C 40", "channel": 0, "note": 76, "velocity": 64}
+{"t": 310.5658, "marker": "down arrow"}
+{"t": 311.4539, "label": "down arrow", "type": "note_on", "bytes": "90 4D 40", "channel": 0, "note": 77, "velocity": 64}
+{"t": 311.5378, "label": "down arrow", "type": "note_off", "bytes": "80 4D 40", "channel": 0, "note": 77, "velocity": 64}
+{"t": 313.8286, "marker": "left arror"}
+{"t": 314.6303, "label": "left arror", "type": "note_on", "bytes": "90 4E 40", "channel": 0, "note": 78, "velocity": 64}
+{"t": 314.7142, "label": "left arror", "type": "note_off", "bytes": "80 4E 40", "channel": 0, "note": 78, "velocity": 64}
+{"t": 319.4975, "marker": "right arrow"}
+{"t": 320.4495, "label": "right arrow", "type": "note_on", "bytes": "90 4F 40", "channel": 0, "note": 79, "velocity": 64}
+{"t": 320.5211, "label": "right arrow", "type": "note_off", "bytes": "80 4F 40", "channel": 0, "note": 79, "velocity": 64}
+{"t": 326.7249, "marker": "control dial click"}
+{"t": 327.6449, "label": "control dial click", "type": "note_on", "bytes": "90 30 40", "channel": 0, "note": 48, "velocity": 64}
+{"t": 327.8025, "label": "control dial click", "type": "note_off", "bytes": "80 30 40", "channel": 0, "note": 48, "velocity": 64}
+{"t": 331.8443, "marker": "d1 click"}
+{"t": 333.7201, "label": "d1 click", "type": "note_on", "bytes": "90 29 40", "channel": 0, "note": 41, "velocity": 64}
+{"t": 333.8768, "label": "d1 click", "type": "note_off", "bytes": "80 29 40", "channel": 0, "note": 41, "velocity": 64}
+{"t": 337.9555, "marker": "contrast click"}
+{"t": 339.1051, "label": "contrast click", "type": "note_on", "bytes": "90 2E 40", "channel": 0, "note": 46, "velocity": 64}
+{"t": 339.2127, "label": "contrast click", "type": "note_off", "bytes": "80 2E 40", "channel": 0, "note": 46, "velocity": 64}
+{"t": 341.8948, "marker": "clarity click"}
+{"t": 343.114, "label": "clarity click", "type": "note_on", "bytes": "90 2D 40", "channel": 0, "note": 45, "velocity": 64}
+{"t": 343.2113, "label": "clarity click", "type": "note_off", "bytes": "80 2D 40", "channel": 0, "note": 45, "velocity": 64}
+{"t": 345.2135, "marker": "c3 button"}
+{"t": 346.0252, "label": "c3 button", "type": "note_on", "bytes": "90 33 40", "channel": 0, "note": 51, "velocity": 64}
+{"t": 346.0968, "label": "c3 button", "type": "note_off", "bytes": "80 33 40", "channel": 0, "note": 51, "velocity": 64}
+{"t": 349.3123, "marker": "c4 button"}
+{"t": 350.2623, "label": "c4 button", "type": "note_on", "bytes": "90 34 40", "channel": 0, "note": 52, "velocity": 64}
+{"t": 350.3596, "label": "c4 button", "type": "note_off", "bytes": "80 34 40", "channel": 0, "note": 52, "velocity": 64}
+{"t": 352.9614, "marker": "shadows click"}
+{"t": 354.0418, "label": "shadows click", "type": "note_on", "bytes": "90 2C 40", "channel": 0, "note": 44, "velocity": 64}
+{"t": 354.1514, "label": "shadows click", "type": "note_off", "bytes": "80 2C 40", "channel": 0, "note": 44, "velocity": 64}
+{"t": 359.0761, "marker": "highlights click"}
+{"t": 360.248, "label": "highlights click", "type": "note_on", "bytes": "90 28 40", "channel": 0, "note": 40, "velocity": 64}
+{"t": 360.3443, "label": "highlights click", "type": "note_off", "bytes": "80 28 40", "channel": 0, "note": 40, "velocity": 64}
+{"t": 364.5404, "marker": "temperature click"}
+{"t": 365.7068, "label": "temperature click", "type": "note_on", "bytes": "90 26 40", "channel": 0, "note": 38, "velocity": 64}
+{"t": 365.7805, "label": "temperature click", "type": "note_off", "bytes": "80 26 40", "channel": 0, "note": 38, "velocity": 64}
+{"t": 367.8429, "marker": "tint click"}
+{"t": 369.1485, "label": "tint click", "type": "note_on", "bytes": "90 27 40", "channel": 0, "note": 39, "velocity": 64}
+{"t": 369.2201, "label": "tint click", "type": "note_off", "bytes": "80 27 40", "channel": 0, "note": 39, "velocity": 64}
+{"t": 372.8897, "marker": "vibrance click"}
+{"t": 374.0031, "label": "vibrance click", "type": "note_on", "bytes": "90 25 40", "channel": 0, "note": 37, "velocity": 64}
+{"t": 374.0635, "label": "vibrance click", "type": "note_off", "bytes": "80 25 40", "channel": 0, "note": 37, "velocity": 64}
+{"t": 377.4675, "marker": "saturation click"}
+{"t": 378.5802, "label": "saturation click", "type": "note_on", "bytes": "90 24 40", "channel": 0, "note": 36, "velocity": 64}
+{"t": 378.6641, "label": "saturation click", "type": "note_off", "bytes": "80 24 40", "channel": 0, "note": 36, "velocity": 64}
+{"t": 381.6323, "marker": "exposure click"}
+{"t": 382.5993, "label": "exposure click", "type": "note_on", "bytes": "90 21 40", "channel": 0, "note": 33, "velocity": 64}
+{"t": 382.6832, "label": "exposure click", "type": "note_off", "bytes": "80 21 40", "channel": 0, "note": 33, "velocity": 64}
+{"t": 385.5631, "marker": "blacks click"}
+{"t": 386.5958, "label": "blacks click", "type": "note_on", "bytes": "90 22 40", "channel": 0, "note": 34, "velocity": 64}
+{"t": 386.6686, "label": "blacks click", "type": "note_off", "bytes": "80 22 40", "channel": 0, "note": 34, "velocity": 64}
+{"t": 391.2693, "marker": "whites click"}
+{"t": 392.3076, "label": "whites click", "type": "note_on", "bytes": "90 23 40", "channel": 0, "note": 35, "velocity": 64}
+{"t": 392.3802, "label": "whites click", "type": "note_off", "bytes": "80 23 40", "channel": 0, "note": 35, "velocity": 64}
+{"t": 394.3288, "marker": "d2 click"}
+{"t": 395.5801, "label": "d2 click", "type": "note_on", "bytes": "90 2A 40", "channel": 0, "note": 42, "velocity": 64}
+{"t": 395.6774, "label": "d2 click", "type": "note_off", "bytes": "80 2A 40", "channel": 0, "note": 42, "velocity": 64}
+{"t": 404.0831, "marker": "red dial"}
+{"t": 405.0688, "label": "red dial", "type": "control_change", "bytes": "B0 11 01", "channel": 0, "control": 17, "value": 1}
+{"t": 405.0784, "label": "red dial", "type": "control_change", "bytes": "B0 11 01", "channel": 0, "control": 17, "value": 1}
+{"t": 405.1091, "label": "red dial", "type": "control_change", "bytes": "B0 11 01", "channel": 0, "control": 17, "value": 1}
+{"t": 405.1249, "label": "red dial", "type": "control_change", "bytes": "B0 11 01", "channel": 0, "control": 17, "value": 1}
+{"t": 405.1742, "label": "red dial", "type": "control_change", "bytes": "B0 11 01", "channel": 0, "control": 17, "value": 1}
+{"t": 405.2048, "label": "red dial", "type": "control_change", "bytes": "B0 11 01", "channel": 0, "control": 17, "value": 1}
+{"t": 405.2837, "label": "red dial", "type": "control_change", "bytes": "B0 11 01", "channel": 0, "control": 17, "value": 1}
+{"t": 405.3908, "label": "red dial", "type": "control_change", "bytes": "B0 11 7F", "channel": 0, "control": 17, "value": 127}
+{"t": 405.4409, "label": "red dial", "type": "control_change", "bytes": "B0 11 7F", "channel": 0, "control": 17, "value": 127}
+{"t": 405.4597, "label": "red dial", "type": "control_change", "bytes": "B0 11 7F", "channel": 0, "control": 17, "value": 127}
+{"t": 405.508, "label": "red dial", "type": "control_change", "bytes": "B0 11 7F", "channel": 0, "control": 17, "value": 127}
+{"t": 405.5208, "label": "red dial", "type": "control_change", "bytes": "B0 11 7F", "channel": 0, "control": 17, "value": 127}
+{"t": 405.5579, "label": "red dial", "type": "control_change", "bytes": "B0 11 7F", "channel": 0, "control": 17, "value": 127}
+{"t": 405.5704, "label": "red dial", "type": "control_change", "bytes": "B0 11 7F", "channel": 0, "control": 17, "value": 127}
+{"t": 406.4107, "label": "red dial", "type": "note_on", "bytes": "90 11 40", "channel": 0, "note": 17, "velocity": 64}
+{"t": 406.6298, "label": "red dial", "type": "note_off", "bytes": "80 11 40", "channel": 0, "note": 17, "velocity": 64}
+{"t": 406.9431, "label": "red dial", "type": "note_on", "bytes": "90 11 40", "channel": 0, "note": 17, "velocity": 64}
+{"t": 407.0999, "label": "red dial", "type": "note_off", "bytes": "80 11 40", "channel": 0, "note": 17, "velocity": 64}
+{"t": 415.1381, "marker": "orange dial with click"}
+{"t": 416.2765, "label": "orange dial with click", "type": "control_change", "bytes": "B0 12 01", "channel": 0, "control": 18, "value": 1}
+{"t": 416.2829, "label": "orange dial with click", "type": "control_change", "bytes": "B0 12 01", "channel": 0, "control": 18, "value": 1}
+{"t": 416.3146, "label": "orange dial with click", "type": "control_change", "bytes": "B0 12 01", "channel": 0, "control": 18, "value": 1}
+{"t": 416.3238, "label": "orange dial with click", "type": "control_change", "bytes": "B0 12 01", "channel": 0, "control": 18, "value": 1}
+{"t": 416.3569, "label": "orange dial with click", "type": "control_change", "bytes": "B0 12 01", "channel": 0, "control": 18, "value": 1}
+{"t": 416.3699, "label": "orange dial with click", "type": "control_change", "bytes": "B0 12 01", "channel": 0, "control": 18, "value": 1}
+{"t": 416.4049, "label": "orange dial with click", "type": "control_change", "bytes": "B0 12 01", "channel": 0, "control": 18, "value": 1}
+{"t": 416.4171, "label": "orange dial with click", "type": "control_change", "bytes": "B0 12 01", "channel": 0, "control": 18, "value": 1}
+{"t": 416.4594, "label": "orange dial with click", "type": "control_change", "bytes": "B0 12 01", "channel": 0, "control": 18, "value": 1}
+{"t": 416.4734, "label": "orange dial with click", "type": "control_change", "bytes": "B0 12 01", "channel": 0, "control": 18, "value": 1}
+{"t": 416.6508, "label": "orange dial with click", "type": "control_change", "bytes": "B0 12 7F", "channel": 0, "control": 18, "value": 127}
+{"t": 416.6634, "label": "orange dial with click", "type": "control_change", "bytes": "B0 12 7F", "channel": 0, "control": 18, "value": 127}
+{"t": 416.6951, "label": "orange dial with click", "type": "control_change", "bytes": "B0 12 7F", "channel": 0, "control": 18, "value": 127}
+{"t": 416.7077, "label": "orange dial with click", "type": "control_change", "bytes": "B0 12 7F", "channel": 0, "control": 18, "value": 127}
+{"t": 416.7389, "label": "orange dial with click", "type": "control_change", "bytes": "B0 12 7F", "channel": 0, "control": 18, "value": 127}
+{"t": 416.7497, "label": "orange dial with click", "type": "control_change", "bytes": "B0 12 7F", "channel": 0, "control": 18, "value": 127}
+{"t": 416.7864, "label": "orange dial with click", "type": "control_change", "bytes": "B0 12 7F", "channel": 0, "control": 18, "value": 127}
+{"t": 416.8021, "label": "orange dial with click", "type": "control_change", "bytes": "B0 12 7F", "channel": 0, "control": 18, "value": 127}
+{"t": 417.4122, "label": "orange dial with click", "type": "note_on", "bytes": "90 12 40", "channel": 0, "note": 18, "velocity": 64}
+{"t": 417.5577, "label": "orange dial with click", "type": "note_off", "bytes": "80 12 40", "channel": 0, "note": 18, "velocity": 64}
+{"t": 424.7139, "marker": "yellow dial with click"}
+{"t": 425.8804, "label": "yellow dial with click", "type": "control_change", "bytes": "B0 13 01", "channel": 0, "control": 19, "value": 1}
+{"t": 425.8975, "label": "yellow dial with click", "type": "control_change", "bytes": "B0 13 01", "channel": 0, "control": 19, "value": 1}
+{"t": 425.9393, "label": "yellow dial with click", "type": "control_change", "bytes": "B0 13 01", "channel": 0, "control": 19, "value": 1}
+{"t": 425.9553, "label": "yellow dial with click", "type": "control_change", "bytes": "B0 13 01", "channel": 0, "control": 19, "value": 1}
+{"t": 425.9941, "label": "yellow dial with click", "type": "control_change", "bytes": "B0 13 01", "channel": 0, "control": 19, "value": 1}
+{"t": 426.007, "label": "yellow dial with click", "type": "control_change", "bytes": "B0 13 01", "channel": 0, "control": 19, "value": 1}
+{"t": 426.0437, "label": "yellow dial with click", "type": "control_change", "bytes": "B0 13 01", "channel": 0, "control": 19, "value": 1}
+{"t": 426.0544, "label": "yellow dial with click", "type": "control_change", "bytes": "B0 13 01", "channel": 0, "control": 19, "value": 1}
+{"t": 426.1, "label": "yellow dial with click", "type": "control_change", "bytes": "B0 13 01", "channel": 0, "control": 19, "value": 1}
+{"t": 426.1183, "label": "yellow dial with click", "type": "control_change", "bytes": "B0 13 01", "channel": 0, "control": 19, "value": 1}
+{"t": 426.341, "label": "yellow dial with click", "type": "control_change", "bytes": "B0 13 7F", "channel": 0, "control": 19, "value": 127}
+{"t": 426.3599, "label": "yellow dial with click", "type": "control_change", "bytes": "B0 13 7F", "channel": 0, "control": 19, "value": 127}
+{"t": 426.4063, "label": "yellow dial with click", "type": "control_change", "bytes": "B0 13 7F", "channel": 0, "control": 19, "value": 127}
+{"t": 426.4217, "label": "yellow dial with click", "type": "control_change", "bytes": "B0 13 7F", "channel": 0, "control": 19, "value": 127}
+{"t": 426.4586, "label": "yellow dial with click", "type": "control_change", "bytes": "B0 13 7F", "channel": 0, "control": 19, "value": 127}
+{"t": 426.4695, "label": "yellow dial with click", "type": "control_change", "bytes": "B0 13 7F", "channel": 0, "control": 19, "value": 127}
+{"t": 426.516, "label": "yellow dial with click", "type": "control_change", "bytes": "B0 13 7F", "channel": 0, "control": 19, "value": 127}
+{"t": 426.5423, "label": "yellow dial with click", "type": "control_change", "bytes": "B0 13 7F", "channel": 0, "control": 19, "value": 127}
+{"t": 426.8666, "label": "yellow dial with click", "type": "note_on", "bytes": "90 13 40", "channel": 0, "note": 19, "velocity": 64}
+{"t": 426.9874, "label": "yellow dial with click", "type": "note_off", "bytes": "80 13 40", "channel": 0, "note": 19, "velocity": 64}
+{"t": 432.139, "marker": "green dial with click"}
+{"t": 433.1076, "label": "green dial with click", "type": "control_change", "bytes": "B0 14 01", "channel": 0, "control": 20, "value": 1}
+{"t": 433.1257, "label": "green dial with click", "type": "control_change", "bytes": "B0 14 01", "channel": 0, "control": 20, "value": 1}
+{"t": 433.1623, "label": "green dial with click", "type": "control_change", "bytes": "B0 14 01", "channel": 0, "control": 20, "value": 1}
+{"t": 433.1779, "label": "green dial with click", "type": "control_change", "bytes": "B0 14 01", "channel": 0, "control": 20, "value": 1}
+{"t": 433.2185, "label": "green dial with click", "type": "control_change", "bytes": "B0 14 01", "channel": 0, "control": 20, "value": 1}
+{"t": 433.2351, "label": "green dial with click", "type": "control_change", "bytes": "B0 14 01", "channel": 0, "control": 20, "value": 1}
+{"t": 433.2744, "label": "green dial with click", "type": "control_change", "bytes": "B0 14 01", "channel": 0, "control": 20, "value": 1}
+{"t": 433.2876, "label": "green dial with click", "type": "control_change", "bytes": "B0 14 01", "channel": 0, "control": 20, "value": 1}
+{"t": 433.3396, "label": "green dial with click", "type": "control_change", "bytes": "B0 14 01", "channel": 0, "control": 20, "value": 1}
+{"t": 433.3684, "label": "green dial with click", "type": "control_change", "bytes": "B0 14 01", "channel": 0, "control": 20, "value": 1}
+{"t": 433.4906, "label": "green dial with click", "type": "control_change", "bytes": "B0 14 7F", "channel": 0, "control": 20, "value": 127}
+{"t": 433.5025, "label": "green dial with click", "type": "control_change", "bytes": "B0 14 7F", "channel": 0, "control": 20, "value": 127}
+{"t": 433.5453, "label": "green dial with click", "type": "control_change", "bytes": "B0 14 7F", "channel": 0, "control": 20, "value": 127}
+{"t": 433.5542, "label": "green dial with click", "type": "control_change", "bytes": "B0 14 7F", "channel": 0, "control": 20, "value": 127}
+{"t": 433.5913, "label": "green dial with click", "type": "control_change", "bytes": "B0 14 7F", "channel": 0, "control": 20, "value": 127}
+{"t": 433.6005, "label": "green dial with click", "type": "control_change", "bytes": "B0 14 7F", "channel": 0, "control": 20, "value": 127}
+{"t": 433.6335, "label": "green dial with click", "type": "control_change", "bytes": "B0 14 7F", "channel": 0, "control": 20, "value": 127}
+{"t": 433.6425, "label": "green dial with click", "type": "control_change", "bytes": "B0 14 7F", "channel": 0, "control": 20, "value": 127}
+{"t": 433.6782, "label": "green dial with click", "type": "control_change", "bytes": "B0 14 7F", "channel": 0, "control": 20, "value": 127}
+{"t": 433.685, "label": "green dial with click", "type": "control_change", "bytes": "B0 14 7F", "channel": 0, "control": 20, "value": 127}
+{"t": 434.1491, "label": "green dial with click", "type": "note_on", "bytes": "90 14 40", "channel": 0, "note": 20, "velocity": 64}
+{"t": 434.2698, "label": "green dial with click", "type": "note_off", "bytes": "80 14 40", "channel": 0, "note": 20, "velocity": 64}
+{"t": 439.1609, "marker": "light blue dial with click"}
+{"t": 440.2586, "label": "light blue dial with click", "type": "control_change", "bytes": "B0 15 01", "channel": 0, "control": 21, "value": 1}
+{"t": 440.2772, "label": "light blue dial with click", "type": "control_change", "bytes": "B0 15 01", "channel": 0, "control": 21, "value": 1}
+{"t": 440.3301, "label": "light blue dial with click", "type": "control_change", "bytes": "B0 15 01", "channel": 0, "control": 21, "value": 1}
+{"t": 440.3521, "label": "light blue dial with click", "type": "control_change", "bytes": "B0 15 01", "channel": 0, "control": 21, "value": 1}
+{"t": 440.4021, "label": "light blue dial with click", "type": "control_change", "bytes": "B0 15 01", "channel": 0, "control": 21, "value": 1}
+{"t": 440.4185, "label": "light blue dial with click", "type": "control_change", "bytes": "B0 15 01", "channel": 0, "control": 21, "value": 1}
+{"t": 440.4721, "label": "light blue dial with click", "type": "control_change", "bytes": "B0 15 01", "channel": 0, "control": 21, "value": 1}
+{"t": 440.4869, "label": "light blue dial with click", "type": "control_change", "bytes": "B0 15 01", "channel": 0, "control": 21, "value": 1}
+{"t": 440.8122, "label": "light blue dial with click", "type": "control_change", "bytes": "B0 15 7F", "channel": 0, "control": 21, "value": 127}
+{"t": 440.8246, "label": "light blue dial with click", "type": "control_change", "bytes": "B0 15 7F", "channel": 0, "control": 21, "value": 127}
+{"t": 440.8666, "label": "light blue dial with click", "type": "control_change", "bytes": "B0 15 7F", "channel": 0, "control": 21, "value": 127}
+{"t": 440.8794, "label": "light blue dial with click", "type": "control_change", "bytes": "B0 15 7F", "channel": 0, "control": 21, "value": 127}
+{"t": 440.9223, "label": "light blue dial with click", "type": "control_change", "bytes": "B0 15 7F", "channel": 0, "control": 21, "value": 127}
+{"t": 440.937, "label": "light blue dial with click", "type": "control_change", "bytes": "B0 15 7F", "channel": 0, "control": 21, "value": 127}
+{"t": 440.9847, "label": "light blue dial with click", "type": "control_change", "bytes": "B0 15 7F", "channel": 0, "control": 21, "value": 127}
+{"t": 440.9962, "label": "light blue dial with click", "type": "control_change", "bytes": "B0 15 7F", "channel": 0, "control": 21, "value": 127}
+{"t": 441.064, "label": "light blue dial with click", "type": "control_change", "bytes": "B0 15 7F", "channel": 0, "control": 21, "value": 127}
+{"t": 441.4068, "label": "light blue dial with click", "type": "control_change", "bytes": "B0 15 7F", "channel": 0, "control": 21, "value": 127}
+{"t": 441.4775, "label": "light blue dial with click", "type": "note_on", "bytes": "90 15 40", "channel": 0, "note": 21, "velocity": 64}
+{"t": 441.5861, "label": "light blue dial with click", "type": "note_off", "bytes": "80 15 40", "channel": 0, "note": 21, "velocity": 64}
+{"t": 447.4487, "marker": "blue dial with click"}
+{"t": 449.0678, "label": "blue dial with click", "type": "control_change", "bytes": "B0 15 01", "channel": 0, "control": 21, "value": 1}
+{"t": 449.094, "label": "blue dial with click", "type": "control_change", "bytes": "B0 15 01", "channel": 0, "control": 21, "value": 1}
+{"t": 449.1556, "label": "blue dial with click", "type": "control_change", "bytes": "B0 15 01", "channel": 0, "control": 21, "value": 1}
+{"t": 449.1898, "label": "blue dial with click", "type": "control_change", "bytes": "B0 15 01", "channel": 0, "control": 21, "value": 1}
+{"t": 449.2659, "label": "blue dial with click", "type": "control_change", "bytes": "B0 15 01", "channel": 0, "control": 21, "value": 1}
+{"t": 449.2856, "label": "blue dial with click", "type": "control_change", "bytes": "B0 15 01", "channel": 0, "control": 21, "value": 1}
+{"t": 449.356, "label": "blue dial with click", "type": "control_change", "bytes": "B0 15 01", "channel": 0, "control": 21, "value": 1}
+{"t": 449.3972, "label": "blue dial with click", "type": "control_change", "bytes": "B0 15 01", "channel": 0, "control": 21, "value": 1}
+{"t": 449.5888, "label": "blue dial with click", "type": "control_change", "bytes": "B0 15 7F", "channel": 0, "control": 21, "value": 127}
+{"t": 449.6091, "label": "blue dial with click", "type": "control_change", "bytes": "B0 15 7F", "channel": 0, "control": 21, "value": 127}
+{"t": 449.6704, "label": "blue dial with click", "type": "control_change", "bytes": "B0 15 7F", "channel": 0, "control": 21, "value": 127}
+{"t": 449.693, "label": "blue dial with click", "type": "control_change", "bytes": "B0 15 7F", "channel": 0, "control": 21, "value": 127}
+{"t": 449.7741, "label": "blue dial with click", "type": "control_change", "bytes": "B0 15 7F", "channel": 0, "control": 21, "value": 127}
+{"t": 449.7943, "label": "blue dial with click", "type": "control_change", "bytes": "B0 15 7F", "channel": 0, "control": 21, "value": 127}
+{"t": 449.8866, "label": "blue dial with click", "type": "control_change", "bytes": "B0 15 7F", "channel": 0, "control": 21, "value": 127}
+{"t": 449.9087, "label": "blue dial with click", "type": "control_change", "bytes": "B0 15 7F", "channel": 0, "control": 21, "value": 127}
+{"t": 450.0529, "label": "blue dial with click", "type": "control_change", "bytes": "B0 15 7F", "channel": 0, "control": 21, "value": 127}
+{"t": 450.0837, "label": "blue dial with click", "type": "control_change", "bytes": "B0 15 7F", "channel": 0, "control": 21, "value": 127}
+{"t": 460.4789, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 460.4981, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 460.5341, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 460.5485, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 460.5804, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 460.5929, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 460.638, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 460.7228, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 460.7577, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 460.7664, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 460.7935, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 460.8013, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 460.8322, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 460.8427, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 460.9528, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 460.9681, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 460.9995, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 461.0125, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 461.0467, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 461.0595, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 461.2272, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 461.2363, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 461.2662, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 461.2745, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 461.3056, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 461.314, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 461.4383, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 461.4523, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 461.4815, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 461.4939, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 461.5284, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 461.5425, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 461.7076, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 461.7193, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 461.7507, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 461.7603, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 461.789, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 461.7979, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 461.9459, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 461.9602, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 461.9941, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 462.0075, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 462.0489, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 462.0639, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 462.1999, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 462.2112, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 462.2378, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 462.2461, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 462.268, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 462.2748, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 462.3025, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 462.3107, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 462.4294, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 462.4424, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 462.4689, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 462.4806, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 462.5094, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 462.5218, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 462.5948, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 01", "channel": 0, "control": 22, "value": 1}
+{"t": 462.6598, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 462.7071, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 462.7208, "label": "blue dial with click", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 462.9728, "label": "blue dial with click", "type": "note_on", "bytes": "90 16 40", "channel": 0, "note": 22, "velocity": 64}
+{"t": 463.1171, "label": "blue dial with click", "type": "note_off", "bytes": "80 16 40", "channel": 0, "note": 22, "velocity": 64}
+{"t": 463.2973, "label": "blue dial with click", "type": "note_on", "bytes": "90 16 40", "channel": 0, "note": 22, "velocity": 64}
+{"t": 463.4058, "label": "blue dial with click", "type": "note_off", "bytes": "80 16 40", "channel": 0, "note": 22, "velocity": 64}
+{"t": 463.5881, "label": "blue dial with click", "type": "note_on", "bytes": "90 16 40", "channel": 0, "note": 22, "velocity": 64}
+{"t": 463.6977, "label": "blue dial with click", "type": "note_off", "bytes": "80 16 40", "channel": 0, "note": 22, "velocity": 64}
+{"t": 463.8657, "label": "blue dial with click", "type": "note_on", "bytes": "90 16 40", "channel": 0, "note": 22, "velocity": 64}
+{"t": 463.9496, "label": "blue dial with click", "type": "note_off", "bytes": "80 16 40", "channel": 0, "note": 22, "velocity": 64}
+{"t": 470.3153, "marker": "purple dial with click"}
+{"t": 471.2496, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 01", "channel": 0, "control": 23, "value": 1}
+{"t": 471.2805, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 01", "channel": 0, "control": 23, "value": 1}
+{"t": 471.3453, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 01", "channel": 0, "control": 23, "value": 1}
+{"t": 471.3588, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 01", "channel": 0, "control": 23, "value": 1}
+{"t": 471.3962, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 01", "channel": 0, "control": 23, "value": 1}
+{"t": 471.4066, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 01", "channel": 0, "control": 23, "value": 1}
+{"t": 471.4476, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 01", "channel": 0, "control": 23, "value": 1}
+{"t": 471.4701, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 01", "channel": 0, "control": 23, "value": 1}
+{"t": 471.5671, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 7F", "channel": 0, "control": 23, "value": 127}
+{"t": 471.5815, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 7F", "channel": 0, "control": 23, "value": 127}
+{"t": 471.6088, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 7F", "channel": 0, "control": 23, "value": 127}
+{"t": 471.6217, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 7F", "channel": 0, "control": 23, "value": 127}
+{"t": 471.6541, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 7F", "channel": 0, "control": 23, "value": 127}
+{"t": 471.6706, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 7F", "channel": 0, "control": 23, "value": 127}
+{"t": 471.8425, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 01", "channel": 0, "control": 23, "value": 1}
+{"t": 471.8522, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 01", "channel": 0, "control": 23, "value": 1}
+{"t": 471.885, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 01", "channel": 0, "control": 23, "value": 1}
+{"t": 471.897, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 01", "channel": 0, "control": 23, "value": 1}
+{"t": 471.9585, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 01", "channel": 0, "control": 23, "value": 1}
+{"t": 472.0772, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 7F", "channel": 0, "control": 23, "value": 127}
+{"t": 472.1075, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 7F", "channel": 0, "control": 23, "value": 127}
+{"t": 472.1202, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 7F", "channel": 0, "control": 23, "value": 127}
+{"t": 472.1478, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 7F", "channel": 0, "control": 23, "value": 127}
+{"t": 472.1591, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 7F", "channel": 0, "control": 23, "value": 127}
+{"t": 472.1874, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 7F", "channel": 0, "control": 23, "value": 127}
+{"t": 472.199, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 7F", "channel": 0, "control": 23, "value": 127}
+{"t": 472.2399, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 7F", "channel": 0, "control": 23, "value": 127}
+{"t": 472.3021, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 01", "channel": 0, "control": 23, "value": 1}
+{"t": 472.3292, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 01", "channel": 0, "control": 23, "value": 1}
+{"t": 472.3374, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 01", "channel": 0, "control": 23, "value": 1}
+{"t": 472.3681, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 01", "channel": 0, "control": 23, "value": 1}
+{"t": 472.3782, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 01", "channel": 0, "control": 23, "value": 1}
+{"t": 472.4236, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 01", "channel": 0, "control": 23, "value": 1}
+{"t": 472.5246, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 7F", "channel": 0, "control": 23, "value": 127}
+{"t": 472.5616, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 7F", "channel": 0, "control": 23, "value": 127}
+{"t": 472.5778, "label": "purple dial with click", "type": "control_change", "bytes": "B0 17 7F", "channel": 0, "control": 23, "value": 127}
+{"t": 472.897, "label": "purple dial with click", "type": "note_on", "bytes": "90 17 40", "channel": 0, "note": 23, "velocity": 64}
+{"t": 473.0056, "label": "purple dial with click", "type": "note_off", "bytes": "80 17 40", "channel": 0, "note": 23, "velocity": 64}
+{"t": 477.575, "marker": "dark red dial with click"}
+{"t": 478.5022, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 01", "channel": 0, "control": 24, "value": 1}
+{"t": 478.5197, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 01", "channel": 0, "control": 24, "value": 1}
+{"t": 478.5526, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 01", "channel": 0, "control": 24, "value": 1}
+{"t": 478.5642, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 01", "channel": 0, "control": 24, "value": 1}
+{"t": 478.5949, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 01", "channel": 0, "control": 24, "value": 1}
+{"t": 478.6108, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 01", "channel": 0, "control": 24, "value": 1}
+{"t": 478.7226, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 7F", "channel": 0, "control": 24, "value": 127}
+{"t": 478.7324, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 7F", "channel": 0, "control": 24, "value": 127}
+{"t": 478.7553, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 7F", "channel": 0, "control": 24, "value": 127}
+{"t": 478.7638, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 7F", "channel": 0, "control": 24, "value": 127}
+{"t": 478.7867, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 7F", "channel": 0, "control": 24, "value": 127}
+{"t": 478.7954, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 7F", "channel": 0, "control": 24, "value": 127}
+{"t": 478.9277, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 01", "channel": 0, "control": 24, "value": 1}
+{"t": 478.9384, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 01", "channel": 0, "control": 24, "value": 1}
+{"t": 478.9631, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 01", "channel": 0, "control": 24, "value": 1}
+{"t": 478.9739, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 01", "channel": 0, "control": 24, "value": 1}
+{"t": 479.0046, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 01", "channel": 0, "control": 24, "value": 1}
+{"t": 479.0207, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 01", "channel": 0, "control": 24, "value": 1}
+{"t": 479.1498, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 7F", "channel": 0, "control": 24, "value": 127}
+{"t": 479.1617, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 7F", "channel": 0, "control": 24, "value": 127}
+{"t": 479.1872, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 7F", "channel": 0, "control": 24, "value": 127}
+{"t": 479.1961, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 7F", "channel": 0, "control": 24, "value": 127}
+{"t": 479.2177, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 7F", "channel": 0, "control": 24, "value": 127}
+{"t": 479.2259, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 7F", "channel": 0, "control": 24, "value": 127}
+{"t": 479.364, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 01", "channel": 0, "control": 24, "value": 1}
+{"t": 479.3741, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 01", "channel": 0, "control": 24, "value": 1}
+{"t": 479.4007, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 01", "channel": 0, "control": 24, "value": 1}
+{"t": 479.4119, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 01", "channel": 0, "control": 24, "value": 1}
+{"t": 479.4502, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 01", "channel": 0, "control": 24, "value": 1}
+{"t": 479.4787, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 01", "channel": 0, "control": 24, "value": 1}
+{"t": 479.5529, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 7F", "channel": 0, "control": 24, "value": 127}
+{"t": 479.5668, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 7F", "channel": 0, "control": 24, "value": 127}
+{"t": 479.6126, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 7F", "channel": 0, "control": 24, "value": 127}
+{"t": 479.6376, "label": "dark red dial with click", "type": "control_change", "bytes": "B0 18 7F", "channel": 0, "control": 24, "value": 127}
+{"t": 479.8887, "label": "dark red dial with click", "type": "note_on", "bytes": "90 18 40", "channel": 0, "note": 24, "velocity": 64}
+{"t": 479.9972, "label": "dark red dial with click", "type": "note_off", "bytes": "80 18 40", "channel": 0, "note": 24, "velocity": 64}
+{"t": 480.1671, "label": "dark red dial with click", "type": "note_on", "bytes": "90 18 40", "channel": 0, "note": 24, "velocity": 64}
+{"t": 480.2522, "label": "dark red dial with click", "type": "note_off", "bytes": "80 18 40", "channel": 0, "note": 24, "velocity": 64}
+{"t": 480.4089, "label": "dark red dial with click", "type": "note_on", "bytes": "90 18 40", "channel": 0, "note": 24, "velocity": 64}
+{"t": 480.4805, "label": "dark red dial with click", "type": "note_off", "bytes": "80 18 40", "channel": 0, "note": 24, "velocity": 64}
+{"t": 730.4607, "marker": "control dial"}
+{"t": 731.8418, "label": "control dial", "type": "control_change", "bytes": "B0 30 01", "channel": 0, "control": 48, "value": 1}
+{"t": 732.0965, "label": "control dial", "type": "control_change", "bytes": "B0 30 01", "channel": 0, "control": 48, "value": 1}
+{"t": 732.9801, "label": "control dial", "type": "control_change", "bytes": "B0 30 7F", "channel": 0, "control": 48, "value": 127}
+{"t": 733.2075, "label": "control dial", "type": "control_change", "bytes": "B0 30 7F", "channel": 0, "control": 48, "value": 127}
+{"t": 733.4471, "label": "control dial", "type": "control_change", "bytes": "B0 30 7F", "channel": 0, "control": 48, "value": 127}
+{"t": 733.5181, "label": "control dial", "type": "control_change", "bytes": "B0 30 7F", "channel": 0, "control": 48, "value": 127}
+{"t": 734.2093, "label": "control dial", "type": "control_change", "bytes": "B0 30 7F", "channel": 0, "control": 48, "value": 127}
+{"t": 734.891, "label": "control dial", "type": "note_on", "bytes": "90 30 40", "channel": 0, "note": 48, "velocity": 64}
+{"t": 735.0732, "label": "control dial", "type": "note_off", "bytes": "80 30 40", "channel": 0, "note": 48, "velocity": 64}
+{"t": 737.6096, "label": "control dial", "type": "note_on", "bytes": "90 30 40", "channel": 0, "note": 48, "velocity": 64}
+{"t": 737.8134, "label": "control dial", "type": "note_off", "bytes": "80 30 40", "channel": 0, "note": 48, "velocity": 64}
+{"t": 741.0921, "marker": "d1 dial"}
+{"t": 742.791, "label": "d1 dial", "type": "control_change", "bytes": "B0 29 01", "channel": 0, "control": 41, "value": 1}
+{"t": 742.9269, "label": "d1 dial", "type": "control_change", "bytes": "B0 29 01", "channel": 0, "control": 41, "value": 1}
+{"t": 743.0462, "label": "d1 dial", "type": "control_change", "bytes": "B0 29 01", "channel": 0, "control": 41, "value": 1}
+{"t": 743.1567, "label": "d1 dial", "type": "control_change", "bytes": "B0 29 01", "channel": 0, "control": 41, "value": 1}
+{"t": 743.2602, "label": "d1 dial", "type": "control_change", "bytes": "B0 29 01", "channel": 0, "control": 41, "value": 1}
+{"t": 743.361, "label": "d1 dial", "type": "control_change", "bytes": "B0 29 01", "channel": 0, "control": 41, "value": 1}
+{"t": 744.0247, "label": "d1 dial", "type": "control_change", "bytes": "B0 29 7F", "channel": 0, "control": 41, "value": 127}
+{"t": 744.1869, "label": "d1 dial", "type": "control_change", "bytes": "B0 29 7F", "channel": 0, "control": 41, "value": 127}
+{"t": 744.3231, "label": "d1 dial", "type": "control_change", "bytes": "B0 29 7F", "channel": 0, "control": 41, "value": 127}
+{"t": 744.4472, "label": "d1 dial", "type": "control_change", "bytes": "B0 29 7F", "channel": 0, "control": 41, "value": 127}
+{"t": 744.5423, "label": "d1 dial", "type": "control_change", "bytes": "B0 29 7F", "channel": 0, "control": 41, "value": 127}
+{"t": 744.6664, "label": "d1 dial", "type": "control_change", "bytes": "B0 29 7F", "channel": 0, "control": 41, "value": 127}
+{"t": 745.6498, "label": "d1 dial", "type": "note_on", "bytes": "90 29 40", "channel": 0, "note": 41, "velocity": 64}
+{"t": 745.8444, "label": "d1 dial", "type": "note_off", "bytes": "80 29 40", "channel": 0, "note": 41, "velocity": 64}
+{"t": 751.4408, "marker": "contrast dial"}
+{"t": 753.3833, "label": "contrast dial", "type": "control_change", "bytes": "B0 2E 01", "channel": 0, "control": 46, "value": 1}
+{"t": 753.5336, "label": "contrast dial", "type": "control_change", "bytes": "B0 2E 01", "channel": 0, "control": 46, "value": 1}
+{"t": 753.6822, "label": "contrast dial", "type": "control_change", "bytes": "B0 2E 01", "channel": 0, "control": 46, "value": 1}
+{"t": 753.8635, "label": "contrast dial", "type": "control_change", "bytes": "B0 2E 01", "channel": 0, "control": 46, "value": 1}
+{"t": 754.1417, "label": "contrast dial", "type": "control_change", "bytes": "B0 2E 7F", "channel": 0, "control": 46, "value": 127}
+{"t": 754.3088, "label": "contrast dial", "type": "control_change", "bytes": "B0 2E 7F", "channel": 0, "control": 46, "value": 127}
+{"t": 754.4298, "label": "contrast dial", "type": "control_change", "bytes": "B0 2E 7F", "channel": 0, "control": 46, "value": 127}
+{"t": 755.0452, "label": "contrast dial", "type": "control_change", "bytes": "B0 2E 01", "channel": 0, "control": 46, "value": 1}
+{"t": 755.1726, "label": "contrast dial", "type": "control_change", "bytes": "B0 2E 01", "channel": 0, "control": 46, "value": 1}
+{"t": 755.3023, "label": "contrast dial", "type": "control_change", "bytes": "B0 2E 01", "channel": 0, "control": 46, "value": 1}
+{"t": 755.8698, "label": "contrast dial", "type": "control_change", "bytes": "B0 2E 7F", "channel": 0, "control": 46, "value": 127}
+{"t": 756.0243, "label": "contrast dial", "type": "control_change", "bytes": "B0 2E 7F", "channel": 0, "control": 46, "value": 127}
+{"t": 818.1791, "marker": "test ignore this"}
+{"t": 819.5423, "label": "test ignore this", "type": "control_change", "bytes": "B0 11 01", "channel": 0, "control": 17, "value": 1}
+{"t": 819.5796, "label": "test ignore this", "type": "control_change", "bytes": "B0 11 01", "channel": 0, "control": 17, "value": 1}
+{"t": 820.249, "label": "test ignore this", "type": "control_change", "bytes": "B0 11 7F", "channel": 0, "control": 17, "value": 127}
+{"t": 820.3573, "label": "test ignore this", "type": "control_change", "bytes": "B0 11 7F", "channel": 0, "control": 17, "value": 127}
+{"t": 820.702, "label": "test ignore this", "type": "control_change", "bytes": "B0 12 01", "channel": 0, "control": 18, "value": 1}
+{"t": 820.7234, "label": "test ignore this", "type": "control_change", "bytes": "B0 12 01", "channel": 0, "control": 18, "value": 1}
+{"t": 821.0486, "label": "test ignore this", "type": "control_change", "bytes": "B0 12 7F", "channel": 0, "control": 18, "value": 127}
+{"t": 821.0831, "label": "test ignore this", "type": "control_change", "bytes": "B0 12 7F", "channel": 0, "control": 18, "value": 127}
+{"t": 821.4616, "label": "test ignore this", "type": "control_change", "bytes": "B0 13 7F", "channel": 0, "control": 19, "value": 127}
+{"t": 821.4788, "label": "test ignore this", "type": "control_change", "bytes": "B0 13 7F", "channel": 0, "control": 19, "value": 127}
+{"t": 821.8363, "label": "test ignore this", "type": "control_change", "bytes": "B0 14 7F", "channel": 0, "control": 20, "value": 127}
+{"t": 821.8539, "label": "test ignore this", "type": "control_change", "bytes": "B0 14 7F", "channel": 0, "control": 20, "value": 127}
+{"t": 822.2875, "label": "test ignore this", "type": "control_change", "bytes": "B0 15 7F", "channel": 0, "control": 21, "value": 127}
+{"t": 822.3187, "label": "test ignore this", "type": "control_change", "bytes": "B0 15 7F", "channel": 0, "control": 21, "value": 127}
+{"t": 824.4654, "label": "test ignore this", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 824.538, "label": "test ignore this", "type": "control_change", "bytes": "B0 16 7F", "channel": 0, "control": 22, "value": 127}
+{"t": 825.1062, "label": "test ignore this", "type": "control_change", "bytes": "B0 17 7F", "channel": 0, "control": 23, "value": 127}
+{"t": 825.1735, "label": "test ignore this", "type": "control_change", "bytes": "B0 17 7F", "channel": 0, "control": 23, "value": 127}
+{"t": 825.7871, "label": "test ignore this", "type": "control_change", "bytes": "B0 18 7F", "channel": 0, "control": 24, "value": 127}
+{"t": 825.8156, "label": "test ignore this", "type": "control_change", "bytes": "B0 18 7F", "channel": 0, "control": 24, "value": 127}
+{"t": 827.5707, "label": "test ignore this", "type": "control_change", "bytes": "B0 2A 01", "channel": 0, "control": 42, "value": 1}
+{"t": 827.6305, "label": "test ignore this", "type": "control_change", "bytes": "B0 2A 01", "channel": 0, "control": 42, "value": 1}
+{"t": 827.6946, "label": "test ignore this", "type": "control_change", "bytes": "B0 2A 01", "channel": 0, "control": 42, "value": 1}
+{"t": 827.9669, "label": "test ignore this", "type": "control_change", "bytes": "B0 2A 7F", "channel": 0, "control": 42, "value": 127}
+{"t": 828.0715, "label": "test ignore this", "type": "control_change", "bytes": "B0 2A 7F", "channel": 0, "control": 42, "value": 127}
+{"t": 829.8513, "label": "test ignore this", "type": "control_change", "bytes": "B0 23 01", "channel": 0, "control": 35, "value": 1}
+{"t": 829.9412, "label": "test ignore this", "type": "control_change", "bytes": "B0 23 01", "channel": 0, "control": 35, "value": 1}
+{"t": 830.0365, "label": "test ignore this", "type": "control_change", "bytes": "B0 23 01", "channel": 0, "control": 35, "value": 1}
+{"t": 830.2175, "label": "test ignore this", "type": "control_change", "bytes": "B0 23 7F", "channel": 0, "control": 35, "value": 127}
+{"t": 830.934, "label": "test ignore this", "type": "control_change", "bytes": "B0 22 01", "channel": 0, "control": 34, "value": 1}
+{"t": 831.0802, "label": "test ignore this", "type": "control_change", "bytes": "B0 22 01", "channel": 0, "control": 34, "value": 1}
+{"t": 831.1701, "label": "test ignore this", "type": "control_change", "bytes": "B0 22 01", "channel": 0, "control": 34, "value": 1}
+{"t": 831.3126, "label": "test ignore this", "type": "control_change", "bytes": "B0 22 7F", "channel": 0, "control": 34, "value": 127}
+{"t": 831.3727, "label": "test ignore this", "type": "control_change", "bytes": "B0 22 7F", "channel": 0, "control": 34, "value": 127}

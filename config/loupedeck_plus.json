@@ -1,0 +1,56 @@
+{
+  "_about": "Loupedeck+ MIDI hardware map (what each physical control sends). Lightroom actions live in a separate mapping file.",
+  "_source": "captures/raw-20261116-001458.jsonl (labelled); unknown_dials from captures/raw-20261116-001310.jsonl (unlabelled)",
+  "_encoding": {
+    "channel": 0,
+    "dial_turn": "control_change on the dial's number: value 1 = one detent clockwise, 127 = one detent counter-clockwise (two's complement -1). Never any other value, so no hardware acceleration.",
+    "press": "note_on velocity 64 on press, note_off velocity 64 on release. Velocity is constant, so presses are not pressure-sensitive; hold time is measurable.",
+    "dial_click": "a dial's click is a note with the same number as its CC"
+  },
+  "_hsl_names": "The 8 colour dials follow Lightroom's HSL order: user's 'light blue' = aqua, 'dark red' = magenta.",
+
+  "dials": {
+    "exposure": 33,
+    "blacks": 34,
+    "whites": 35,
+    "saturation": 36,
+    "vibrance": 37,
+    "temperature": 38,
+    "tint": 39,
+    "highlights": 40,
+    "d1": 41,
+    "d2": 42,
+    "shadows": 44,
+    "clarity": 45,
+    "contrast": 46,
+    "control": 48
+  },
+
+  "colour_dials": {
+    "_note": "The 8 colour dials change number with the colour mode: the lit HUE/SAT/LUM button, or B&W mode (clr/bw button; all three lights off). The device tracks the mode itself, so the number alone gives mode + colour. Click = note with the same number (all 32 seen). Re-pressing the lit mode button keeps the same bank (radio-style, no 'off'). Sources: captures/raw-20261116-003148.jsonl, raw-20261116-003645.jsonl, raw-20261116-003937.jsonl.",
+    "hue": {"red": 1, "orange": 2, "yellow": 3, "green": 4, "aqua": 5, "blue": 6, "purple": 7, "magenta": 8},
+    "sat": {"red": 9, "orange": 10, "yellow": 11, "green": 12, "aqua": 13, "blue": 14, "purple": 15, "magenta": 16},
+    "lum": {"red": 17, "orange": 18, "yellow": 19, "green": 20, "aqua": 21, "blue": 22, "purple": 23, "magenta": 24},
+    "bw":  {"red": 25, "orange": 26, "yellow": 27, "green": 28, "aqua": 29, "blue": 30, "purple": 31, "magenta": 32}
+  },
+
+  "buttons": {
+    "c1": 49, "c2": 50, "c3": 51, "c4": 52, "c5": 53, "c6": 54,
+    "col": 65,
+    "shift": 66, "ctrl": 67, "command": 68, "alt": 69, "tab": 70,
+    "up": 76, "down": 77, "left": 78, "right": 79,
+    "p1": 80, "p2": 81, "p3": 82, "p4": 83, "p5": 84, "p6": 85, "p7": 86, "p8": 87,
+    "export": 88,
+    "copy": 92, "paste": 93,
+    "undo": 95, "redo": 96,
+    "screen_mode": 97,
+    "hue": 98, "sat": 99, "lum": 100,
+    "clr_bw": 101,
+    "before_after": 102,
+    "fn": 110,
+    "l1": 114, "l2": 115, "l3": 116,
+    "custom_mode": 117
+  },
+
+  "_never_seen": "CC 43 and 47 (gaps in the tone-dial range) never appeared in any capture; probably unused."
+}

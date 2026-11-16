@@ -1,0 +1,47 @@
+{"t": 20.0733, "marker": "hue mode button"}
+{"t": 21.2456, "label": "hue mode button", "type": "note_on", "bytes": "90 62 40", "channel": 0, "note": 98, "velocity": 64}
+{"t": 21.3653, "label": "hue mode button", "type": "note_off", "bytes": "80 62 40", "channel": 0, "note": 98, "velocity": 64}
+{"t": 45.4932, "label": "hue mode button", "type": "note_on", "bytes": "90 62 40", "channel": 0, "note": 98, "velocity": 64}
+{"t": 45.5647, "label": "hue mode button", "type": "note_off", "bytes": "80 62 40", "channel": 0, "note": 98, "velocity": 64}
+{"t": 66.7575, "marker": "yellow dial"}
+{"t": 67.9025, "label": "yellow dial", "type": "control_change", "bytes": "B0 03 01", "channel": 0, "control": 3, "value": 1}
+{"t": 67.9163, "label": "yellow dial", "type": "control_change", "bytes": "B0 03 01", "channel": 0, "control": 3, "value": 1}
+{"t": 67.9548, "label": "yellow dial", "type": "control_change", "bytes": "B0 03 01", "channel": 0, "control": 3, "value": 1}
+{"t": 67.9684, "label": "yellow dial", "type": "control_change", "bytes": "B0 03 01", "channel": 0, "control": 3, "value": 1}
+{"t": 68.0096, "label": "yellow dial", "type": "control_change", "bytes": "B0 03 01", "channel": 0, "control": 3, "value": 1}
+{"t": 68.0239, "label": "yellow dial", "type": "control_change", "bytes": "B0 03 01", "channel": 0, "control": 3, "value": 1}
+{"t": 68.0678, "label": "yellow dial", "type": "control_change", "bytes": "B0 03 01", "channel": 0, "control": 3, "value": 1}
+{"t": 68.0887, "label": "yellow dial", "type": "control_change", "bytes": "B0 03 01", "channel": 0, "control": 3, "value": 1}
+{"t": 68.2979, "label": "yellow dial", "type": "control_change", "bytes": "B0 03 7F", "channel": 0, "control": 3, "value": 127}
+{"t": 68.3204, "label": "yellow dial", "type": "control_change", "bytes": "B0 03 7F", "channel": 0, "control": 3, "value": 127}
+{"t": 68.4023, "label": "yellow dial", "type": "control_change", "bytes": "B0 03 7F", "channel": 0, "control": 3, "value": 127}
+{"t": 68.4456, "label": "yellow dial", "type": "control_change", "bytes": "B0 03 7F", "channel": 0, "control": 3, "value": 127}
+{"t": 68.8806, "label": "yellow dial", "type": "note_on", "bytes": "90 03 40", "channel": 0, "note": 3, "velocity": 64}
+{"t": 69.0505, "label": "yellow dial", "type": "note_off", "bytes": "80 03 40", "channel": 0, "note": 3, "velocity": 64}
+{"t": 73.8575, "marker": "sat mode button"}
+{"t": 74.6528, "label": "sat mode button", "type": "note_on", "bytes": "90 63 40", "channel": 0, "note": 99, "velocity": 64}
+{"t": 74.8227, "label": "sat mode button", "type": "note_off", "bytes": "80 63 40", "channel": 0, "note": 99, "velocity": 64}
+{"t": 75.3296, "label": "sat mode button", "type": "note_on", "bytes": "90 63 40", "channel": 0, "note": 99, "velocity": 64}
+{"t": 75.4873, "label": "sat mode button", "type": "note_off", "bytes": "80 63 40", "channel": 0, "note": 99, "velocity": 64}
+{"t": 81.0327, "marker": "sat mode yellow"}
+{"t": 81.9751, "label": "sat mode yellow", "type": "control_change", "bytes": "B0 0B 01", "channel": 0, "control": 11, "value": 1}
+{"t": 81.9859, "label": "sat mode yellow", "type": "control_change", "bytes": "B0 0B 01", "channel": 0, "control": 11, "value": 1}
+{"t": 82.0145, "label": "sat mode yellow", "type": "control_change", "bytes": "B0 0B 01", "channel": 0, "control": 11, "value": 1}
+{"t": 82.0232, "label": "sat mode yellow", "type": "control_change", "bytes": "B0 0B 01", "channel": 0, "control": 11, "value": 1}
+{"t": 82.0539, "label": "sat mode yellow", "type": "control_change", "bytes": "B0 0B 01", "channel": 0, "control": 11, "value": 1}
+{"t": 82.0695, "label": "sat mode yellow", "type": "control_change", "bytes": "B0 0B 01", "channel": 0, "control": 11, "value": 1}
+{"t": 82.1103, "label": "sat mode yellow", "type": "control_change", "bytes": "B0 0B 01", "channel": 0, "control": 11, "value": 1}
+{"t": 82.1278, "label": "sat mode yellow", "type": "control_change", "bytes": "B0 0B 01", "channel": 0, "control": 11, "value": 1}
+{"t": 82.1769, "label": "sat mode yellow", "type": "control_change", "bytes": "B0 0B 01", "channel": 0, "control": 11, "value": 1}
+{"t": 82.1965, "label": "sat mode yellow", "type": "control_change", "bytes": "B0 0B 01", "channel": 0, "control": 11, "value": 1}
+{"t": 82.3311, "label": "sat mode yellow", "type": "control_change", "bytes": "B0 0B 7F", "channel": 0, "control": 11, "value": 127}
+{"t": 82.3419, "label": "sat mode yellow", "type": "control_change", "bytes": "B0 0B 7F", "channel": 0, "control": 11, "value": 127}
+{"t": 82.3741, "label": "sat mode yellow", "type": "control_change", "bytes": "B0 0B 7F", "channel": 0, "control": 11, "value": 127}
+{"t": 82.3851, "label": "sat mode yellow", "type": "control_change", "bytes": "B0 0B 7F", "channel": 0, "control": 11, "value": 127}
+{"t": 82.4251, "label": "sat mode yellow", "type": "control_change", "bytes": "B0 0B 7F", "channel": 0, "control": 11, "value": 127}
+{"t": 82.4399, "label": "sat mode yellow", "type": "control_change", "bytes": "B0 0B 7F", "channel": 0, "control": 11, "value": 127}
+{"t": 82.8035, "label": "sat mode yellow", "type": "note_on", "bytes": "90 0B 40", "channel": 0, "note": 11, "velocity": 64}
+{"t": 82.9724, "label": "sat mode yellow", "type": "note_off", "bytes": "80 0B 40", "channel": 0, "note": 11, "velocity": 64}
+{"t": 90.882, "marker": "testing --/col button"}
+{"t": 91.9322, "label": "testing --/col button", "type": "note_on", "bytes": "90 41 40", "channel": 0, "note": 65, "velocity": 64}
+{"t": 92.0663, "label": "testing --/col button", "type": "note_off", "bytes": "80 41 40", "channel": 0, "note": 65, "velocity": 64}
