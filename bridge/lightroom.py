@@ -64,6 +64,16 @@ class Lightroom:
         self._reader = asyncio.create_task(self._read_loop())
         log.info("connected to %s", url)
 
+    @property
+    def connected(self) -> bool:
+        """True while the socket is open and replies are being read."""
+        return self._reader is not None and not self._reader.done()
+
+    async def wait_closed(self) -> None:
+        """Return once the connection has ended, for whatever reason."""
+        if self._reader is not None:
+            await asyncio.gather(self._reader, return_exceptions=True)
+
     async def close(self) -> None:
         if self.ws is not None:
             await self.ws.close()
