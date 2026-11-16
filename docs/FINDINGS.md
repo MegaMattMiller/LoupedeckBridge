@@ -84,6 +84,20 @@ From [`tools/lr_verify_writes.py`](../tools/lr_verify_writes.py) on a test photo
 - **The first launch also needs Documents access:** the repo, and so the venv, lives in `~/Documents`, which macOS protects per app. Python blocks during startup until "LoupedeckBridge would like to access files in your Documents folder" is answered, with no log output until then. A packaged release (code inside the app bundle) won't need this.
 - An ad-hoc signature changes when the launcher is rebuilt, so macOS may ask again after `tools/build_mac_app.sh`. Editing the Python code never needs a rebuild.
 
+## Milestone 2 live check (keyboard keys, 2026-11-16)
+All passed after two fixes, running as LoupedeckBridge.app:
+- Alt-drag shows the clipping view. Shift/Cmd-click selects in the grid. Loupedeck Shift + a real key types uppercase.
+- Arrows work, and repeat when held. **Tab shows/hides the right panel**, the same as the real keyboard's Tab (not "keyboard focus", as the shortcut file suggested).
+- Before/After (`\`) shows the original, and screen mode (`f`) goes full screen. Both also go to whichever app is in front.
+- No stuck keys after unplugging while holding Shift, or `bridgectl stop` while holding Cmd.
+- Dials and buttons all work from the app. No extra Input Monitoring prompt appeared.
+
+**Fix 1: synthetic modifiers vanish under real input.** Every real mouse or keyboard event carries the *physical* keyboard's modifier flags, and macOS resets its modifier state to match. Recording `CGEventSourceFlagsState` showed a Loupedeck Alt held in both the session and HID state, then dropped from both 1.1 s in, as soon as the mouse moved. **Fixed** with an active event tap (`bridge/platform/macos_tap.py`) that adds the held Loupedeck modifiers to real mouse and keyboard events.
+
+**Fix 2: stale personal mapping.** A `mapping.json` created from an older default never picked up new defaults (Before/After and screen mode stayed "none"). **Fixed:** `mapping.base.json` records the default a mapping started from. Unedited mappings follow new defaults; edited ones are kept, with a notice.
+
+**Lightroom blocks every client while an Allow dialog is open:** WebSocket handshakes time out until it's answered. A stray test bridge triggered one; the tests now pin `--lightroom-port` and kill every process they start.
+
 ## API notes the handoff didn't capture
 - **How object handles come about:** `addAdjustmentChangeObserver(param?)` and `addHapticsObserver()` return a GUID/object. Later notifications arrive as extra responses for that same original `requestId` (this is the "one request, many responses" case). Call `close` on the handle when done.
 - **Tracking:** `startTracking(param)` turns itself off **2 s** after the last change, or as soon as a *different* parameter is adjusted. `stopTracking()` commits **one** history state. `setMultipleAdjustmentThreshold` defaults to **0.5 s** and has no effect if it's larger than the tracking delay.

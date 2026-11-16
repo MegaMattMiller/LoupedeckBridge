@@ -66,7 +66,9 @@ Only one bridge runs at a time: a second one, e.g. from a terminal, refuses to s
 Keys go to whichever app is in front, like a second keyboard.
 - Before/After sends `\` (Lightroom's Show Original).
 - Screen mode sends `f` (Full Screen Loupe).
+- Tab shows and hides the right panel.
 - Tab and the arrows repeat while held.
+- A held Loupedeck Shift/Ctrl/Alt/Cmd also applies to your real mouse and keyboard, e.g. Alt-drag a slider or Shift-click photos.
 
 ## Roadmap
 
