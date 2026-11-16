@@ -19,6 +19,8 @@ def main() -> None:
     ap = argparse.ArgumentParser(prog="python -m bridge", description="Loupedeck+ → Lightroom bridge")
     ap.add_argument("--debug", action="store_true", help="verbose log plus a Lightroom frame log (GUID redacted)")
     ap.add_argument("--midi-port", default="Loupedeck", help="part of the Loupedeck's MIDI port name")
+    ap.add_argument("--lightroom-port", type=int, default=None,
+                    help="Lightroom's controller port (default: read from Lightroom's connections.json)")
     ap.add_argument("--check-permission", action="store_true",
                     help="macOS: check (and prompt for) the keyboard permission, then exit")
     args = ap.parse_args()
@@ -64,7 +66,7 @@ async def _run(args) -> None:
         except (NotImplementedError, RuntimeError):  # Windows: Ctrl-C still raises KeyboardInterrupt
             pass
     try:
-        await app.run(debug=args.debug, midi_port=args.midi_port)
+        await app.run(debug=args.debug, midi_port=args.midi_port, lightroom_port=args.lightroom_port)
     except asyncio.CancelledError:
         pass
 

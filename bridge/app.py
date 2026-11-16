@@ -66,9 +66,9 @@ def build(config_dir: Path, midi, port: Optional[int] = None, state_file: Option
     return App(midi, session, dials, dispatcher)
 
 
-async def run(debug: bool = False, midi_port: str = "Loupedeck") -> None:
+async def run(debug: bool = False, midi_port: str = "Loupedeck", lightroom_port: Optional[int] = None) -> None:
     plat = platform.current()
     frame_log = plat.log_dir() / "frames.jsonl" if debug else None
     log.info("settings: %s", plat.config_dir() / "mapping.json")
-    await build(plat.config_dir(), MidiInput(HardwareMap.load(), port_hint=midi_port), frame_log=frame_log,
-                keyboard=plat.keyboard()).run()
+    await build(plat.config_dir(), MidiInput(HardwareMap.load(), port_hint=midi_port), port=lightroom_port,
+                frame_log=frame_log, keyboard=plat.keyboard()).run()
