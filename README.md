@@ -42,6 +42,16 @@ Stop it with Ctrl-C. Add `--debug` for a verbose log plus a Lightroom frame log 
 
 Tests: `.venv/bin/python -m pip install -r requirements-dev.txt && .venv/bin/python -m pytest -q`
 
+## Roadmap
+
+1. ✅ Core bridge on macOS: dials, dial clicks, Lightroom buttons, presets, reconnects
+2. Keyboard keys and shortcuts: Shift/Ctrl/Cmd/Alt/Tab and arrows (only while Lightroom is in front), Before/After, screen mode
+3. Settings page: search presets and assign them to P1–P8
+4. Settings page: remap any control
+5. Start at login, plus a status display
+6. Windows (macOS-tested code first, then a Windows test run)
+7. **GitHub Releases** once it's shippable: versioned downloads and a changelog
+
 ## Layout
 
 | Path | What |
