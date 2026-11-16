@@ -78,7 +78,7 @@ device's plain USB-MIDI, and a small amount of our own code.
 | clr/bw | `toggleBlackAndWhite`, kept in step with the device: the bridge tracks the device's colour/B&W mode (from colour-dial numbers, HUE/SAT/LUM presses and clr/bw presses) and makes the photo match the device's new mode. It falls back to a plain toggle while the mode is unknown. *(Live-check fix: a blind toggle left the lights and the photo opposite each other.)* |
 | Before/After, screen mode | Lightroom's keyboard shortcut for each, per OS (see "To verify") |
 | C3–C6, L1–L3, custom mode, fn, --/col, HUE/SAT/LUM | Nothing by default; assignable in the remapper (HUE/SAT/LUM still switch the device's bank) |
-| **When Lightroom isn't the front app** | Dials and Lightroom-API buttons still control Lightroom (it may be in the background, e.g. on another screen). **Keyboard-key and shortcut buttons only work while Lightroom is in front.** |
+| **When Lightroom isn't the front app** | Dials and Lightroom-API buttons still control Lightroom (it may be in the background, e.g. on another screen). **Keyboard-key and shortcut buttons are always sent, to whichever app is in front**, like a second keyboard. *(Changed 2026-11-16 by the user for simplicity; was "only while Lightroom is in front".)* |
 
 Settings page: **presets and full remapper**. Platforms: **Mac first, then Windows** (user tests).
 
@@ -112,8 +112,7 @@ Loupedeck+ ─MIDI─▶ input ─▶ events ─▶ mapper ─▶ actions ─┬
   - `none`.
 - **Lightroom client:** the existing one, plus reconnect logic (re-read the port file on every attempt,
   re-register with the saved GUID) and a status flag the settings page can show.
-- **Keyboard backend (per OS):** key down/up for named keys, "is Lightroom in front?", and a permission
-  check. Mac: CoreGraphics keyboard events and `AXIsProcessTrusted` through `ctypes`. Windows: `SendInput`
+- **Keyboard backend (per OS):** key down/up for named keys, and a permission check. Mac: CoreGraphics keyboard events and `AXIsProcessTrusted` through `ctypes`. Windows: `SendInput`
   and `GetForegroundWindow` through `ctypes`. No new libraries.
 - **Settings page:** served by the bridge on `127.0.0.1`.
   - *Presets* tab: a search box over all presets and eight P-slots; assign or clear.
@@ -150,15 +149,16 @@ Loupedeck+ ─MIDI─▶ input ─▶ events ─▶ mapper ─▶ actions ─┬
   powered up that way in our captures). B&W-bank dials do nothing unless `isBlackAndWhiteOn()` is true, and
   the status strip says why. They never silently convert the photo.
 - At connect: `revealAdjustedControls(true)`, so Lightroom opens the panel of whatever is being adjusted.
-- **Keys only in Lightroom (user's decision):** `key` and `shortcut` actions fire only while Lightroom is
-  the frontmost app. Otherwise the press is ignored. `adjust`, `step`, `call` and `preset` work regardless of focus.
-- **No stuck keys:** every held key is released when its button is released, *and* when Lightroom stops
-  being the front app, the device disconnects, the bridge stops or crashes (exit handler), or its mapping
-  changes while the key is down.
+- **Keys go to the front app (user's decision, revised):** `key` and `shortcut` actions are sent to
+  whichever app is in front, like a second keyboard, so there's no front-app check.
+- **No stuck keys:** every held key is released when its button is released, *and* when the device
+  disconnects, the bridge stops or crashes (exit handler), or its mapping changes while the key is down.
   *(Design call: a stuck Shift or Cmd would break the whole computer until the key is pressed again.)*
-- **Mac keyboard permission, v1:** Accessibility is granted to the Python that runs the bridge, which means
-  any script run by that Python can send keystrokes. The README must say so plainly. A tiny wrapper app with
-  its own permission entry is a possible later step. *(Design call.)*
+- **Mac keyboard permission (user's decision, milestone 2):** macOS grants Accessibility to the *app*
+  that launched the bridge, not to the Python script. So the bridge runs inside a small **LoupedeckBridge.app**
+  launcher that starts the repo's venv Python as a child process. The permission then covers only the bridge,
+  not the terminal or Claude app it would otherwise inherit from. The same app is what milestone 5
+  (start at login) and GitHub Releases build on.
 
 ### Security (settings page)
 
