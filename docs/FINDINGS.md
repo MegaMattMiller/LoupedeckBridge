@@ -39,7 +39,7 @@ Loupedeck / Logi plugin service: **not running** ✓
 ## Lightroom protocol: Step 2 done (2026-11-16 10:17)
 Verified with [`tools/lr_probe.py`](../tools/lr_probe.py) against Lightroom 10.0 (build `20261029-1525-df1be3b`). Raw frames are in `captures/lr-frames-*.jsonl` (client GUID redacted).
 - **Register** reply: `["<clientGUID>", "10.0"]`. The GUID is saved to `~/Library/Application Support/loupedeck-lr-bridge/client.json` (mode 600, outside iCloud). Re-registering with it skips the Allow dialog, and Lightroom returns the same GUID.
-- **`response` is always an array of the function's return values** (Lua-style multiple returns):
+- **`response` is an array of the function's return values** (Lua-style multiple returns). Functions that return nothing (`increment`, `undo`, `applyPreset`, …) reply with an **empty object `{}`** instead:
   - `getRange("Exposure2012")` → `[-5, 5, 2, 0.1, 0.33]` = min, max, decimal places, small step, large step
   - `getValue` → `[0]`, `getLabel` → `["Exposure"]`, `getParameterType` → `["number"]`
   - A single list return is wrapped twice: `getParameterNames` → `[[…170 names…]]`, `getPanelNames` → `[["lightPanel","colorPanel","effectsPanel","detailPanel","opticsPanel","lensBlurPanel"]]`
@@ -58,6 +58,15 @@ Verified with [`tools/lr_probe.py`](../tools/lr_probe.py) against Lightroom 10.0
 - A default of **`{}`** is Lua `nil` = no fixed default (65 parameters, e.g. all `GrayMixer*`, which are computed per photo).
 - **Ranges can depend on the photo:** `Temperature`/`Tint` came back as 0–100 (default 50) for the photo open at the time, not Kelvin. The bridge should read `getRange` live and not hard-code ranges.
 - Dial targets: ±100 sliders (Contrast, Highlights, Shadows, Whites, Blacks, Clarity, Texture, Dehaze, Vibrance, Saturation, all 32 colour params) step **10 / 20**. Exposure −5..5, 2 decimals, step **0.1 / 0.33**. Temp/Tint step **1 / 10**. These steps are coarse for one dial detent (10 detents from 0 to +100), so how much one detent moves is a mapping decision.
+
+## Write behaviour (milestone 1 checks, 2026-11-16)
+From [`tools/lr_verify_writes.py`](../tools/lr_verify_writes.py) on a test photo in Loupe view. Originals were restored afterwards.
+- **`increment`/`decrement` amounts are in the parameter's own units**: `increment("Exposure2012", 0.1)` moved 0 → 0.1 EV.
+- **Lightroom clamps at the range ends**: `increment("Contrast2012", 500)` stopped at 100.
+- **`straightenAngle` works outside the crop tool** (tool was `loupe`): `increment(…, 1)` moved 0 → 1°. `resetToDefault` put it back to 0.
+- **Tracking:** `startTracking`, 5× `increment(0.05)`, `stopTracking` → 0.1 + 0.25 = 0.35 EV, as expected. One history step: *visual check by the user pending*.
+- **`applyPreset` applies to the photo in Loupe view**, and `undo()` reverts it completely (8 sampled settings matched the pre-preset values).
+- So the dial engine uses `increment`/`decrement` for every parameter, and no `setValue` fallback is needed.
 
 ## API notes the handoff didn't capture
 - **How object handles come about:** `addAdjustmentChangeObserver(param?)` and `addHapticsObserver()` return a GUID/object. Later notifications arrive as extra responses for that same original `requestId` (this is the "one request, many responses" case). Call `close` on the handle when done.
