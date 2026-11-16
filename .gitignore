@@ -6,3 +6,6 @@ __pycache__/
 # Adobe's Lightroom Controller API pages are Adobe's copyrighted docs: keep them
 # local only. Our own notes on the API are in docs/FINDINGS.md.
 docs/adobe/
+
+# Built LoupedeckBridge.app (tools/build_mac_app.sh)
+build/

@@ -78,6 +78,12 @@ From [`tools/lr_verify_writes.py`](../tools/lr_verify_writes.py) on a test photo
 - Fast spins hit the slider ends (Lightroom clamps). Dial-feel tuning is up to the user (`bridge/dial_feel.py`).
 - Ctrl-C shutdown takes a few seconds (websocket close / MIDI port close); it isn't a hang.
 
+## LoupedeckBridge.app and macOS permissions (milestone 2, 2026-11-16)
+- `tools/build_mac_app.sh` builds `build/LoupedeckBridge.app` (bundle id `io.github.megamattmiller.loupedeckbridge`, ad-hoc signed). It spawns `<repo>/.venv/bin/python -m bridge` as a **child process**, so macOS treats the app as responsible for it.
+- **Accessibility is scoped to the app:** launched through the app, `--check-permission` reports *granted*. The same check from a terminal-launched Python reports *not trusted*. The terminal and the Claude app gained nothing.
+- **The first launch also needs Documents access:** the repo, and so the venv, lives in `~/Documents`, which macOS protects per app. Python blocks during startup until "LoupedeckBridge would like to access files in your Documents folder" is answered, with no log output until then. A packaged release (code inside the app bundle) won't need this.
+- An ad-hoc signature changes when the launcher is rebuilt, so macOS may ask again after `tools/build_mac_app.sh`. Editing the Python code never needs a rebuild.
+
 ## API notes the handoff didn't capture
 - **How object handles come about:** `addAdjustmentChangeObserver(param?)` and `addHapticsObserver()` return a GUID/object. Later notifications arrive as extra responses for that same original `requestId` (this is the "one request, many responses" case). Call `close` on the handle when done.
 - **Tracking:** `startTracking(param)` turns itself off **2 s** after the last change, or as soon as a *different* parameter is adjusted. `stopTracking()` commits **one** history state. `setMultipleAdjustmentThreshold` defaults to **0.5 s** and has no effect if it's larger than the tracking delay.
