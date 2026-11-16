@@ -86,6 +86,6 @@
     "l1": {"press": {"type": "none"}},
     "l2": {"press": {"type": "none"}},
     "l3": {"press": {"type": "none"}},
-    "custom_mode": {"press": {"type": "none"}}
+    "custom_mode": {"press": {"type": "open_settings"}}
   }
 }

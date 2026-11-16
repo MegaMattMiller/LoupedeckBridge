@@ -3,8 +3,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from bridge.hardware import HardwareMap
-from bridge.mapping import DEFAULT_PATH, Mapping
+from bridge.mapping import DEFAULT_PATH, Mapping, MappingNotWritable
 
 REPO = Path(__file__).resolve().parent.parent
 NONE = {"type": "none"}
@@ -139,7 +141,8 @@ def test_unedited_mapping_follows_new_default(tmp_path):
     assert json.loads(user.read_text()) == json.loads(new_default.read_text())  # file updated too
 
 
-def test_edited_mapping_is_kept_when_default_changes(tmp_path):
+def test_unedited_controls_follow_new_default_even_if_others_edited(tmp_path):
+    # Milestone 3: assigning presets must not freeze the rest of the layout.
     old_default, new_default = two_defaults(tmp_path)
     user = tmp_path / "m.json"
     Mapping.load(user, default_path=old_default)
@@ -147,9 +150,60 @@ def test_edited_mapping_is_kept_when_default_changes(tmp_path):
     data["controls"]["c3"] = {"press": {"type": "call", "message": "rating3", "args": []}}  # the user's own edit
     user.write_text(json.dumps(data))
     m = Mapping.load(user, default_path=new_default)
-    assert m.press_action("c3") == {"type": "call", "message": "rating3", "args": []}
-    assert m.press_action("before_after") == NONE  # their file wins; not merged
-    assert any("default" in w.lower() for w in m.warnings)  # but they're told a newer default exists
+    assert m.press_action("c3") == {"type": "call", "message": "rating3", "args": []}             # kept
+    assert m.press_action("before_after") == {"type": "shortcut", "mac": ["\\"], "windows": ["\\"]}  # followed
+    assert m.warnings == []
+    assert json.loads(user.read_text())["controls"]["before_after"]["press"]["type"] == "shortcut"
+
+
+def test_user_change_wins_and_is_mentioned(tmp_path):
+    old_default, new_default = two_defaults(tmp_path)
+    user = tmp_path / "m.json"
+    Mapping.load(user, default_path=old_default)
+    data = json.loads(user.read_text())
+    data["controls"]["before_after"] = {"press": {"type": "call", "message": "undo", "args": []}}
+    user.write_text(json.dumps(data))
+    m = Mapping.load(user, default_path=new_default)  # the default changed before_after too
+    assert m.press_action("before_after") == {"type": "call", "message": "undo", "args": []}
+    assert any("before_after" in w for w in m.warnings)
+
+
+PRESET = {"type": "preset", "id": "A", "name": "Warm"}
+
+
+def test_set_press_action_saves_atomically(tmp_path):
+    user = tmp_path / "m.json"
+    m = Mapping.load(user)
+    m.set_press_action("p3", PRESET)
+    assert m.press_action("p3") == PRESET
+    assert Mapping.load(user).press_action("p3") == PRESET          # on disk, and kept on reload
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["m.base.json", "m.json"]  # no temp file left
+    assert m.path == user
+
+
+def test_set_press_action_rejects_invalid(tmp_path):
+    user = tmp_path / "m.json"
+    m = Mapping.load(user)
+    before = user.read_text()
+    with pytest.raises(ValueError):
+        m.set_press_action("p3", {"type": "adjust", "param": "Exposure2012"})  # a turn action on a press
+    assert user.read_text() == before
+
+
+def test_unreadable_file_is_never_overwritten(tmp_path):
+    user = tmp_path / "m.json"
+    user.write_text("{not json")
+    m = Mapping.load(user)
+    with pytest.raises(MappingNotWritable):
+        m.set_press_action("p3", PRESET)
+    assert user.read_text() == "{not json"
+
+
+def test_open_settings_action(tmp_path):
+    m = Mapping.load(tmp_path / "m.json")
+    assert m.press_action("custom_mode") == {"type": "open_settings"}
+    m2 = Mapping.load(write(tmp_path / "x.json", {"d1": {"turn": {"type": "open_settings"}}}))
+    assert m2.turn_action("d1") == NONE and any("d1" in w for w in m2.warnings)
 
 
 def test_user_file_replaces_default(tmp_path):

@@ -1,12 +1,15 @@
 """The user's layout: which action each Loupedeck control triggers.
 
 File format: {"version": 1, "controls": {"<control id>": {"turn": <action>, "press": <action>}}}.
-The user's file replaces the shipped default entirely (no merging), so what they see is what runs.
+The user's file is what runs; it isn't merged with the default at load time. It does follow
+new default layouts control by control: a control the user never changed takes the new default,
+and a control they changed (e.g. a preset on P3) stays as they set it.
 """
 from __future__ import annotations
 
 import json
 import logging
+import os
 import shutil
 from pathlib import Path
 from typing import Dict, Iterator, List, Optional, Tuple
@@ -16,6 +19,10 @@ log = logging.getLogger("mapping")
 DEFAULT_PATH = Path(__file__).resolve().parent.parent / "config" / "default_mapping.json"
 KEY_NAMES = {"shift", "ctrl", "cmd", "alt", "tab", "left", "right", "up", "down"}
 NONE: dict = {"type": "none"}
+
+
+class MappingNotWritable(Exception):
+    """The user's mapping.json couldn't be read at load, so it must not be overwritten."""
 
 
 def _is_call(obj) -> bool:
@@ -48,19 +55,39 @@ def _check(slot: str, action) -> Optional[dict]:
         return action
     if kind == "shortcut" and all(isinstance(action.get(k), list) for k in ("mac", "windows")):
         return action
+    if kind == "open_settings":
+        return {"type": "open_settings"}
     return None
 
 
+def _dumps(doc: dict) -> str:
+    """The shipped default's style: one line per control, so the file stays readable and diffable."""
+    controls = doc.get("controls", {})
+    lines = [f"    {json.dumps(c)}: {json.dumps(e)}" for c, e in controls.items()]
+    head = {k: v for k, v in doc.items() if k != "controls"}
+    head_lines = [f"  {json.dumps(k)}: {json.dumps(v)}," for k, v in head.items()]
+    return "{\n" + "\n".join(head_lines) + "\n  \"controls\": {\n" + ",\n".join(lines) + "\n  }\n}\n"
+
+
+def _write_atomic(path: Path, text: str) -> None:
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text)
+    os.replace(tmp, path)
+
+
 class Mapping:
-    def __init__(self, controls: Dict[str, dict], warnings: List[str]):
+    def __init__(self, controls: Dict[str, dict], warnings: List[str], path: Optional[Path] = None,
+                 doc: Optional[dict] = None):
         self._controls = controls
         self.warnings = warnings
+        self.path = path
+        self._doc = doc  # the user's file as read; None if it couldn't be read (never overwritten then)
 
     @classmethod
     def load(cls, user_path: Path, default_path: Path = DEFAULT_PATH) -> "Mapping":
         warnings: List[str] = []
-        # mapping.base.json = the default the user's file started from. It tells an unedited
-        # mapping (follows new defaults automatically) from an edited one (always kept).
+        # mapping.base.json = the default the user's file started from; it tells which controls
+        # the user never changed (those follow new defaults) from the ones they did.
         base_path = user_path.with_name(user_path.stem + ".base.json")
         if not user_path.exists():
             user_path.parent.mkdir(parents=True, exist_ok=True)
@@ -69,14 +96,17 @@ class Mapping:
             log.info("created %s from the default layout", user_path)
         else:
             cls._follow_new_default(user_path, base_path, default_path, warnings)
+        doc: Optional[dict] = None
         try:
-            raw = json.loads(user_path.read_text())["controls"]
+            doc = json.loads(user_path.read_text())
+            raw = doc["controls"]
             if not isinstance(raw, dict):
                 raise ValueError("'controls' isn't an object")
         except (OSError, ValueError, KeyError, TypeError) as e:
             msg = f"{user_path.name} couldn't be read ({e}); using the default layout. Your file was left as is."
             log.error(msg)
             warnings.append(msg)
+            doc = None
             raw = json.loads(default_path.read_text())["controls"]
 
         controls: Dict[str, dict] = {}
@@ -94,25 +124,51 @@ class Mapping:
             controls[control] = checked
         for w in warnings:
             log.warning(w)
-        return cls(controls, warnings)
+        return cls(controls, warnings, path=user_path, doc=doc)
 
     @staticmethod
     def _follow_new_default(user_path: Path, base_path: Path, default_path: Path, warnings: List[str]) -> None:
         try:
-            base = json.loads(base_path.read_text())
-            user = json.loads(user_path.read_text())
-        except (OSError, ValueError):
+            base = json.loads(base_path.read_text())["controls"]
+            user_doc = json.loads(user_path.read_text())
+            user = user_doc["controls"]
+        except (OSError, ValueError, KeyError, TypeError):
             return  # no snapshot (older install) or an unreadable file: leave everything as is
-        default = json.loads(default_path.read_text())
+        default_doc = json.loads(default_path.read_text())
+        default = default_doc["controls"]
         if base == default:
             return
-        if user == base:
-            shutil.copyfile(default_path, user_path)
-            log.info("updated %s to the new default layout (you hadn't changed it)", user_path)
-        else:
-            warnings.append(f"A newer default layout is available ({default_path}); your edited "
-                            f"{user_path.name} was kept as is.")
+        followed, kept = [], []
+        for control in sorted(set(base) | set(default)):
+            if user.get(control) == base.get(control):  # the user never changed this control
+                if control in default:
+                    if user.get(control) != default[control]:
+                        user[control] = default[control]
+                        followed.append(control)
+                elif control in user:
+                    del user[control]
+                    followed.append(control)
+            elif base.get(control) != default.get(control):
+                kept.append(control)
+        if followed:
+            _write_atomic(user_path, _dumps(user_doc))
+            log.info("updated %s to the new default for: %s", user_path.name, ", ".join(followed))
+        if kept:
+            warnings.append(f"Newer defaults exist for {', '.join(kept)}; your own settings for them were kept.")
         shutil.copyfile(default_path, base_path)  # mention each new default once
+
+    def set_press_action(self, control: str, action: dict) -> None:
+        """Change one control's press action and save the file (atomically)."""
+        if self._doc is None or self.path is None:
+            raise MappingNotWritable(f"{self.path.name if self.path else 'mapping.json'} couldn't be read, so "
+                                     "it won't be overwritten; fix or delete it, then restart the bridge")
+        good = _check("press", action)
+        if good is None:
+            raise ValueError(f"invalid press action {action!r}")
+        entry = self._doc["controls"].setdefault(control, {})
+        entry["press"] = good
+        _write_atomic(self.path, _dumps(self._doc))
+        self._controls.setdefault(control, {})["press"] = good
 
     def turn_action(self, control: str) -> dict:
         return self._controls.get(control, {}).get("turn", NONE)
