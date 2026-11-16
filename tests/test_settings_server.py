@@ -102,6 +102,25 @@ def test_serves_page_with_token(tmp_path):
     asyncio.run(main())
 
 
+def test_page_assets_are_local(tmp_path):
+    # The page must work offline and leak nothing: no CDN, fonts or analytics.
+    import re
+
+    async def main():
+        async with Rig(tmp_path) as rig:
+            pages = [await rig.http_get(p) for p in ("/", "/app.js", "/app.css")]
+        return pages
+    pages = asyncio.run(main())
+    for status, _, body in pages:
+        assert status == 200
+        urls = re.findall(r"https?://[^\s\"')]+", body)
+        assert all(re.match(r"https?://(127\.0\.0\.1|localhost)[:/]", u) for u in urls), urls
+    html, js, _ = (body for _, _, body in pages)
+    assert 'src="/app.js"' in html and 'href="/app.css"' in html
+    assert "<script>" not in html                 # no inline script (the CSP forbids it)
+    assert "innerHTML" not in js                  # preset names are shown as text, never as HTML
+
+
 def test_wrong_host_refused(tmp_path):
     # DNS rebinding: a malicious site makes its own hostname resolve to 127.0.0.1.
     async def main():

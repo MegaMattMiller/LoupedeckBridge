@@ -1,4 +1,34 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="token" content="__TOKEN__">
-<title>LoupedeckBridge</title><link rel="stylesheet" href="/app.css"></head>
-<body><main id="app"></main><script src="/app.js"></script></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="token" content="__TOKEN__">
+  <title>LoupedeckBridge · Presets</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <header>
+    <h1>LoupedeckBridge <span class="dim">· Presets</span></h1>
+    <p id="status" class="status" role="status"><span class="dot"></span><span id="status-text">Connecting…</span></p>
+  </header>
+  <p id="notice" class="notice" hidden></p>
+  <main>
+    <section class="slots" aria-labelledby="slots-title">
+      <h2 id="slots-title">P1–P8</h2>
+      <p class="hint">Pick a slot, then click a preset on the right.</p>
+      <ol id="slots"></ol>
+    </section>
+    <section class="presets" aria-labelledby="presets-title">
+      <h2 id="presets-title">Lightroom presets <span id="count" class="dim"></span></h2>
+      <input id="search" type="search" placeholder="Search presets…" autocomplete="off" spellcheck="false"
+             aria-label="Search presets">
+      <p id="presets-msg" class="hint"></p>
+      <button id="retry" type="button" class="secondary" hidden>Try again</button>
+      <ul id="results"></ul>
+    </section>
+  </main>
+  <footer class="dim">Changes save to your mapping.json right away. No restart needed.</footer>
+  <script src="/app.js"></script>
+</body>
+</html>
