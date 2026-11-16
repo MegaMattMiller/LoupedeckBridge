@@ -102,6 +102,14 @@ def test_press_type_rejected_for_turn(tmp_path):
     assert len(m.warnings) == 3
 
 
+def test_press_items_lists_press_actions(tmp_path):
+    m = Mapping.load(write(tmp_path / "m.json", {
+        "p1": {"press": {"type": "preset", "id": "ABC", "name": "Warm"}},
+        "exposure": {"turn": {"type": "adjust", "param": "Exposure2012"}},
+    }))
+    assert dict(m.press_items()) == {"p1": {"type": "preset", "id": "ABC", "name": "Warm"}}
+
+
 def test_user_file_replaces_default(tmp_path):
     m = Mapping.load(write(tmp_path / "m.json", {"c1": {"press": {"type": "call", "message": "undo", "args": []}}}))
     assert m.press_action("c1") == {"type": "call", "message": "undo", "args": []}

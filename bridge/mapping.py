@@ -9,7 +9,7 @@ import json
 import logging
 import shutil
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Iterator, List, Optional, Tuple
 
 log = logging.getLogger("mapping")
 
@@ -95,3 +95,9 @@ class Mapping:
 
     def press_action(self, control: str) -> dict:
         return self._controls.get(control, {}).get("press", NONE)
+
+    def press_items(self) -> Iterator[Tuple[str, dict]]:
+        """(control, press action) for every control that has a press action."""
+        for control, slots in self._controls.items():
+            if "press" in slots:
+                yield control, slots["press"]
