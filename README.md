@@ -6,8 +6,9 @@ Loupedeck's own software only supports Lightroom Classic. Lightroom 10 has an ex
 WebSocket API, so this is a small local Python bridge: Loupedeck+ MIDI in → Lightroom API calls out,
 over `127.0.0.1` only.
 
-**Status:** the hardware map and the Lightroom client work. Next are the control → action mapping
-and the bridge loop. See [docs/HANDOFF.md](docs/HANDOFF.md) for the plan and
+**Status:** milestone 1 (the core bridge) works on macOS: dials, dial clicks, and the Lightroom
+buttons in the default layout. Keyboard keys and the settings page come next. See the
+[design](docs/superpowers/specs/2026-11-16-loupedeck-bridge-design.md) and
 [docs/FINDINGS.md](docs/FINDINGS.md) for everything verified so far.
 
 ## Setup
@@ -22,10 +23,36 @@ and the bridge loop. See [docs/HANDOFF.md](docs/HANDOFF.md) for the plan and
    saved to `~/Library/Application Support/loupedeck-lr-bridge/client.json`, so the dialog
    only appears once.
 
+## Run
+
+```bash
+.venv/bin/python -m bridge
+```
+
+Stop it with Ctrl-C. Add `--debug` for a verbose log plus a Lightroom frame log (client GUID redacted).
+
+- **Your layout:** `mapping.json` in `~/Library/Application Support/loupedeck-lr-bridge/`
+  (Windows: `%APPDATA%\loupedeck-lr-bridge\`). It's created from `config/default_mapping.json` on
+  first run. Edit it and restart. A broken file falls back to the default and is left untouched.
+- **Logs:** `~/Library/Logs/loupedeck-lr-bridge/bridge.log`.
+- **Dial feel:** the four constants at the top of `bridge/dial_feel.py`.
+- **Behaviour:** dials and Lightroom buttons work even when Lightroom is in the background.
+  Input is dropped while Lightroom is closed, and the bridge reconnects when it's back. Turning a
+  colour dial in the device's B&W mode does nothing unless the photo is already black & white.
+
+Tests: `.venv/bin/python -m pip install -r requirements-dev.txt && .venv/bin/python -m pytest -q`
+
 ## Layout
 
 | Path | What |
 |---|---|
+| `bridge/__main__.py`, `bridge/app.py` | Entry point and wiring |
+| `bridge/midi_input.py`, `bridge/hardware.py` | Loupedeck+ MIDI → control events (survives unplugging) |
+| `bridge/mapping.py`, `config/default_mapping.json` | Control → action layout |
+| `bridge/actions.py` | Runs actions: Lightroom calls, presets, dial adjustments |
+| `bridge/dials.py`, `bridge/dial_feel.py` | Detent coalescing, tracking, the dial-feel curve |
+| `bridge/session.py` | Keeps a registered Lightroom connection alive |
+| `bridge/platform/` | Per-OS paths (macOS, Windows) |
 | `bridge/lightroom.py` | Async Lightroom Controller API client (register, requests, observers) |
 | `config/loupedeck_plus.json` | Loupedeck+ MIDI map: every dial, colour-dial mode bank and button |
 | `docs/lr_parameters_10.0.json` | Type, label, default and range of all 170 Lightroom edit parameters |
