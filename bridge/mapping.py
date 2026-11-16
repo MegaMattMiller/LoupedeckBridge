@@ -59,10 +59,16 @@ class Mapping:
     @classmethod
     def load(cls, user_path: Path, default_path: Path = DEFAULT_PATH) -> "Mapping":
         warnings: List[str] = []
+        # mapping.base.json = the default the user's file started from. It tells an unedited
+        # mapping (follows new defaults automatically) from an edited one (always kept).
+        base_path = user_path.with_name(user_path.stem + ".base.json")
         if not user_path.exists():
             user_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(default_path, user_path)
+            shutil.copyfile(default_path, base_path)
             log.info("created %s from the default layout", user_path)
+        else:
+            cls._follow_new_default(user_path, base_path, default_path, warnings)
         try:
             raw = json.loads(user_path.read_text())["controls"]
             if not isinstance(raw, dict):
@@ -89,6 +95,24 @@ class Mapping:
         for w in warnings:
             log.warning(w)
         return cls(controls, warnings)
+
+    @staticmethod
+    def _follow_new_default(user_path: Path, base_path: Path, default_path: Path, warnings: List[str]) -> None:
+        try:
+            base = json.loads(base_path.read_text())
+            user = json.loads(user_path.read_text())
+        except (OSError, ValueError):
+            return  # no snapshot (older install) or an unreadable file: leave everything as is
+        default = json.loads(default_path.read_text())
+        if base == default:
+            return
+        if user == base:
+            shutil.copyfile(default_path, user_path)
+            log.info("updated %s to the new default layout (you hadn't changed it)", user_path)
+        else:
+            warnings.append(f"A newer default layout is available ({default_path}); your edited "
+                            f"{user_path.name} was kept as is.")
+        shutil.copyfile(default_path, base_path)  # mention each new default once
 
     def turn_action(self, control: str) -> dict:
         return self._controls.get(control, {}).get("turn", NONE)

@@ -119,6 +119,39 @@ def test_press_items_lists_press_actions(tmp_path):
     assert dict(m.press_items()) == {"p1": {"type": "preset", "id": "ABC", "name": "Warm"}}
 
 
+def two_defaults(tmp_path):
+    """An 'old' and a 'new' shipped default that differ only in before_after."""
+    old = json.loads(DEFAULT_PATH.read_text())
+    old["controls"]["before_after"] = {"press": {"type": "none"}}
+    old_path = tmp_path / "default_old.json"
+    old_path.write_text(json.dumps(old))
+    return old_path, DEFAULT_PATH
+
+
+def test_unedited_mapping_follows_new_default(tmp_path):
+    # Live-check finding: a mapping created from milestone 1's default kept "none" for
+    # Before/After and screen mode after the default gained shortcuts for them.
+    old_default, new_default = two_defaults(tmp_path)
+    user = tmp_path / "m.json"
+    Mapping.load(user, default_path=old_default)            # first run: copy of the old default
+    m = Mapping.load(user, default_path=new_default)        # a release ships a better default
+    assert m.press_action("before_after") == {"type": "shortcut", "mac": ["\\"], "windows": ["\\"]}
+    assert json.loads(user.read_text()) == json.loads(new_default.read_text())  # file updated too
+
+
+def test_edited_mapping_is_kept_when_default_changes(tmp_path):
+    old_default, new_default = two_defaults(tmp_path)
+    user = tmp_path / "m.json"
+    Mapping.load(user, default_path=old_default)
+    data = json.loads(user.read_text())
+    data["controls"]["c3"] = {"press": {"type": "call", "message": "rating3", "args": []}}  # the user's own edit
+    user.write_text(json.dumps(data))
+    m = Mapping.load(user, default_path=new_default)
+    assert m.press_action("c3") == {"type": "call", "message": "rating3", "args": []}
+    assert m.press_action("before_after") == NONE  # their file wins; not merged
+    assert any("default" in w.lower() for w in m.warnings)  # but they're told a newer default exists
+
+
 def test_user_file_replaces_default(tmp_path):
     m = Mapping.load(write(tmp_path / "m.json", {"c1": {"press": {"type": "call", "message": "undo", "args": []}}}))
     assert m.press_action("c1") == {"type": "call", "message": "undo", "args": []}
