@@ -20,11 +20,17 @@ class FakeSession:
         self.connected = True
         self.calls: List[Tuple[str, list]] = []
         self.failing: Set[str] = set()
+        self.photo_bw = False  # Lightroom's B&W state for the current photo
 
     async def call(self, message, *params):
         self.calls.append((message, list(params)))
         if message in self.failing:
             raise LightroomError({"success": False, "response": ["invalid_request"], "requestId": "x"})
+        if message == "isBlackAndWhiteOn":
+            return [self.photo_bw, {"enabled": True, "title": "Convert to Black ＆ White", "checked": self.photo_bw}]
+        if message == "toggleBlackAndWhite":
+            self.photo_bw = not self.photo_bw
+            return {}
         if message == "getPresetIDs":
             return [list(PRESET_NAMES)]
         if message == "getPresetName":
@@ -132,6 +138,53 @@ def test_unassigned_preset_slot_is_quiet(tmp_path):
     run(d.handle(Press("p5")))
     assert d.preset_warnings == []
     assert "applyPreset" not in [m for m, _ in s.calls]
+
+
+def toggles(session):
+    return [m for m, _ in session.calls].count("toggleBlackAndWhite")
+
+
+def test_clr_bw_follows_device_mode_from_dial(tmp_path):
+    # The live-check case: device in B&W mode (lights off), photo in colour.
+    d, s, _ = setup(tmp_path)
+    run(d.handle(Turn("bw_red", 1)))     # tells us the device is in its B&W mode
+    run(d.handle(Press("clr_bw")))       # device → colour (HUE lights up)
+    assert toggles(s) == 0 and s.photo_bw is False  # photo already colour: leave it
+    run(d.handle(Press("clr_bw")))       # device → B&W (lights off)
+    assert toggles(s) == 1 and s.photo_bw is True
+    run(d.handle(Press("clr_bw")))       # device → colour
+    assert toggles(s) == 2 and s.photo_bw is False
+
+
+def test_clr_bw_after_mode_button(tmp_path):
+    d, s, _ = setup(tmp_path)
+    s.photo_bw = True                    # out of step: photo B&W…
+    run(d.handle(Press("sat")))          # …device in colour mode (SAT lit)
+    run(d.handle(Press("clr_bw")))       # device → B&W: photo already B&W, leave it
+    assert toggles(s) == 0 and s.photo_bw is True
+
+
+def test_clr_bw_colour_dial_means_colour_mode(tmp_path):
+    d, s, _ = setup(tmp_path)
+    run(d.handle(Turn("lum_aqua", -1)))  # device in colour mode
+    run(d.handle(Press("clr_bw")))       # → B&W
+    assert s.photo_bw is True
+
+
+def test_clr_bw_unknown_mode_plain_toggle(tmp_path):
+    d, s, _ = setup(tmp_path)            # nothing seen yet: best guess is a plain toggle
+    run(d.handle(Press("clr_bw")))
+    assert toggles(s) == 1
+    assert "isBlackAndWhiteOn" not in [m for m, _ in s.calls]
+
+
+def test_device_mode_tracked_while_disconnected(tmp_path):
+    d, s, _ = setup(tmp_path)
+    s.connected = False
+    run(d.handle(Turn("bw_blue", 1)))    # dropped for Lightroom, but the device's mode is still learned
+    s.connected = True
+    run(d.handle(Press("clr_bw")))       # device → colour; photo is colour: nothing to do
+    assert toggles(s) == 0
 
 
 def test_lightroom_error_does_not_raise(tmp_path):

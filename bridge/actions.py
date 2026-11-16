@@ -20,8 +20,25 @@ class Dispatcher:
         self.preset_warnings: List[str] = []
         self._presets: Dict[str, str] = {}  # control → resolved preset id
         self._keys_noted = False
+        # The device keeps its own colour/B&W mode (clr/bw flips it; HUE/SAT/LUM pick colour).
+        # None until something tells us which it is.
+        self._device_bw: Optional[bool] = None
+
+    def _track_device_mode(self, event: Event) -> None:
+        if isinstance(event, Turn):
+            bank = event.control.split("_", 1)[0]
+            if bank == "bw":
+                self._device_bw = True
+            elif bank in ("hue", "sat", "lum"):
+                self._device_bw = False
+        elif isinstance(event, Press):
+            if event.control in ("hue", "sat", "lum"):
+                self._device_bw = False
+            elif event.control == "clr_bw" and self._device_bw is not None:
+                self._device_bw = not self._device_bw
 
     async def handle(self, event: Event) -> None:
+        self._track_device_mode(event)  # the device changes mode even while Lightroom is away
         if not self.session.connected:
             log.debug("dropped %s: Lightroom isn't connected", event)
             return
@@ -46,7 +63,14 @@ class Dispatcher:
     async def _press(self, event: Press) -> None:
         action = self.mapping.press_action(event.control)
         kind = action["type"]
-        if kind == "call":
+        if kind == "call" and action["message"] == "toggleBlackAndWhite" and event.control == "clr_bw" \
+                and self._device_bw is not None:
+            # Make the photo match the device's new mode instead of toggling blindly, so the
+            # lights and the photo can't end up opposite each other.
+            photo_bw = bool((await self.session.call("isBlackAndWhiteOn"))[0])
+            if photo_bw != self._device_bw:
+                await self.session.call("toggleBlackAndWhite")
+        elif kind == "call":
             await self.session.call(action["message"], *action["args"])
         elif kind == "preset":
             preset_id = self._presets.get(event.control)

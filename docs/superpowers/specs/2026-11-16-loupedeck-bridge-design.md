@@ -75,7 +75,7 @@ device's plain USB-MIDI, and a small amount of our own code.
 | ← → ↑ ↓ | Real arrow keys |
 | Undo / Redo, Copy / Paste | `undo` / `redo`, `copyEditSettings` / `pasteEditSettings` |
 | Export | `openExport` (dialog, never a direct export) |
-| clr/bw | `toggleBlackAndWhite` |
+| clr/bw | `toggleBlackAndWhite`, kept in step with the device: the bridge tracks the device's colour/B&W mode (from colour-dial numbers, HUE/SAT/LUM presses and clr/bw presses) and makes the photo match the device's new mode. It falls back to a plain toggle while the mode is unknown. *(Live-check fix: a blind toggle left the lights and the photo opposite each other.)* |
 | Before/After, screen mode | Lightroom's keyboard shortcut for each, per OS (see "To verify") |
 | C3–C6, L1–L3, custom mode, fn, --/col, HUE/SAT/LUM | Nothing by default; assignable in the remapper (HUE/SAT/LUM still switch the device's bank) |
 | **When Lightroom isn't the front app** | Dials and Lightroom-API buttons still control Lightroom (it may be in the background, e.g. on another screen). **Keyboard-key and shortcut buttons only work while Lightroom is in front.** |
