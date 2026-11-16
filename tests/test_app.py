@@ -38,11 +38,45 @@ class Crashing(Idle):
 class FlakyDispatcher:
     def __init__(self):
         self.handled = []
+        self.released = 0
 
     async def handle(self, event):
         self.handled.append(event)
         if event == Press("c1"):
             raise ValueError("handler bug")
+
+    def release_all_keys(self):
+        self.released += 1
+
+
+def test_held_keys_released_on_shutdown():
+    async def main():
+        d = FlakyDispatcher()
+        task = asyncio.create_task(App(Midi([]), Idle(), Idle(), d).run())
+        await asyncio.sleep(0.02)
+        task.cancel()  # Ctrl-C / SIGTERM
+        await asyncio.gather(task, return_exceptions=True)
+        return d.released
+    assert asyncio.run(main()) == 1
+
+
+def test_held_keys_released_on_device_disconnect(tmp_path):
+    from bridge import app as appmod
+    from tests.test_actions import FakeKeyboard
+
+    class HookedMidi:
+        on_open = None
+        on_close = None
+
+        async def events(self):
+            await asyncio.Event().wait()
+            yield  # pragma: no cover
+
+    kb, midi = FakeKeyboard(), HookedMidi()
+    bridge = appmod.build(config_dir=tmp_path, midi=midi, port=1, state_file=tmp_path / "client.json", keyboard=kb)
+    asyncio.run(bridge.dispatcher.handle(Press("shift")))
+    midi.on_close()  # the Loupedeck was unplugged while Shift was held
+    assert kb.events == [("down", "shift"), ("up", "shift")]
 
 
 def test_handler_error_does_not_stop_input(caplog):

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import sys
 from typing import Dict, List, Set, Tuple
 
 from bridge.actions import Dispatcher
@@ -50,12 +51,43 @@ class SpyDials:
         self.added.append((param, detents))
 
 
-def setup(tmp_path, controls: Dict[str, dict] = None):
+class FakeKeyboard:
+    """Records what the bridge would type; mirrors MacKeyboard's interface."""
+
+    def __init__(self, trusted=True) -> None:
+        self.events: List[tuple] = []
+        self.trusted = trusted
+
+    def _check(self, names):
+        for n in names:
+            if n == "hyper":
+                raise ValueError("unknown key name 'hyper'")
+
+    def key_down(self, name):
+        self._check([name])
+        self.events.append(("down", name))
+
+    def key_up(self, name):
+        self.events.append(("up", name))
+
+    def key_repeat(self, name):
+        self.events.append(("repeat", name))
+
+    def tap(self, keys):
+        self._check(keys)
+        self.events.append(("tap", list(keys)))
+
+    def is_trusted(self):
+        return self.trusted
+
+
+def setup(tmp_path, controls: Dict[str, dict] = None, keyboard=None):
     path = tmp_path / "m.json"
     if controls is not None:
         path.write_text(json.dumps({"version": 1, "controls": controls}))
     session, dials = FakeSession(), SpyDials()
-    return Dispatcher(Mapping.load(path), session, dials), session, dials
+    d = Dispatcher(Mapping.load(path), session, dials, keyboard=keyboard, repeat_delay=0.02, repeat_interval=0.01)
+    return d, session, dials
 
 
 def run(coro):
@@ -251,10 +283,132 @@ def test_lightroom_error_does_not_raise(tmp_path):
     run(d.resolve_presets())
 
 
-def test_key_action_is_noop(tmp_path, caplog):
-    d, s, dials = setup(tmp_path)
+def test_no_keyboard_logs_once(tmp_path, caplog):
+    d, s, dials = setup(tmp_path)  # keyboard=None, e.g. Windows before milestone 6
     with caplog.at_level(logging.INFO):
         run(d.handle(Press("shift")))
         run(d.handle(Press("left")))
+        run(d.handle(Release("left")))
     assert s.calls == [] and dials.added == []
-    assert sum("milestone 2" in r.getMessage() for r in caplog.records) == 1  # said once, not per press
+    assert sum("keyboard" in r.getMessage().lower() for r in caplog.records) == 1  # said once, not per press
+
+
+def test_key_press_release_holds_key(tmp_path):
+    kb = FakeKeyboard()
+    d, s, _ = setup(tmp_path, keyboard=kb)
+    run(d.handle(Press("shift")))
+    assert kb.events == [("down", "shift")]
+    run(d.handle(Release("shift")))
+    assert kb.events == [("down", "shift"), ("up", "shift")]
+    assert s.calls == []  # keys never touch Lightroom
+
+
+def test_press_twice_single_down(tmp_path):
+    kb = FakeKeyboard()
+    d, _, _ = setup(tmp_path, keyboard=kb)
+    run(d.handle(Press("command")))
+    run(d.handle(Press("command")))  # e.g. a lost note-off
+    run(d.handle(Release("command")))
+    assert kb.events == [("down", "cmd"), ("up", "cmd")]
+
+
+def test_release_without_press_noop(tmp_path):
+    kb = FakeKeyboard()
+    d, _, _ = setup(tmp_path, keyboard=kb)
+    run(d.handle(Release("shift")))
+    assert kb.events == []
+
+
+def test_shortcut_taps_os_keys(tmp_path, monkeypatch):
+    kb = FakeKeyboard()
+    d, _, _ = setup(tmp_path, keyboard=kb)  # default layout
+    monkeypatch.setattr(sys, "platform", "darwin")
+    run(d.handle(Press("before_after")))
+    run(d.handle(Press("screen_mode")))
+    run(d.handle(Release("before_after")))  # a shortcut is a tap: nothing on release
+    assert kb.events == [("tap", ["\\"]), ("tap", ["f"])]
+
+    kb2 = FakeKeyboard()
+    (tmp_path / "w").mkdir()
+    d2, _, _ = setup(tmp_path / "w", {"c3": {"press": {"type": "shortcut", "mac": ["cmd", "z"], "windows": ["ctrl", "z"]}}},
+                     keyboard=kb2)
+    monkeypatch.setattr(sys, "platform", "win32")
+    run(d2.handle(Press("c3")))
+    assert kb2.events == [("tap", ["ctrl", "z"])]
+
+
+def test_keys_without_permission_log_once(tmp_path, caplog):
+    kb = FakeKeyboard(trusted=False)
+    d, s, dials = setup(tmp_path, keyboard=kb)
+    with caplog.at_level(logging.WARNING):
+        run(d.handle(Press("shift")))
+        run(d.handle(Release("shift")))
+        run(d.handle(Press("before_after")))
+        run(d.handle(Turn("exposure", 1)))  # other controls keep working
+    assert kb.events == []
+    assert dials.added == [("Exposure2012", 1)]
+    warnings = [r.getMessage() for r in caplog.records if "Accessibility" in r.getMessage()]
+    assert len(warnings) == 1 and "LoupedeckBridge" in warnings[0]
+
+
+def test_keys_work_while_lightroom_disconnected(tmp_path):
+    kb = FakeKeyboard()
+    d, s, _ = setup(tmp_path, keyboard=kb)
+    s.connected = False
+    run(d.handle(Press("tab")))
+    run(d.handle(Release("tab")))
+    assert kb.events[0] == ("down", "tab") and kb.events[-1] == ("up", "tab")
+
+
+def test_arrow_repeats_while_held(tmp_path):
+    kb = FakeKeyboard()
+    d, _, _ = setup(tmp_path, keyboard=kb)  # repeat_delay 0.02, repeat_interval 0.01
+
+    async def main():
+        await d.handle(Press("right"))
+        await asyncio.sleep(0.08)
+        await d.handle(Release("right"))
+        repeats = kb.events.count(("repeat", "right"))
+        await asyncio.sleep(0.05)
+        return repeats
+    repeats = run(main())
+    assert repeats >= 2
+    assert kb.events.count(("repeat", "right")) == repeats  # none after release
+    assert kb.events[0] == ("down", "right") and kb.events[-1] == ("up", "right")
+
+
+def test_modifier_does_not_repeat(tmp_path):
+    kb = FakeKeyboard()
+    d, _, _ = setup(tmp_path, keyboard=kb)
+
+    async def main():
+        await d.handle(Press("alt"))
+        await asyncio.sleep(0.08)
+    run(main())
+    assert kb.events == [("down", "alt")]
+
+
+def test_release_all_keys(tmp_path):
+    kb = FakeKeyboard()
+    d, _, _ = setup(tmp_path, keyboard=kb)
+
+    async def main():
+        await d.handle(Press("shift"))
+        await d.handle(Press("down"))
+        d.release_all_keys()
+        await asyncio.sleep(0.06)  # the arrow's repeat must have stopped too
+    run(main())
+    assert ("up", "shift") in kb.events and ("up", "down") in kb.events
+    assert ("repeat", "down") not in kb.events
+    d.release_all_keys()  # nothing held: no extra ups
+    assert sum(1 for e in kb.events if e[0] == "up") == 2
+
+
+def test_unknown_shortcut_key_logged(tmp_path, caplog):
+    kb = FakeKeyboard()
+    d, _, _ = setup(tmp_path, {"c3": {"press": {"type": "shortcut", "mac": ["hyper"], "windows": ["hyper"]}}},
+                    keyboard=kb)
+    with caplog.at_level(logging.WARNING):
+        run(d.handle(Press("c3")))  # must not raise
+    assert kb.events == []
+    assert any("c3" in r.getMessage() for r in caplog.records)

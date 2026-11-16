@@ -38,6 +38,7 @@ class App:
                     log.error("bridge stopping: the %s failed", task.get_name(), exc_info=exc)
                     raise exc
         finally:
+            self.dispatcher.release_all_keys()  # never leave Shift/Cmd stuck down on the way out
             for task in tasks:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
@@ -51,15 +52,17 @@ class App:
 
 
 def build(config_dir: Path, midi, port: Optional[int] = None, state_file: Optional[Path] = None,
-          feel=detent_amount, frame_log: Optional[Path] = None) -> App:
+          feel=detent_amount, frame_log: Optional[Path] = None, keyboard=None) -> App:
     mapping = Mapping.load(config_dir / "mapping.json")  # logs its own warnings
     session = LightroomSession(APP_NAME, APP_VERSION, port=port, state_file=state_file, frame_log=frame_log)
     dials = DialEngine(session, feel=feel)
-    dispatcher = Dispatcher(mapping, session, dials)
+    dispatcher = Dispatcher(mapping, session, dials, keyboard=keyboard)
     session.on_connect = dispatcher.resolve_presets   # logs preset warnings after every connect
     session.on_disconnect = dials.reset               # never replay stale detents
     if hasattr(midi, "on_open"):                      # a replugged device may be in another mode
         midi.on_open = dispatcher.device_reconnected
+    if hasattr(midi, "on_close"):                     # unplugged mid-press: let go of held keys
+        midi.on_close = dispatcher.release_all_keys
     return App(midi, session, dials, dispatcher)
 
 
@@ -67,4 +70,5 @@ async def run(debug: bool = False, midi_port: str = "Loupedeck") -> None:
     plat = platform.current()
     frame_log = plat.log_dir() / "frames.jsonl" if debug else None
     log.info("settings: %s", plat.config_dir() / "mapping.json")
-    await build(plat.config_dir(), MidiInput(HardwareMap.load(), port_hint=midi_port), frame_log=frame_log).run()
+    await build(plat.config_dir(), MidiInput(HardwareMap.load(), port_hint=midi_port), frame_log=frame_log,
+                keyboard=plat.keyboard()).run()

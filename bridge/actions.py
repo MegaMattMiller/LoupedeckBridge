@@ -1,11 +1,12 @@
-"""Route control events to their mapped actions: dial adjustments, API calls and presets."""
+"""Route control events to their mapped actions: dial adjustments, API calls, presets and keys."""
 from __future__ import annotations
 
 import asyncio
 import logging
+import sys
 from typing import Dict, List, Optional
 
-from bridge.hardware import Event, Press, Turn
+from bridge.hardware import Event, Press, Release, Turn
 from bridge.lightroom import LightroomError
 from bridge.mapping import Mapping
 
@@ -13,13 +14,22 @@ log = logging.getLogger("actions")
 
 _ERRORS = (LightroomError, ConnectionError, asyncio.TimeoutError)
 STEP_CAP = 3  # most calls one step event may trigger (the device sends ±1 per message anyway)
+MODIFIERS = {"shift", "ctrl", "cmd", "alt"}  # held without repeating
+PERMISSION_HELP = ("Keyboard keys need macOS's Accessibility permission: System Settings → Privacy & Security → "
+                   "Accessibility → turn on LoupedeckBridge (run the bridge from LoupedeckBridge.app; "
+                   "see the README).")
 
 
 class Dispatcher:
-    def __init__(self, mapping: Mapping, session, dials):
-        self.mapping, self.session, self.dials = mapping, session, dials
+    def __init__(self, mapping: Mapping, session, dials, keyboard=None,
+                 repeat_delay: float = 0.4, repeat_interval: float = 0.05):
+        self.mapping, self.session, self.dials, self.keyboard = mapping, session, dials, keyboard
+        # Synthetic key-downs don't auto-repeat on macOS, so held non-modifier keys repeat here.
+        self.repeat_delay, self.repeat_interval = repeat_delay, repeat_interval
         self.preset_warnings: List[str] = []
         self._presets: Dict[str, str] = {}  # control → resolved preset id
+        self._held: Dict[str, str] = {}     # control → key name it's holding down
+        self._repeats: Dict[str, asyncio.Task] = {}
         self._keys_noted = False
         # The device keeps its own colour/B&W mode (clr/bw flips it; HUE/SAT/LUM pick colour).
         # None until something tells us which it is.
@@ -45,6 +55,15 @@ class Dispatcher:
 
     async def handle(self, event: Event) -> None:
         self._track_device_mode(event)  # the device changes mode even while Lightroom is away
+        # Keys are keyboard input, not Lightroom calls: they work whether or not Lightroom is there.
+        if isinstance(event, Release):
+            self._release_key(event.control)
+            return
+        if isinstance(event, Press):
+            action = self.mapping.press_action(event.control)
+            if action["type"] in ("key", "shortcut"):
+                self._press_key(event.control, action)
+                return
         if not self.session.connected:
             log.debug("dropped %s: Lightroom isn't connected", event)
             return
@@ -53,9 +72,53 @@ class Dispatcher:
                 await self._turn(event)
             elif isinstance(event, Press):
                 await self._press(event)
-            # Release: nothing until keyboard keys arrive (milestone 2)
         except _ERRORS as e:
             log.warning("%s failed: %s", event, e)
+
+    # ---- keyboard keys -------------------------------------------------------
+    def _press_key(self, control: str, action: dict) -> None:
+        kb = self.keyboard
+        if kb is None:
+            if not self._keys_noted:
+                self._keys_noted = True
+                log.info("keyboard keys aren't available on this system yet; ignoring %s", control)
+            return
+        if not kb.is_trusted():
+            if not self._keys_noted:
+                self._keys_noted = True
+                log.warning(PERMISSION_HELP)
+            return
+        try:
+            if action["type"] == "shortcut":
+                kb.tap(action["mac"] if sys.platform == "darwin" else action["windows"])
+            elif control not in self._held:
+                name = action["key"]
+                kb.key_down(name)
+                self._held[control] = name
+                if name not in MODIFIERS:
+                    self._repeats[control] = asyncio.get_running_loop().create_task(self._repeat(name))
+        except ValueError as e:
+            log.warning("%s: %s; nothing sent", control, e)
+
+    async def _repeat(self, name: str) -> None:
+        await asyncio.sleep(self.repeat_delay)
+        while True:
+            self.keyboard.key_repeat(name)
+            await asyncio.sleep(self.repeat_interval)
+
+    def _release_key(self, control: str) -> None:
+        name = self._held.pop(control, None)
+        if name is None:
+            return
+        task = self._repeats.pop(control, None)
+        if task is not None:
+            task.cancel()
+        self.keyboard.key_up(name)
+
+    def release_all_keys(self) -> None:
+        """Let go of every key the Loupedeck is holding (unplug, shutdown): never leave a stuck key."""
+        for control in list(self._held):
+            self._release_key(control)
 
     async def _turn(self, event: Turn) -> None:
         action = self.mapping.turn_action(event.control)
@@ -104,9 +167,6 @@ class Dispatcher:
                 await self.session.call("applyPreset", preset_id)
             elif action.get("id") or action.get("name"):
                 log.warning("%s: its preset couldn't be found in Lightroom; nothing applied", event.control)
-        elif kind in ("key", "shortcut") and not self._keys_noted:
-            self._keys_noted = True
-            log.info("keyboard keys and shortcuts arrive in milestone 2; ignoring %s for now", event.control)
 
     async def resolve_presets(self) -> None:
         """Match each preset slot to a Lightroom preset: by id, else by an exact, unique name."""

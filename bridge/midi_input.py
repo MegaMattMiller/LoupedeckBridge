@@ -18,7 +18,8 @@ class MidiInput:
                  open_port: Callable = mido.open_input, poll: float = 1.0):
         self.hardware, self.port_hint = hardware, port_hint
         self.list_ports, self.open_port, self.poll = list_ports, open_port, poll
-        self.on_open: Optional[Callable[[], None]] = None  # called each time the device (re)appears
+        self.on_open: Optional[Callable[[], None]] = None   # called each time the device (re)appears
+        self.on_close: Optional[Callable[[], None]] = None  # called each time its port closes
 
     async def events(self) -> AsyncIterator[Event]:
         loop = asyncio.get_running_loop()
@@ -47,6 +48,11 @@ class MidiInput:
                         yield event
             finally:
                 port.close()
+                if self.on_close is not None:
+                    try:
+                        self.on_close()
+                    except Exception:
+                        log.exception("on_close hook failed")
 
     async def _wait_for_port(self) -> str:
         waiting_logged = False

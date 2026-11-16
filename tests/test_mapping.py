@@ -41,7 +41,8 @@ def test_default_layout_spot_checks(tmp_path):
     assert m.press_action("p3") == {"type": "preset", "id": None, "name": None}
     assert m.press_action("command") == {"type": "key", "key": "cmd"}
     assert m.press_action("left") == {"type": "key", "key": "left"}
-    assert m.press_action("before_after") == NONE
+    assert m.press_action("before_after") == {"type": "shortcut", "mac": ["\\"], "windows": ["\\"]}  # Show Original
+    assert m.press_action("screen_mode") == {"type": "shortcut", "mac": ["f"], "windows": ["f"]}     # Full Screen Loupe
     assert m.press_action("l2") == NONE
 
 
