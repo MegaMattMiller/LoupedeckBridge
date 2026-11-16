@@ -24,3 +24,9 @@ def config_dir() -> Path:
 
 def log_dir() -> Path:
     return Path.home() / "Library" / "Logs" / APP_DIR_NAME
+
+
+def keyboard():
+    """The real key sender (needs the Accessibility permission to have any effect)."""
+    from bridge.platform.macos_keys import MacKeyboard
+    return MacKeyboard()

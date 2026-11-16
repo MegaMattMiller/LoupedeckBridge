@@ -29,3 +29,8 @@ def config_dir() -> Path:
 
 def log_dir() -> Path:
     return _local() / APP_DIR_NAME / "logs"
+
+
+def keyboard():
+    """Keyboard keys on Windows arrive with milestone 6; until then key buttons do nothing."""
+    return None
