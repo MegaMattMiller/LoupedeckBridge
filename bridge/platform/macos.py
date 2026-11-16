@@ -30,3 +30,9 @@ def keyboard():
     """The real key sender (needs the Accessibility permission to have any effect)."""
     from bridge.platform.macos_keys import MacKeyboard
     return MacKeyboard()
+
+
+def modifier_tap(keyboard):
+    """Keeps the Loupedeck's held modifiers on real mouse/keyboard events (see macos_tap)."""
+    from bridge.platform.macos_tap import ModifierTap
+    return ModifierTap(keyboard.held_flags)

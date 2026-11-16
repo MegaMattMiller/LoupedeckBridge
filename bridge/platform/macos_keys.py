@@ -44,11 +44,14 @@ class MacKeyboard:
         self._trusted = trusted or macos_ax.is_trusted
         self._held_modifiers: set = set()
 
-    def _flags(self) -> int:
+    def held_flags(self) -> int:
+        """Flags of the modifiers currently held via the Loupedeck (read by the modifier tap)."""
         flags = 0
-        for m in self._held_modifiers:
+        for m in list(self._held_modifiers):
             flags |= FLAGS[m]
         return flags
+
+    _flags = held_flags
 
     def key_down(self, name: str) -> None:
         code = _code(name)

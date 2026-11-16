@@ -34,3 +34,8 @@ def log_dir() -> Path:
 def keyboard():
     """Keyboard keys on Windows arrive with milestone 6; until then key buttons do nothing."""
     return None
+
+
+def modifier_tap(keyboard):
+    """Not needed on Windows: SendInput's key state is global (to verify in milestone 6)."""
+    return None

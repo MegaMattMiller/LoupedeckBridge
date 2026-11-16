@@ -67,5 +67,16 @@ def test_unknown_key_raises_before_sending_anything():
     assert posted == []
 
 
+def test_held_flags_follow_modifiers():
+    kb, _ = keyboard()
+    kb.key_down("shift")
+    kb.key_down("alt")
+    assert kb.held_flags() == SHIFT | ALT
+    kb.key_up("shift")
+    assert kb.held_flags() == ALT
+    kb.tap(["cmd", "z"])           # a shortcut's own modifiers aren't "held" afterwards
+    assert kb.held_flags() == ALT
+
+
 def test_is_trusted_delegates():
     assert MacKeyboard(post=lambda *a: None, trusted=lambda: False).is_trusted() is False
