@@ -1,5 +1,5 @@
 #!/bin/bash
-# Control the macOS LoupedeckBridge.app:  tools/bridgectl {build|start|stop|restart|status|logs}
+# Control the macOS LoupedeckBridge.app:  tools/bridgectl {build|start|stop|restart|status|logs|settings}
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
@@ -36,6 +36,8 @@ case "${1:-}" in
     if running; then echo "running"; else echo "not running"; fi ;;
   logs)
     tail -n 30 -f "$LOG" ;;
+  settings)
+    open "http://127.0.0.1:7690/" ;;
   *)
-    echo "usage: tools/bridgectl {build|start|stop|restart|status|logs}" >&2; exit 2 ;;
+    echo "usage: tools/bridgectl {build|start|stop|restart|status|logs|settings}" >&2; exit 2 ;;
 esac

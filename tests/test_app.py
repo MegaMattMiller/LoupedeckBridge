@@ -60,6 +60,22 @@ def test_held_keys_released_on_shutdown():
     assert asyncio.run(main()) == 1
 
 
+def test_settings_page_wired(tmp_path):
+    from bridge import app as appmod
+
+    class NoMidi:
+        async def events(self):
+            await asyncio.Event().wait()
+            yield  # pragma: no cover
+
+    bridge = appmod.build(config_dir=tmp_path, midi=NoMidi(), port=1, state_file=tmp_path / "c.json",
+                          settings_port=7699)
+    assert bridge.settings.url == "http://127.0.0.1:7699/"
+    assert bridge.dispatcher.settings_url == bridge.settings.url        # custom mode opens it
+    assert bridge.settings.catalog is bridge.dispatcher.catalog          # one preset cache
+    assert appmod.build(config_dir=tmp_path, midi=NoMidi(), port=1, state_file=tmp_path / "c.json").settings is None
+
+
 def test_held_keys_released_on_device_disconnect(tmp_path):
     from bridge import app as appmod
     from tests.test_actions import FakeKeyboard

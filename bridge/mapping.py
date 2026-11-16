@@ -157,6 +157,11 @@ class Mapping:
             warnings.append(f"Newer defaults exist for {', '.join(kept)}; your own settings for them were kept.")
         shutil.copyfile(default_path, base_path)  # mention each new default once
 
+    @property
+    def writable(self) -> bool:
+        """False when the user's file couldn't be read (it's then never overwritten)."""
+        return self._doc is not None and self.path is not None
+
     def set_press_action(self, control: str, action: dict) -> None:
         """Change one control's press action and save the file (atomically)."""
         if self._doc is None or self.path is None:

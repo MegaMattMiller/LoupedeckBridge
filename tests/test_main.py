@@ -47,7 +47,8 @@ def kill_leftovers():
 
 def start(env, port):
     # --lightroom-port pins an unused port explicitly, so the bridge can never fall back to 7682.
-    p = subprocess.Popen([sys.executable, "-m", "bridge", "--midi-port", "NoSuchDevice", "--lightroom-port", str(port)],
+    p = subprocess.Popen([sys.executable, "-m", "bridge", "--midi-port", "NoSuchDevice", "--lightroom-port", str(port),
+                          "--settings-port", "0"],  # don't compete with a running bridge for the page's port
                          cwd=REPO, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     PROCS.append(p)
     return p

@@ -22,6 +22,8 @@ def main() -> None:
     ap.add_argument("--midi-port", default="Loupedeck", help="part of the Loupedeck's MIDI port name")
     ap.add_argument("--lightroom-port", type=int, default=None,
                     help="Lightroom's controller port (default: read from Lightroom's connections.json)")
+    ap.add_argument("--settings-port", type=int, default=app.SETTINGS_PORT,
+                    help=f"port of the settings page on 127.0.0.1 (default {app.SETTINGS_PORT}; 0 turns it off)")
     ap.add_argument("--check-permission", action="store_true",
                     help="macOS: check (and prompt for) the keyboard permission, then exit")
     args = ap.parse_args()
@@ -74,7 +76,8 @@ async def _run(args) -> None:
 
     watcher = asyncio.create_task(stop_when_parent_gone())
     try:
-        await app.run(debug=args.debug, midi_port=args.midi_port, lightroom_port=args.lightroom_port)
+        await app.run(debug=args.debug, midi_port=args.midi_port, lightroom_port=args.lightroom_port,
+                      settings_port=args.settings_port or None)
     except asyncio.CancelledError:
         pass
     finally:
