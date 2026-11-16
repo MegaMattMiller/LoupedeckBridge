@@ -34,9 +34,9 @@ Stop it with Ctrl-C. Add `--debug` for a verbose log plus a Lightroom frame log 
 - **Your layout:** `mapping.json` in `~/Library/Application Support/loupedeck-lr-bridge/`
   (Windows: `%APPDATA%\loupedeck-lr-bridge\`). It's created from `config/default_mapping.json` on
   first run. Edit it and restart.
-  - A broken file falls back to the default and is left untouched.
-  - While you haven't edited it, it follows improvements to the default layout automatically.
-  - Once you've edited it, it's kept, and the log mentions when a newer default exists.
+  - A broken file falls back to the default and is left untouched (the settings page won't save over it).
+  - It follows improvements to the default layout **control by control**. Controls you changed (e.g.
+    presets on P1–P8) stay as you set them; the log mentions when a newer default exists for one of those.
 - **Logs:** `~/Library/Logs/loupedeck-lr-bridge/bridge.log`.
 - **Dial feel:** the four constants at the top of `bridge/dial_feel.py`.
 - **Behaviour:** dials and Lightroom buttons work even when Lightroom is in the background.
@@ -44,6 +44,27 @@ Stop it with Ctrl-C. Add `--debug` for a verbose log plus a Lightroom frame log 
   colour dial in the device's B&W mode does nothing unless the photo is already black & white.
 
 Tests: `.venv/bin/python -m pip install -r requirements-dev.txt && .venv/bin/python -m pytest -q`
+
+## Settings page: presets on P1–P8
+
+While the bridge runs, open **http://127.0.0.1:7690/** with `tools/bridgectl settings`, the
+Loupedeck's **custom mode** button, or a bookmark.
+1. Pick a slot (P1–P8) on the left.
+2. Search your Lightroom presets on the right, and click one to put it on that slot.
+3. ✕ clears a slot.
+
+Changes save to your `mapping.json` straight away and work without a restart. Pressing a P button on
+the Loupedeck lights up its slot on the page. A slot whose preset was deleted, or whose name now
+matches several presets, is marked so you can assign it again.
+
+The page is local only:
+- It only answers on 127.0.0.1, and only to requests addressed to it.
+- Changes need a secret that only the page itself has, so other websites open in your browser can't
+  change your buttons.
+- It loads nothing from the internet.
+- `--settings-port N` moves it to another port, and `--settings-port 0` turns it off.
+- To work on the page without Lightroom or the device, run `.venv/bin/python tools/preview_settings.py`.
+  It serves the page on port 7691 with fake presets and a throwaway mapping.
 
 ## Run as an app (macOS, needed for keyboard keys)
 
@@ -88,7 +109,7 @@ Keys go to whichever app is in front, like a second keyboard.
 
 1. ✅ Core bridge on macOS: dials, dial clicks, Lightroom buttons, presets, reconnects
 2. ✅ Keyboard keys and shortcuts on macOS: Shift/Ctrl/Cmd/Alt/Tab and arrows, Before/After, screen mode (sent to whichever app is in front)
-3. Settings page: search presets and assign them to P1–P8
+3. ✅ Settings page: search presets and assign them to P1–P8
 4. Settings page: remap any control
 5. Start at login, plus a status display
 6. Windows (macOS-tested code first, then a Windows test run)
