@@ -64,7 +64,7 @@ From [`tools/lr_verify_writes.py`](../tools/lr_verify_writes.py) on a test photo
 - **`increment`/`decrement` amounts are in the parameter's own units**: `increment("Exposure2012", 0.1)` moved 0 → 0.1 EV.
 - **Lightroom clamps at the range ends**: `increment("Contrast2012", 500)` stopped at 100.
 - **`straightenAngle` works outside the crop tool** (tool was `loupe`): `increment(…, 1)` moved 0 → 1°. `resetToDefault` put it back to 0.
-- **Tracking:** `startTracking`, 5× `increment(0.05)`, `stopTracking` → 0.1 + 0.25 = 0.35 EV, as expected. One history step: *visual check by the user pending*.
+- **Tracking makes a burst one undo step:** `startTracking`, 5× `increment(0.05)` → +0.25 EV, then a single `undo()` returned Exposure to its starting value. This held both with an explicit `stopTracking` and when tracking ended by itself after the 2 s tracking delay (what the dial engine relies on). Lightroom (cloud) has no step-by-step History panel like Classic, so this was checked through `undo`.
 - **`applyPreset` applies to the photo in Loupe view**, and `undo()` reverts it completely (8 sampled settings matched the pre-preset values).
 - So the dial engine uses `increment`/`decrement` for every parameter, and no `setValue` fallback is needed.
 
