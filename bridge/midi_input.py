@@ -18,6 +18,7 @@ class MidiInput:
                  open_port: Callable = mido.open_input, poll: float = 1.0):
         self.hardware, self.port_hint = hardware, port_hint
         self.list_ports, self.open_port, self.poll = list_ports, open_port, poll
+        self.on_open: Optional[Callable[[], None]] = None  # called each time the device (re)appears
 
     async def events(self) -> AsyncIterator[Event]:
         loop = asyncio.get_running_loop()
@@ -27,6 +28,11 @@ class MidiInput:
             # rtmidi calls back from its own thread; hand messages to the event loop safely.
             port = self.open_port(name, callback=lambda msg: loop.call_soon_threadsafe(queue.put_nowait, msg))
             log.info("Loupedeck connected (%s)", name)
+            if self.on_open is not None:
+                try:
+                    self.on_open()
+                except Exception:
+                    log.exception("on_open hook failed")
             try:
                 while True:
                     try:

@@ -82,6 +82,14 @@ def test_invalid_entry_becomes_none(tmp_path):
     assert m.press_action("c1") == {"type": "call", "message": "undo", "args": []}  # args default to []
 
 
+def test_malformed_key_value_warns_instead_of_crashing(tmp_path):
+    # Review finding 3: an unhashable "key" value raised TypeError and the bridge wouldn't start.
+    m = Mapping.load(write(tmp_path / "m.json", {"shift": {"press": {"type": "key", "key": ["shift"]}},
+                                                  "tab": {"press": {"type": "key", "key": {"k": 1}}}}))
+    assert m.press_action("shift") == NONE and m.press_action("tab") == NONE
+    assert any("shift" in w for w in m.warnings) and any("tab" in w for w in m.warnings)
+
+
 def test_non_object_entry_warns(tmp_path):
     m = Mapping.load(write(tmp_path / "m.json", {"exposure": 5}))
     assert m.turn_action("exposure") == NONE

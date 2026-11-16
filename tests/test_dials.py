@@ -25,7 +25,8 @@ class FakeClient:
         if message in self.failing:
             raise LightroomError({"success": False, "response": ["invalid_request"], "requestId": "x"})
         if message == "getRange":
-            return list(self.ranges[params[0]])
+            rng = self.ranges[params[0]]
+            return list(rng) if isinstance(rng, list) else rng
         if message == "isBlackAndWhiteOn":
             return list(self.bw)
         return {}  # increment/decrement/startTracking reply with an empty object
@@ -200,6 +201,42 @@ def test_disconnected_client_does_not_raise():
     e = engine(Gone(), Clock())
     e.add("Contrast2012", 1)
     run(e.flush())
+
+
+def test_run_survives_unexpected_errors():
+    # Review finding 2: one unexpected exception (here an edited feel curve that divides by
+    # zero once) used to end DialEngine.run for good — every dial dead until a restart.
+    async def main():
+        c = FakeClient()
+        attempts = []
+
+        def feel(r, s):
+            attempts.append(s)
+            if len(attempts) == 1:
+                raise ZeroDivisionError("bad curve")
+            return 1.0
+
+        e = DialEngine(c, feel=feel, flush_interval=0.01, turn_gap=0.0)
+        task = asyncio.create_task(e.run())
+        try:
+            e.add("Contrast2012", 1)
+            await asyncio.sleep(0.05)
+            e.add("Contrast2012", 1)
+            await asyncio.sleep(0.05)
+            assert not task.done()
+            assert c.named("increment") == [["Contrast2012", 1]]
+        finally:
+            task.cancel()
+    run(main())
+
+
+def test_malformed_range_reply_skips_turn():
+    c, clk = FakeClient(), Clock()
+    c.ranges["Contrast2012"] = {}  # not a list (e.g. a non-number parameter mapped to adjust)
+    e = engine(c, clk)
+    e.add("Contrast2012", 1)
+    run(e.flush())  # must not raise
+    assert c.named("increment") == []
 
 
 def test_two_dials_independent():

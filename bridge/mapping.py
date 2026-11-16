@@ -44,7 +44,7 @@ def _check(slot: str, action) -> Optional[dict]:
         return _with_args(action)
     if kind == "preset" and all(action.get(k) is None or isinstance(action.get(k), str) for k in ("id", "name")):
         return {"type": "preset", "id": action.get("id"), "name": action.get("name")}
-    if kind == "key" and action.get("key") in KEY_NAMES:
+    if kind == "key" and isinstance(action.get("key"), str) and action["key"] in KEY_NAMES:
         return action
     if kind == "shortcut" and all(isinstance(action.get(k), list) for k in ("mac", "windows")):
         return action

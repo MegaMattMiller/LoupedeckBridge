@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 import websockets
+from websockets.exceptions import ConnectionClosed
 
 from bridge import platform
 
@@ -30,6 +31,16 @@ class LightroomError(Exception):
     def __init__(self, reply: dict):
         super().__init__(f"{reply.get('response')!r}")
         self.reply = reply
+
+
+async def _await_reply(fut: asyncio.Future, timeout: float):
+    """Wait for a reply future. Not asyncio.wait_for: on Python 3.9 it returns the result
+    instead of raising CancelledError when a cancel lands in the same step as the reply,
+    which made Ctrl-C occasionally hang."""
+    done, _ = await asyncio.wait({fut}, timeout=timeout)
+    if not done:
+        raise asyncio.TimeoutError(f"no reply from Lightroom within {timeout} s")
+    return fut.result()
 
 
 def lightroom_port(path: Optional[Path] = None) -> int:
@@ -87,7 +98,7 @@ class Lightroom:
                     msg = json.loads(raw)
                 except ValueError:
                     self._log_frame("recv", raw)
-                    log.warning("non-JSON frame: %r", raw[:200])
+                    log.warning("non-JSON frame: %r", self._redacted(raw)[:200])
                     continue
                 rid = msg.get("requestId")
                 if rid in self._register_rids:  # learn the GUID before this frame reaches the log
@@ -101,7 +112,7 @@ class Lightroom:
                 elif rid in self._listeners:
                     self._listeners[rid](msg)
                 else:
-                    log.info("unrouted frame: %s", msg)
+                    log.info("unrouted frame: %s", self._redacted(raw))
         finally:
             err = ConnectionError("Lightroom connection closed")
             for fut in self._pending.values():
@@ -113,18 +124,24 @@ class Lightroom:
     async def request(self, message: str, *params: Any, obj: Optional[str] = None,
                       timeout: float = 10, listener: Optional[Callable[[dict], None]] = None) -> dict:
         """Send one message; return the first reply. Later replies go to `listener`."""
+        if self.ws is None:
+            raise ConnectionError("not connected to Lightroom")
         rid = str(uuid.uuid4())
         frame = {"requestId": rid, "object": obj, "message": message, "params": list(params)}
         fut = asyncio.get_running_loop().create_future()
-        self._pending[rid] = fut
         if message == "register":
             self._register_rids.add(rid)
         if listener is not None:
             self._listeners[rid] = listener
-        await self.ws.send(json.dumps(frame))
-        self._log_frame("send", frame)
+        self._pending[rid] = fut
         try:
-            reply = await asyncio.wait_for(fut, timeout)
+            try:
+                await self.ws.send(json.dumps(frame))
+            except ConnectionClosed as e:
+                # websockets' "closed" isn't a ConnectionError; callers only expect ConnectionError.
+                raise ConnectionError(f"Lightroom connection closed ({e})") from e
+            self._log_frame("send", frame)
+            reply = await _await_reply(fut, timeout)
         finally:
             self._pending.pop(rid, None)
         if not reply.get("success"):
@@ -160,11 +177,14 @@ class Lightroom:
     def _log_frame(self, direction: str, frame: Any) -> None:
         if self.frame_log is None:
             return
-        text = frame if isinstance(frame, str) else json.dumps(frame)
-        for secret in self._redact:
-            text = text.replace(secret, "<clientGUID>")
+        text = self._redacted(frame if isinstance(frame, str) else json.dumps(frame))
         with self.frame_log.open("a") as fh:
             fh.write(json.dumps({"dir": direction, "frame": text}) + "\n")
+
+    def _redacted(self, text: str) -> str:
+        for secret in self._redact:
+            text = text.replace(secret, "<clientGUID>")
+        return text
 
 
 def _find_guid(resp: Any) -> Optional[str]:

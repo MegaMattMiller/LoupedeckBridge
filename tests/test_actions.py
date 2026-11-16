@@ -21,9 +21,13 @@ class FakeSession:
         self.calls: List[Tuple[str, list]] = []
         self.failing: Set[str] = set()
         self.photo_bw = False  # Lightroom's B&W state for the current photo
+        self.slow: Set[str] = set()   # messages that wait for `gate` (a busy Lightroom)
+        self.gate = None
 
     async def call(self, message, *params):
         self.calls.append((message, list(params)))
+        if message in self.slow:
+            await self.gate.wait()
         if message in self.failing:
             raise LightroomError({"success": False, "response": ["invalid_request"], "requestId": "x"})
         if message == "isBlackAndWhiteOn":
@@ -65,12 +69,43 @@ def test_turn_adjust_goes_to_dials(tmp_path):
     assert s.calls == []
 
 
+STEP_MAPPING = {"control": {"turn": {
+    "type": "step", "cw": {"message": "nextPhoto"}, "ccw": {"message": "previousPhoto"}}},
+    "c1": {"press": {"type": "call", "message": "flagPickToggle"}}}
+
+
+async def settle():
+    for _ in range(20):
+        await asyncio.sleep(0)
+
+
 def test_step_calls_per_detent(tmp_path):
-    d, s, _ = setup(tmp_path, {"control": {"turn": {
-        "type": "step", "cw": {"message": "nextPhoto"}, "ccw": {"message": "previousPhoto"}}}})
-    run(d.handle(Turn("control", -2)))
-    run(d.handle(Turn("control", 1)))
+    d, s, _ = setup(tmp_path, STEP_MAPPING)
+
+    async def main():
+        await d.handle(Turn("control", -2))
+        await settle()
+        await d.handle(Turn("control", 1))
+        await settle()
+    run(main())
     assert s.calls == [("previousPhoto", []), ("previousPhoto", []), ("nextPhoto", [])]
+
+
+def test_step_drops_while_busy_and_never_blocks(tmp_path):
+    # Review finding 4: steps were awaited inline, one per detent — a fast spin on a slow
+    # action (nextPhoto) queued up, kept going after the user stopped, and blocked every other control.
+    d, s, _ = setup(tmp_path, STEP_MAPPING)
+
+    async def main():
+        s.gate, s.slow = asyncio.Event(), {"nextPhoto"}
+        for _ in range(10):  # a fast spin while Lightroom is busy with the first photo change
+            await asyncio.wait_for(d.handle(Turn("control", 1)), 0.1)  # never waits on Lightroom
+        await asyncio.wait_for(d.handle(Press("c1")), 0.1)            # other controls aren't blocked
+        assert ("flagPickToggle", []) in s.calls
+        s.gate.set()
+        await settle()
+    run(main())
+    assert [m for m, _ in s.calls].count("nextPhoto") == 1  # no backlog: detents during the busy call are dropped
 
 
 def test_press_call(tmp_path):
@@ -185,6 +220,28 @@ def test_device_mode_tracked_while_disconnected(tmp_path):
     s.connected = True
     run(d.handle(Press("clr_bw")))       # device → colour; photo is colour: nothing to do
     assert toggles(s) == 0
+
+
+def test_bw_click_ignored_when_photo_colour(tmp_path):
+    # Review finding 5: the B&W guard covered turns but not clicks — a click reset a saved B&W mix
+    # on a colour photo. Spec: B&W-bank dials do nothing unless the photo is black & white.
+    d, s, _ = setup(tmp_path)
+    run(d.handle(Press("bw_red")))
+    assert "resetToDefault" not in [m for m, _ in s.calls]
+    s.photo_bw = True
+    run(d.handle(Press("bw_red")))
+    assert ("resetToDefault", ["GrayMixerRed"]) in s.calls
+
+
+def test_device_mode_forgotten_on_reconnect(tmp_path):
+    # Review finding 7: after an unplug the device may come back in its power-on mode; a stale
+    # memory of its mode would make clr/bw leave lights and photo opposite again.
+    d, s, _ = setup(tmp_path)
+    run(d.handle(Turn("bw_red", 1)))  # learned: device in B&W mode
+    d.device_reconnected()
+    run(d.handle(Press("clr_bw")))     # mode unknown again → plain toggle
+    assert toggles(s) == 1
+    assert "isBlackAndWhiteOn" not in [m for m, _ in s.calls]
 
 
 def test_lightroom_error_does_not_raise(tmp_path):

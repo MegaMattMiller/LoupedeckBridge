@@ -57,7 +57,10 @@ class DialEngine:
     async def run(self) -> None:
         while True:
             await asyncio.sleep(self.flush_interval)
-            await self.flush()
+            try:
+                await self.flush()
+            except Exception:  # one bad flush (e.g. an edited feel curve) mustn't kill every dial
+                log.exception("dial flush failed; carrying on")
 
     async def flush(self) -> None:
         for param, d in list(self._dials.items()):
@@ -97,4 +100,7 @@ class DialEngine:
             return True
         except _ERRORS as e:
             log.warning("%s: couldn't start the turn (%s); ignoring it", param, e)
+            return False
+        except (TypeError, ValueError, IndexError, KeyError) as e:  # e.g. a non-number parameter
+            log.warning("%s: unexpected reply from Lightroom (%s); ignoring this turn", param, e)
             return False

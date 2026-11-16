@@ -12,6 +12,7 @@ from bridge.mapping import Mapping
 log = logging.getLogger("actions")
 
 _ERRORS = (LightroomError, ConnectionError, asyncio.TimeoutError)
+STEP_CAP = 3  # most calls one step event may trigger (the device sends ±1 per message anyway)
 
 
 class Dispatcher:
@@ -23,6 +24,11 @@ class Dispatcher:
         # The device keeps its own colour/B&W mode (clr/bw flips it; HUE/SAT/LUM pick colour).
         # None until something tells us which it is.
         self._device_bw: Optional[bool] = None
+        self._stepping: Dict[str, asyncio.Task] = {}  # control → its in-flight step call
+
+    def device_reconnected(self) -> None:
+        """The device was (re)plugged: it may have powered up in a different mode."""
+        self._device_bw = None
 
     def _track_device_mode(self, event: Event) -> None:
         if isinstance(event, Turn):
@@ -56,13 +62,33 @@ class Dispatcher:
         if action["type"] == "adjust":
             self.dials.add(action["param"], event.detents)
         elif action["type"] == "step":
+            # Never queue steps: while one is in flight, further detents are dropped, so a fast
+            # spin can't keep changing photos after you stop or hold up the other controls.
+            if event.control in self._stepping:
+                log.debug("%s: step dropped, the previous one is still running", event.control)
+                return
             call = action["cw"] if event.detents > 0 else action["ccw"]
-            for _ in range(abs(event.detents)):
+            task = asyncio.create_task(self._step(event.control, call, min(abs(event.detents), STEP_CAP)))
+            self._stepping[event.control] = task
+            task.add_done_callback(lambda _t, control=event.control: self._stepping.pop(control, None))
+
+    async def _step(self, control: str, call: dict, count: int) -> None:
+        for _ in range(count):
+            try:
                 await self.session.call(call["message"], *call["args"])
+            except Exception as e:  # runs on its own; nothing above it would see the error
+                log.warning("%s: %s failed: %s", control, call["message"], e)
+                return
 
     async def _press(self, event: Press) -> None:
         action = self.mapping.press_action(event.control)
         kind = action["type"]
+        if event.control.startswith("bw_") and kind != "none":
+            # Spec: B&W-bank dials do nothing unless the photo is black & white — clicks included,
+            # or a click would quietly reset a B&W mix saved on a colour photo.
+            if not bool((await self.session.call("isBlackAndWhiteOn"))[0]):
+                log.info("%s click ignored: the photo isn't black & white", event.control)
+                return
         if kind == "call" and action["message"] == "toggleBlackAndWhite" and event.control == "clr_bw" \
                 and self._device_bw is not None:
             # Make the photo match the device's new mode instead of toggling blindly, so the

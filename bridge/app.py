@@ -25,14 +25,29 @@ class App:
         self.midi, self.session, self.dials, self.dispatcher = midi, session, dials, dispatcher
 
     async def run(self) -> None:
-        background = [asyncio.create_task(self.session.run_forever()), asyncio.create_task(self.dials.run())]
+        tasks = [asyncio.create_task(self.session.run_forever(), name="lightroom session"),
+                 asyncio.create_task(self.dials.run(), name="dial engine"),
+                 asyncio.create_task(self._consume(), name="midi input")]
         try:
-            async for event in self.midi.events():
-                await self.dispatcher.handle(event)
+            # None of these should ever finish. If one dies, stop loudly rather than leave a
+            # bridge that silently ignores input (a supervisor such as launchd can restart it).
+            done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            for task in done:
+                exc = task.exception()
+                if exc is not None:
+                    log.error("bridge stopping: the %s failed", task.get_name(), exc_info=exc)
+                    raise exc
         finally:
-            for task in background:
+            for task in tasks:
                 task.cancel()
-            await asyncio.gather(*background, return_exceptions=True)
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def _consume(self) -> None:
+        async for event in self.midi.events():
+            try:
+                await self.dispatcher.handle(event)
+            except Exception:  # one bad action mustn't stop all input
+                log.exception("handling %s failed; carrying on", event)
 
 
 def build(config_dir: Path, midi, port: Optional[int] = None, state_file: Optional[Path] = None,
@@ -43,6 +58,8 @@ def build(config_dir: Path, midi, port: Optional[int] = None, state_file: Option
     dispatcher = Dispatcher(mapping, session, dials)
     session.on_connect = dispatcher.resolve_presets   # logs preset warnings after every connect
     session.on_disconnect = dials.reset               # never replay stale detents
+    if hasattr(midi, "on_open"):                      # a replugged device may be in another mode
+        midi.on_open = dispatcher.device_reconnected
     return App(midi, session, dials, dispatcher)
 
 

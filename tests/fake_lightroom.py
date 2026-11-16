@@ -28,6 +28,11 @@ class FakeLightroom:
         for conn in list(self._conns):
             await conn.close()
 
+    async def push(self, frame: dict) -> None:
+        """Send an unsolicited frame to every client (e.g. a late reply)."""
+        for conn in list(self._conns):
+            await conn.send(json.dumps(frame))
+
     async def _handle(self, conn) -> None:
         self._conns.add(conn)
         try:

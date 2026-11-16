@@ -84,6 +84,24 @@ def test_reopens_after_unplug():
     asyncio.run(main())
 
 
+def test_on_open_called_each_time_the_device_appears():
+    async def main():
+        midi, opened = FakeMidi(), []
+        source = MidiInput(HW, list_ports=midi.list_ports, open_port=midi.open_port, poll=0.01)
+        source.on_open = lambda: opened.append(len(midi.ports))
+        events = source.events()
+        nxt = asyncio.ensure_future(events.__anext__())
+        await wait_until(lambda: opened == [1])
+        midi.present = False
+        await wait_until(lambda: midi.ports[0].closed)
+        midi.present = True
+        await wait_until(lambda: opened == [1, 2])
+        nxt.cancel()
+        await asyncio.gather(nxt, return_exceptions=True)  # let the cancelled read finish first
+        await events.aclose()
+    asyncio.run(main())
+
+
 def test_unknown_messages_skipped():
     async def main():
         midi = FakeMidi()
