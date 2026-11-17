@@ -118,6 +118,19 @@ had estimated 1–2 s. **Fixed:**
 - Names are cached in `preset_names.json` (state dir), so only new presets are looked up and later loads are instant.
 - The first load shows progress, and "Refresh list" re-reads every name (a renamed preset keeps its id).
 
+**Re-check after the review fixes (same day), all passed:**
+- Restarting the bridge with the page open: the page reloaded itself (new token) and assigning still worked.
+- Quitting Lightroom turned the status amber ("waiting for Lightroom"). Reopening it turned it green;
+  the bridge reconnected ~7 s after Lightroom launched.
+- "Refresh list" in one of two tabs showed progress in both. Turning a dial during the ~27 s load felt
+  normal (by feel; not measured).
+- P1–P3 applied their presets.
+
+**Dead controls with a healthy bridge = the device is gone from USB.** The Loupedeck+ (on a USB-C to
+USB-A dongle) dropped off USB; the page and Lightroom connection looked fine, but the log said
+"Loupedeck disconnected; waiting for it to come back" and macOS listed no MIDI inputs. Replugging
+the dongle fixed it; the bridge reopened the device by itself. A visible device status is for milestone 5.
+
 ## API notes the handoff didn't capture
 - **How object handles come about:** `addAdjustmentChangeObserver(param?)` and `addHapticsObserver()` return a GUID/object. Later notifications arrive as extra responses for that same original `requestId` (this is the "one request, many responses" case). Call `close` on the handle when done.
 - **Tracking:** `startTracking(param)` turns itself off **2 s** after the last change, or as soon as a *different* parameter is adjusted. `stopTracking()` commits **one** history state. `setMultipleAdjustmentThreshold` defaults to **0.5 s** and has no effect if it's larger than the tracking delay.
