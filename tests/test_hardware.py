@@ -60,7 +60,8 @@ def test_every_captured_message_decodes(hw):
 
 
 def test_controls_catalogue(hw):
-    assert len(hw.controls) == 14 + 32 + 40
+    assert len(hw.controls) == 14 + 32 + 40 + 10      # + the five buttons' Ratings and Colours ids (milestone 4)
+    assert hw.controls["ratings_1"] == "button" and hw.controls["colours_5"] == "button"
     assert hw.controls["exposure"] == "dial"
     assert hw.controls["bw_red"] == "dial"
     assert hw.controls["control"] == "dial"

@@ -7,7 +7,7 @@ import sys
 import webbrowser
 from typing import Callable, Dict, List, Optional
 
-from bridge.hardware import Event, Press, Release, Turn
+from bridge.hardware import COL, FIVE, Event, Press, Release, Turn, five_id
 from bridge.lightroom import LightroomError
 from bridge.mapping import FN_KEY, Mapping
 from bridge.presets import PresetCatalog
@@ -46,10 +46,38 @@ class Dispatcher:
         self._device_bw: Optional[bool] = None
         self._stepping: Dict[str, asyncio.Task] = {}  # control → its in-flight step call
         self._fn = False  # the Fn button is held: controls use their Fn layer
+        # The five buttons next to --/Col: "ratings", "colours" or "keys". Always starts in Ratings.
+        self._five = self._five_last = "ratings"  # _five_last: the last of Ratings/Colours
+        self.on_mode_change: Optional[Callable[[], None]] = None
 
     @property
     def fn_held(self) -> bool:
         return self._fn
+
+    @property
+    def five_mode(self) -> str:
+        return self._five
+
+    def banked(self, control: str) -> str:
+        """The control id a physical control has right now (the five buttons depend on the mode)."""
+        return five_id(control, self._five) if control in FIVE else control
+
+    def _switch_five(self, fn: bool) -> None:
+        """--/Col: Ratings ↔ Colours (from Keys: back to the last of them); Fn + --/Col: Keys on / off."""
+        if fn:
+            self._five = self._five_last if self._five == "keys" else "keys"
+        elif self._five == "keys":
+            self._five = self._five_last
+        else:
+            self._five = "colours" if self._five == "ratings" else "ratings"
+        if self._five != "keys":
+            self._five_last = self._five
+        log.info("five buttons: %s", self._five.capitalize())
+        if self.on_mode_change is not None:
+            try:
+                self.on_mode_change()
+            except Exception:  # telling the page mustn't break the device
+                log.exception("on_mode_change failed")
 
     def device_reconnected(self) -> None:
         """The device was (re)plugged: it may have powered up in a different mode."""
@@ -83,8 +111,13 @@ class Dispatcher:
             self._release_key(event.control)
             return
         fn = self._fn  # the layer is chosen when a press starts, and per turn message
+        if isinstance(event, Press) and event.control == COL:
+            self._switch_five(fn)  # fixed: whatever --/Col maps to, in either layer; works without Lightroom
+            return
         if isinstance(event, Press) and event.control != CLR_BW:
-            action = self.mapping.press_action(event.control, fn=fn)
+            # Held keys are remembered by the physical control, so a release after a mode switch
+            # still lets go of the key this press started.
+            action = self.mapping.press_action(self.banked(event.control), fn=fn)
             if action["type"] in ("key", "shortcut"):
                 self._press_key(event.control, action)
                 return
@@ -175,11 +208,12 @@ class Dispatcher:
                 return
 
     async def _press(self, event: Press, fn: bool = False) -> None:
-        action = self.mapping.press_action(event.control, fn=fn)
+        control = self.banked(event.control)
+        action = self.mapping.press_action(control, fn=fn)
         kind = action["type"]
         if kind == "reset_dial":
             # A dial click resets whatever its turn adjusts, in the layer this press is in.
-            turn = self.mapping.turn_action(event.control, fn=fn)
+            turn = self.mapping.turn_action(control, fn=fn)
             if turn["type"] != "adjust":
                 return
             action, kind = {"type": "call", "message": "resetToDefault", "args": [turn["param"]]}, "call"

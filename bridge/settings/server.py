@@ -230,7 +230,7 @@ class SettingsServer:
             if action["type"] != "preset":  # e.g. a hand edit: say what it is, not "Empty"
                 status = {**status, "status": "other", "label": self.commands.describe(action)["label"]}
             slots.append(status)
-        return {"type": "state", "slots": slots,
+        return {"type": "state", "slots": slots, "five_mode": self.dispatcher.five_mode,
                 "writable": self.mapping.writable, "lightroom": bool(self.dispatcher.session.connected)}
 
     async def _error(self, ws, message: str) -> None:
@@ -261,7 +261,7 @@ class SettingsServer:
             self._used_at[event.control] = now
         elif not isinstance(event, Press):
             return
-        self._later({"type": "used", "control": event.control,
+        self._later({"type": "used", "control": self.dispatcher.banked(event.control),
                      "layer": "fn" if self.dispatcher.fn_held else "normal",
                      "slot": "turn" if isinstance(event, Turn) else "press"})
 

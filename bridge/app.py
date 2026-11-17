@@ -81,15 +81,20 @@ def build(config_dir: Path, midi, port: Optional[int] = None, state_file: Option
         if settings is not None:
             await settings.broadcast_state()          # with each slot's badge checked
 
-    def lightroom_disconnected() -> None:
-        dials.reset()                                 # never replay stale detents
+    def announce() -> None:
+        """Tell open settings pages the state changed (from code that isn't async)."""
         if settings is not None:
             task = asyncio.get_running_loop().create_task(settings.broadcast_state())
             background.add(task)
             task.add_done_callback(background.discard)
 
+    def lightroom_disconnected() -> None:
+        dials.reset()                                 # never replay stale detents
+        announce()
+
     session.on_connect = lightroom_connected
     session.on_disconnect = lightroom_disconnected
+    dispatcher.on_mode_change = announce              # --/Col: the page shows the five buttons' mode
     if hasattr(midi, "on_open"):                      # a replugged device may be in another mode
         midi.on_open = dispatcher.device_reconnected
     if hasattr(midi, "on_close"):                     # unplugged mid-press: let go of held keys

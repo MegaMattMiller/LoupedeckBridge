@@ -137,6 +137,17 @@ and clicking Exposure with and without Fn: **every control sent exactly the same
 Fn itself sends note 110 on when pressed and off when released. So Fn layers are entirely the
 bridge's job: it tracks Fn and picks each press's layer when the press starts.
 
+## --/Col and the five buttons (capture, 2026-11-16)
+With the bridge paused: the five buttons next to --/Col (Shift, Ctrl, Cmd, Alt, Tab; notes 66–70) sent
+**the same notes before --/Col, after it, after pressing it again, and after Fn + --/Col**. --/Col itself
+is note 65, and **no lights change**. So the Ratings / Colours / Keys modes are entirely the bridge's job.
+
+**The device can go quiet while still on USB.** During this check it stopped sending any MIDI (not even
+C3) while macOS still listed it and its MIDI interface. Replugging the dongle fixed it. Fn + --/Col
+was ruled out as the cause: a controlled capture with it pressed last kept sending. The USB descriptors
+also show a CDC serial interface besides MIDI (Loupedeck's own software may use it); the bridge
+doesn't use it.
+
 ## Milestone 4 live check (remapper and Fn layer, 2026-11-16)
 **Commands:** `tools/lr_check_commands.py` sent all 72 checkable commands in `config/commands.json`
 to Lightroom on a test photo: **all accepted**. 8 were left for checking by hand: the dialogs (Export,

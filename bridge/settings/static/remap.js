@@ -8,11 +8,15 @@ const Remap = (() => {
   const SLOT_NAMES = { turn: "Turn", press: "Click" };
   const SECTIONS = [  // [group, title, always open]
     ["your", "Your buttons", true],
+    ["five", "Five buttons (--/Col)", false],
     ["buttons", "Other buttons", false],
     ["dials", "Dials", false],
     ["colour", "Colour dials", false],
   ];
-  const BANK_NAMES = { hue: "Hue", sat: "Saturation", lum: "Luminance", bw: "B&W mix" };
+  const BANK_NAMES = {
+    hue: "Hue", sat: "Saturation", lum: "Luminance", bw: "B&W mix",
+    ratings: "Ratings mode", colours: "Colours mode (--/Col)", keys: "Keys mode (Fn + --/Col)",
+  };
   const RESTORE_TEXT = "Restore default layout";
 
   let catalog = null;        // {commands: [{id, label, group}], pairs: [{id, label}], sliders: [[param, label]]}

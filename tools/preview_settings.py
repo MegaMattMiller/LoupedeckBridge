@@ -56,7 +56,7 @@ async def main() -> None:
     ap.add_argument("--name-delay", type=float, default=0.0, metavar="S",
                     help="each preset name takes S s (the real Lightroom: about 0.02)")
     ap.add_argument("--demo-device", action="store_true",
-                    help="every 4 s, act out holding Fn and pressing C3, then turning Exposure")
+                    help="every 4 s, act out holding Fn and pressing C3, turning Exposure, then --/Col")
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)-7s %(name)s: %(message)s")
     tmp = Path(tempfile.mkdtemp(prefix="lb-preview-"))
@@ -84,9 +84,18 @@ async def main() -> None:
             server.on_event(event)
         while True:
             await asyncio.sleep(4)
-            for event in (Press("fn"), Press("c3"), Release("c3"), Release("fn"), Turn("exposure", 1)):
+            for event in (Press("fn"), Press("c3"), Release("c3"), Release("fn"), Turn("exposure", 1),
+                          Press("col"), Release("col")):
                 await use(event)
                 await asyncio.sleep(0.5)
+
+    tasks = set()
+
+    def mode_changed() -> None:  # what bridge.app does: the page's chip follows --/Col
+        task = asyncio.get_running_loop().create_task(server.broadcast_state())
+        tasks.add(task)
+        task.add_done_callback(tasks.discard)
+    dispatcher.on_mode_change = mode_changed
 
     later = [open_lightroom_later()] if args.lightroom_after is not None else []
     if args.demo_device:

@@ -32,12 +32,26 @@ def _entries(section: dict) -> Dict[str, int]:
     return {k: v for k, v in section.items() if not k.startswith("_")}
 
 
+COL = "col"  # the --/Col button: switches what the five buttons next to it do
+FIVE = ["shift", "ctrl", "command", "alt", "tab"]  # those five, in physical order (notes 66–70)
+FIVE_MODES = ["ratings", "colours", "keys"]
+# The device sends the same notes in every mode and shows no light (captured 2026-11-16): the bridge
+# keeps the mode and gives each mode's buttons their own control ids. Keys mode keeps the original ids.
+FIVE_IDS = [f"{mode}_{i}" for mode in FIVE_MODES[:2] for i in range(1, len(FIVE) + 1)]
+
+
+def five_id(control: str, mode: str) -> str:
+    """The control id one of the five buttons has in a mode."""
+    return control if mode == "keys" else f"{mode}_{FIVE.index(control) + 1}"
+
+
 class HardwareMap:
     def __init__(self, dials: Dict[str, int], buttons: Dict[str, int]):
         # Dials turn via CC and click via a note on the same number; buttons are notes only.
         self._cc = {num: cid for cid, num in dials.items()}
         self._note = {**self._cc, **{num: cid for cid, num in buttons.items()}}
-        self.controls: Dict[str, str] = {**{c: "dial" for c in dials}, **{c: "button" for c in buttons}}
+        self.controls: Dict[str, str] = {**{c: "dial" for c in dials}, **{c: "button" for c in buttons},
+                                         **{c: "button" for c in FIVE_IDS}}  # per-mode ids (not physical)
 
     @classmethod
     def load(cls, path: Path = DEFAULT_PATH) -> "HardwareMap":

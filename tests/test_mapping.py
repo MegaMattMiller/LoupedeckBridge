@@ -367,6 +367,18 @@ def test_milestone3_mapping_upgrades_cleanly(tmp_path):
     assert m.warnings == []
 
 
+def test_default_five_mode_actions(tmp_path):
+    from bridge.hardware import five_id
+    m = Mapping.load(tmp_path / "m.json")
+    assert m.press_action("ratings_3") == {"type": "call", "message": "rating3", "args": []}
+    assert m.press_action("colours_4") == {"type": "call", "message": "colorLabelBlue", "args": []}
+    assert m.press_action("shift") == {"type": "key", "key": "shift"}      # Keys mode: as before
+    controls = HardwareMap.load().controls
+    assert controls["ratings_1"] == "button" and controls["colours_5"] == "button"
+    assert five_id("tab", "colours") == "colours_5" and five_id("shift", "keys") == "shift"
+    assert five_id("ctrl", "ratings") == "ratings_2"
+
+
 def test_user_file_replaces_default(tmp_path):
     m = Mapping.load(write(tmp_path / "m.json", {"c1": {"press": {"type": "call", "message": "undo", "args": []}}}))
     assert m.press_action("c1") == {"type": "call", "message": "undo", "args": []}

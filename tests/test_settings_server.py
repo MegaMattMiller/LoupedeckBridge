@@ -564,3 +564,21 @@ def test_other_action_on_a_p_button_shows_its_label(tmp_path):
 
 
 RATING3 = {"type": "call", "message": "rating3", "args": []}
+
+
+def test_five_mode_in_state_and_used(tmp_path):
+    async def main():
+        async with Rig(tmp_path) as rig:
+            async with rig.connect() as ws:
+                assert (await rig.hello(ws))["five_mode"] == "ratings"
+                await rig.next(ws, "layout")
+                await rig.dispatcher.handle(Press("shift"))
+                rig.server.on_event(Press("shift"))
+                assert (await rig.next(ws, "used"))["control"] == "ratings_1"
+                before = rig.path.read_bytes()
+                await ws.send(set_op("col", "normal", "press", {"kind": "command", "id": "rating_3"}))
+                await rig.next(ws, "error")
+                assert rig.path.read_bytes() == before
+                await ws.send(set_op("colours_2", "normal", "press", {"kind": "command", "id": "rating_3"}))
+                assert row_of(await rig.next(ws, "layout"), "colours_2")["normal"]["press"]["choice"]["id"] == "rating_3"
+    asyncio.run(main())

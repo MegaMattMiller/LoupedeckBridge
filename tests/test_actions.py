@@ -84,12 +84,15 @@ class FakeKeyboard:
         return self.trusted
 
 
-def setup(tmp_path, controls: Dict[str, dict] = None, keyboard=None):
+def setup(tmp_path, controls: Dict[str, dict] = None, keyboard=None, keys_mode: bool = False):
     path = tmp_path / "m.json"
     if controls is not None:
         path.write_text(json.dumps({"version": 1, "controls": controls}))
     session, dials = FakeSession(), SpyDials()
     d = Dispatcher(Mapping.load(path), session, dials, keyboard=keyboard, repeat_delay=0.02, repeat_interval=0.01)
+    if keys_mode:  # Shift/Ctrl/Cmd/Alt/Tab are real keys in Keys mode (Fn + --/Col); the bridge starts in Ratings
+        run(_fn_col(d))
+        assert d.five_mode == "keys"
     return d, session, dials
 
 
@@ -351,7 +354,7 @@ def test_lightroom_error_does_not_raise(tmp_path):
 
 
 def test_no_keyboard_logs_once(tmp_path, caplog):
-    d, s, dials = setup(tmp_path)  # keyboard=None, e.g. Windows before milestone 6
+    d, s, dials = setup(tmp_path, keys_mode=True)  # keyboard=None, e.g. Windows before milestone 6
     with caplog.at_level(logging.INFO):
         run(d.handle(Press("shift")))
         run(d.handle(Press("left")))
@@ -362,7 +365,7 @@ def test_no_keyboard_logs_once(tmp_path, caplog):
 
 def test_key_press_release_holds_key(tmp_path):
     kb = FakeKeyboard()
-    d, s, _ = setup(tmp_path, keyboard=kb)
+    d, s, _ = setup(tmp_path, keyboard=kb, keys_mode=True)
     run(d.handle(Press("shift")))
     assert kb.events == [("down", "shift")]
     run(d.handle(Release("shift")))
@@ -372,7 +375,7 @@ def test_key_press_release_holds_key(tmp_path):
 
 def test_press_twice_single_down(tmp_path):
     kb = FakeKeyboard()
-    d, _, _ = setup(tmp_path, keyboard=kb)
+    d, _, _ = setup(tmp_path, keyboard=kb, keys_mode=True)
     run(d.handle(Press("command")))
     run(d.handle(Press("command")))  # e.g. a lost note-off
     run(d.handle(Release("command")))
@@ -420,7 +423,7 @@ def test_keys_without_permission_log_once(tmp_path, caplog):
 
 def test_keys_work_while_lightroom_disconnected(tmp_path):
     kb = FakeKeyboard()
-    d, s, _ = setup(tmp_path, keyboard=kb)
+    d, s, _ = setup(tmp_path, keyboard=kb, keys_mode=True)
     s.connected = False
     run(d.handle(Press("tab")))
     run(d.handle(Release("tab")))
@@ -446,7 +449,7 @@ def test_arrow_repeats_while_held(tmp_path):
 
 def test_modifier_does_not_repeat(tmp_path):
     kb = FakeKeyboard()
-    d, _, _ = setup(tmp_path, keyboard=kb)
+    d, _, _ = setup(tmp_path, keyboard=kb, keys_mode=True)
 
     async def main():
         await d.handle(Press("alt"))
@@ -457,7 +460,7 @@ def test_modifier_does_not_repeat(tmp_path):
 
 def test_release_all_keys(tmp_path):
     kb = FakeKeyboard()
-    d, _, _ = setup(tmp_path, keyboard=kb)
+    d, _, _ = setup(tmp_path, keyboard=kb, keys_mode=True)
 
     async def main():
         await d.handle(Press("shift"))
@@ -600,3 +603,68 @@ def test_export_with_previous_checks_first(tmp_path):
     s.can_export = True
     run(fn_export())
     assert s.calls[-2:] == [("canExportWithPrevious", []), ("exportWithPrevious", [])]
+
+
+# ---- milestone 4, Task 7: --/Col modes for the five buttons --------------------------
+async def _press(d, *controls):
+    for c in controls:
+        await d.handle(Press(c))
+        await d.handle(Release(c))
+
+
+async def _fn_col(d):
+    for e in (Press("fn"), Press("col"), Release("col"), Release("fn")):
+        await d.handle(e)
+
+
+def test_five_modes_switch_and_act(tmp_path):
+    kb = FakeKeyboard()
+    d, s, _ = setup(tmp_path, keyboard=kb)
+    switches = []
+    d.on_mode_change = lambda: switches.append(d.five_mode)
+
+    async def main():
+        assert d.five_mode == "ratings"                  # always starts in Ratings
+        await _press(d, "shift")                         # rating 1
+        await _press(d, "col", "shift", "tab")           # Colours: red, purple
+        await _press(d, "col")                           # back to Ratings
+        await _fn_col(d)                                 # Keys
+        await _press(d, "shift")                         # a real Shift
+        await _fn_col(d)                                 # Keys off → Ratings (the last one)
+        await _press(d, "col")                           # Colours
+        await _fn_col(d)                                 # Keys
+        await _press(d, "col")                           # from Keys: back to Colours (the last one)
+    run(main())
+    assert [m for m, _ in s.calls] == ["rating1", "colorLabelRed", "colorLabelPurple"]
+    assert kb.events == [("down", "shift"), ("up", "shift")]
+    assert switches == ["colours", "ratings", "keys", "ratings", "colours", "keys", "colours"]
+
+
+def test_held_key_released_after_mode_switch(tmp_path):
+    kb = FakeKeyboard()
+    d, s, _ = setup(tmp_path, keyboard=kb)
+
+    async def main():
+        await _fn_col(d)                                 # Keys
+        assert d.five_mode == "keys"
+        await d.handle(Press("shift"))
+        await _fn_col(d)                                 # → Ratings while Shift is held
+        assert d.five_mode == "ratings"
+        await d.handle(Release("shift"))
+    run(main())
+    assert kb.events == [("down", "shift"), ("up", "shift")]
+    assert "rating1" not in [m for m, _ in s.calls]
+
+
+def test_col_is_fixed_whatever_it_maps_to(tmp_path):
+    d, s, _ = setup(tmp_path, {"col": {"press": RATING3, "fn": {"press": RATING3}}})
+    s.connected = False                                  # switching is local: works while Lightroom is away
+    run(_press(d, "col"))
+    assert d.five_mode == "colours"
+    s.connected = True
+    run(_fn_col(d))
+    assert d.five_mode == "keys"
+    d.device_reconnected()                               # a replug keeps the mode
+    assert d.five_mode == "keys"
+    assert "rating3" not in [m for m, _ in s.calls]
+    assert d.banked("shift") == "shift" and d.banked("c1") == "c1"

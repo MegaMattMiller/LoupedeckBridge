@@ -89,6 +89,12 @@ The **Buttons & dials** tab changes what any control does. Changes save and work
   only way to export without the dialog; plain Export always opens it. If Lightroom has no previous
   settings yet, nothing happens.
 - **clr/bw** is fixed: it always keeps the photo's black & white in step with the device's lights.
+- **--/Col modes:** the five buttons next to --/Col have three modes. The page header shows the current one;
+  the device has no light for it.
+  - **Ratings:** ★ to ★★★★★. The bridge always starts in Ratings.
+  - **Colours:** red, yellow, green, blue, purple. --/Col swaps Ratings and Colours.
+  - **Keys:** Shift, Ctrl, Cmd, Alt, Tab as real keys. **Fn + --/Col** turns Keys on and off.
+  --/Col is fixed. Each mode's five buttons can be remapped in the "Five buttons (--/Col)" section.
 - P1–P8 keep their presets (set on the Presets tab); their Fn actions are set here.
 - **Reset** returns one control to its default; **Restore default layout** (two clicks) resets all of
   them but keeps your P1–P8 presets.

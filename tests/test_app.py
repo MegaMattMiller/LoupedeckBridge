@@ -7,7 +7,7 @@ import logging
 import pytest
 
 from bridge.app import App
-from bridge.hardware import Press
+from bridge.hardware import Press, Release
 
 
 class Midi:
@@ -108,7 +108,10 @@ def test_held_keys_released_on_device_disconnect(tmp_path):
 
     kb, midi = FakeKeyboard(), HookedMidi()
     bridge = appmod.build(config_dir=tmp_path, midi=midi, port=1, state_file=tmp_path / "client.json", keyboard=kb)
-    asyncio.run(bridge.dispatcher.handle(Press("shift")))
+    async def keys_then_shift():                          # Shift is a real key in Keys mode (Fn + --/Col)
+        for e in (Press("fn"), Press("col"), Release("col"), Release("fn"), Press("shift")):
+            await bridge.dispatcher.handle(e)
+    asyncio.run(keys_then_shift())
     midi.on_close()  # the Loupedeck was unplugged while Shift was held
     assert kb.events == [("down", "shift"), ("up", "shift")]
 
@@ -141,3 +144,26 @@ def test_dead_background_task_stops_app_loudly(caplog):
         with pytest.raises(RuntimeError, match="dial engine bug"):
             asyncio.run(main())
     assert any(r.levelno >= logging.ERROR for r in caplog.records)
+
+
+def test_mode_change_broadcast(tmp_path):
+    from bridge import app as appmod
+
+    class NoMidi:
+        async def events(self):
+            await asyncio.Event().wait()
+            yield  # pragma: no cover
+
+    bridge = appmod.build(config_dir=tmp_path, midi=NoMidi(), port=1, state_file=tmp_path / "c.json",
+                          settings_port=7699)
+    announced = []
+
+    async def spy():
+        announced.append(1)
+    bridge.settings.broadcast_state = spy
+
+    async def main():
+        bridge.dispatcher.on_mode_change()               # e.g. --/Col pressed: the page's chip follows
+        await asyncio.sleep(0)
+    asyncio.run(main())
+    assert announced == [1]

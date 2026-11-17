@@ -102,6 +102,10 @@ function onProgress(done, total) {
 // ---- messages ---------------------------------------------------------------
 function onState(msg) {
   state = msg;
+  const MODES = { ratings: "Ratings", colours: "Colours", keys: "Keys" };
+  $("five-mode").hidden = !MODES[msg.five_mode];
+  $("five-mode").textContent = `Five buttons: ${MODES[msg.five_mode] || ""}`;
+  $("five-mode").dataset.mode = msg.five_mode || "";
   setStatus(msg.lightroom ? "ok" : "warn",
     msg.lightroom ? "Connected to the bridge and Lightroom" : "Connected to the bridge · waiting for Lightroom");
   if (!msg.writable) {

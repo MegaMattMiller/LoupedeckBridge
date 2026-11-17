@@ -19,7 +19,7 @@ def test_rows_order_groups_and_fn(tmp_path):
     assert "fn" not in by
     assert len(r) == len(HardwareMap.load().controls) - 1
     groups = [row["group"] for row in r]
-    assert groups == sorted(groups, key=["your", "buttons", "dials", "colour"].index)  # sections in order
+    assert groups == sorted(groups, key=["your", "five", "buttons", "dials", "colour"].index)  # sections in order
     exposure = by["exposure"]
     assert exposure["slots"] == ["turn", "press"] and exposure["group"] == "dials"
     assert exposure["normal"]["press"]["label"] == "Reset this dial's slider"
@@ -45,3 +45,17 @@ def test_fixed_reasons():
     assert fixed_reason("export", "fn", "press") and fixed_reason("export", "normal", "press") is None
     assert fixed_reason("p8", "normal", "press") and fixed_reason("p8", "fn", "press") is None
     assert fixed_reason("c3", "fn", "press") is None
+
+
+def test_five_section_rows(tmp_path):
+    r = build(tmp_path)
+    five = [row for row in r if row["group"] == "five"]
+    assert [row["control"] for row in five] == [f"ratings_{i}" for i in range(1, 6)] + \
+        [f"colours_{i}" for i in range(1, 6)] + ["shift", "ctrl", "command", "alt", "tab"]
+    assert [row["bank"] for row in five] == ["ratings"] * 5 + ["colours"] * 5 + ["keys"] * 5
+    assert five[0]["name"] == "Button 1" and five[0]["normal"]["press"]["label"] == "Rating: ★"
+    assert five[10]["name"] == "Shift"
+    col = next(row for row in r if row["control"] == "col")
+    assert set(col["fixed"]) == {"normal.press", "fn.press"}
+    assert col["normal"]["press"]["label"] == "Switch Ratings ↔ Colours"
+    assert col["fn"]["press"]["label"] == "Keys on / off"
