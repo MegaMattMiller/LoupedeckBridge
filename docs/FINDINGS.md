@@ -137,6 +137,21 @@ and clicking Exposure with and without Fn: **every control sent exactly the same
 Fn itself sends note 110 on when pressed and off when released. So Fn layers are entirely the
 bridge's job: it tracks Fn and picks each press's layer when the press starts.
 
+## Milestone 4 live check (remapper and Fn layer, 2026-11-16)
+**Commands:** `tools/lr_check_commands.py` sent all 72 checkable commands in `config/commands.json`
+to Lightroom on a test photo: **all accepted**. 8 were left for checking by hand: the dialogs (Export,
+Preferences, the merges, Copy settings…), Edit in Photoshop, and Duplicate photo.
+
+**With the user, all passed:**
+- The mapping upgraded by itself: P1–P3 presets kept, dial clicks became "reset this dial's slider", Export gained Fn + Export, no warnings.
+- Presets and dial-click resets work as before.
+- Fn actions on L1–L3 and C1–C6, set on the page, work with Fn held and leave the normal actions alone.
+- Letting go of Fn before the button gives exactly one Fn action.
+- Using a control on the device selects it on the page; Fn + C3 selects C3's Fn cell.
+- Fn + Export exports with the previous settings; plain Export still opens the dialog.
+- clr/bw keeps the lights and the photo in step, with and without Fn.
+- Reset and Restore default layout keep the P1–P3 presets.
+
 ## API notes the handoff didn't capture
 - **How object handles come about:** `addAdjustmentChangeObserver(param?)` and `addHapticsObserver()` return a GUID/object. Later notifications arrive as extra responses for that same original `requestId` (this is the "one request, many responses" case). Call `close` on the handle when done.
 - **Tracking:** `startTracking(param)` turns itself off **2 s** after the last change, or as soon as a *different* parameter is adjusted. `stopTracking()` commits **one** history state. `setMultipleAdjustmentThreshold` defaults to **0.5 s** and has no effect if it's larger than the tracking delay.
