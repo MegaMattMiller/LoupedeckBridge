@@ -81,3 +81,18 @@ def test_second_process_exits_3(tmp_path):
     assert second.wait(timeout=10) == 3
     assert "already running" in log.read_text()
     assert first.poll() is None  # the first bridge is unaffected
+
+
+def test_no_console_copy_when_stderr_is_the_log(tmp_path):
+    # Live check, 2026-11-16: under LoupedeckBridge.app the bridge's stderr *is* bridge.log, so the console
+    # handler wrote every line a second time.
+    from bridge.__main__ import log_handlers
+    log_file = tmp_path / "bridge.log"
+    log_file.write_text("")
+    with open(log_file, "a") as same, open(tmp_path / "other.txt", "w") as other:
+        kinds = [type(h).__name__ for h in log_handlers(log_file, stderr=same)]
+        assert kinds == ["RotatingFileHandler"]
+        kinds = [type(h).__name__ for h in log_handlers(log_file, stderr=other)]
+        assert kinds == ["StreamHandler", "RotatingFileHandler"]      # a terminal (or anything else): both
+    for h in log_handlers(log_file, stderr=sys.stderr):
+        h.close()

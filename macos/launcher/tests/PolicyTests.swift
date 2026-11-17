@@ -136,6 +136,32 @@ enum PolicyTests {
             if BridgeStatus.parse(nullURL)?.settings_url != nil || BridgeStatus.parse(nullURL) == nil { return "null url" }
             return BridgeStatus.parse(good) == want ? nil : "parsed \(String(describing: BridgeStatus.parse(good)))"
         }
+        check("status_pipe_reaches_the_app") {
+            // Live check, 2026-11-16: the bridge got "Bad file descriptor" writing status to fd 3.
+            // A stand-in "python" writes one status line to fd 3; the app must receive it.
+            let dir = FileManager.default.temporaryDirectory.appendingPathComponent("lb-pipe-\(getpid())")
+            let bin = dir.appendingPathComponent(".venv/bin")
+            try? FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+            let script = bin.appendingPathComponent("python")
+            let body = "#!/bin/sh\necho '{\"loupedeck\": true, \"lightroom\": true, \"keys\": \"allowed\", " +
+                "\"five_mode\": \"ratings\", \"settings_url\": null}' >&3 || exit 9\n"
+            try? body.write(to: script, atomically: true, encoding: .utf8)
+            chmod(script.path, 0o755)
+            BridgeProcess.logURL = dir.appendingPathComponent("bridge.log")
+            var received: BridgeStatus?
+            var exitCode: Int32?
+            let process = BridgeProcess(repo: dir.path, arguments: [])
+            process.onStatus = { received = $0 }
+            process.onExit = { exitCode = $0 }
+            guard process.start() else { return "couldn't start the stand-in" }
+            let deadline = Date().addingTimeInterval(5)
+            while (received == nil || exitCode == nil) && Date() < deadline {
+                RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+            }
+            try? FileManager.default.removeItem(at: dir)
+            if received?.loupedeck != true { return "no status arrived (stand-in exit code \(String(describing: exitCode)))" }
+            return exitCode == 0 ? nil : "stand-in exit code \(String(describing: exitCode))"
+        }
         exit(failures == 0 ? 0 : 1)
     }
 }

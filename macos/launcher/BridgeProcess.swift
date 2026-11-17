@@ -4,7 +4,7 @@ import CoreGraphics
 import Foundation
 
 final class BridgeProcess {
-    static let logURL = FileManager.default.homeDirectoryForCurrentUser
+    static var logURL = FileManager.default.homeDirectoryForCurrentUser   // var: tests point it elsewhere
         .appendingPathComponent("Library/Logs/loupedeck-lr-bridge/bridge.log")
     static let statusFD: Int32 = 3                 // bridge/status.py STATUS_FD_ENV points here
     /// Every key the bridge can hold down (bridge/platform/macos_keys.py KEYCODES):
@@ -51,12 +51,18 @@ final class BridgeProcess {
         var actions: posix_spawn_file_actions_t?
         posix_spawn_file_actions_init(&actions)
         defer { posix_spawn_file_actions_destroy(&actions) }
+        // Order matters: the pipe's read end is often fd 3 itself, so close it *before* putting the write
+        // end on fd 3 (closing it afterwards closed the status pipe: "Bad file descriptor", live check).
+        if let r = closeInChild { posix_spawn_file_actions_addclose(&actions, r) }
         if logFD >= 0 {
             posix_spawn_file_actions_adddup2(&actions, logFD, 1)
             posix_spawn_file_actions_adddup2(&actions, logFD, 2)
         }
-        if let w = statusWrite { posix_spawn_file_actions_adddup2(&actions, w, statusFD) }
-        if let r = closeInChild { posix_spawn_file_actions_addclose(&actions, r) }
+        if let w = statusWrite {
+            posix_spawn_file_actions_adddup2(&actions, w, statusFD)
+            if w != statusFD { posix_spawn_file_actions_addclose(&actions, w) }
+        }
+        if logFD > 2 && logFD != statusFD { posix_spawn_file_actions_addclose(&actions, logFD) }
 
         let python = repo + "/.venv/bin/python"
         var env = ProcessInfo.processInfo.environment

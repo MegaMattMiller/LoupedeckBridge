@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import io
 import logging
 import os
 import signal
@@ -14,6 +15,24 @@ from bridge import app, instance, platform
 log = logging.getLogger("app")
 
 EXIT_ALREADY_RUNNING = 3
+
+
+def log_handlers(log_path, stderr=None) -> list:
+    """The log file, plus a copy on stderr unless stderr *is* that file: LoupedeckBridge.app sends the
+    bridge's stderr to bridge.log (so early crashes are recorded), and a console copy would double every line."""
+    stderr = sys.stderr if stderr is None else stderr
+    handlers: list = [RotatingFileHandler(log_path, maxBytes=1_000_000, backupCount=3)]
+    if not _same_file(stderr, log_path):
+        handlers.insert(0, logging.StreamHandler(stderr))
+    return handlers
+
+
+def _same_file(stream, path) -> bool:
+    try:
+        a, b = os.fstat(stream.fileno()), os.stat(path)
+    except (OSError, ValueError, AttributeError, io.UnsupportedOperation):
+        return False
+    return (a.st_dev, a.st_ino) == (b.st_dev, b.st_ino)
 
 
 def main() -> None:
@@ -32,8 +51,7 @@ def main() -> None:
     log_dir = plat.log_dir()
     log_dir.mkdir(parents=True, exist_ok=True)
     fmt = logging.Formatter("%(asctime)s %(levelname)-7s %(name)s: %(message)s")
-    handlers = [logging.StreamHandler(sys.stderr),
-                RotatingFileHandler(log_dir / "bridge.log", maxBytes=1_000_000, backupCount=3)]
+    handlers = log_handlers(log_dir / "bridge.log")
     for h in handlers:
         h.setFormatter(fmt)
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO, handlers=handlers)
