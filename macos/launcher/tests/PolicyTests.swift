@@ -136,6 +136,82 @@ enum PolicyTests {
             if BridgeStatus.parse(nullURL)?.settings_url != nil || BridgeStatus.parse(nullURL) == nil { return "null url" }
             return BridgeStatus.parse(good) == want ? nil : "parsed \(String(describing: BridgeStatus.parse(good)))"
         }
+        check("bridge_exit_drops_pending_disconnect") {
+            // Review: the bridge reports "loupedeck: false" while shutting down; a crash then raised a
+            // false "disconnected" alert, and "back" after the restart.
+            var p = AlertPolicy()
+            _ = p.status(line(true), at: 0)
+            _ = p.status(line(false), at: 10)        // the bridge's shutdown line
+            p.bridgeStopped()
+            var out: [Alert] = []
+            var t = 10.0
+            while t <= 20 { out += p.tick(at: t); t += 1 }
+            p.bridgeRestarted()
+            out += p.status(line(true), at: 16)
+            return out.isEmpty ? nil : "\(out)"
+        }
+
+        check("quit_after_forced_kill_releases_keys") {
+            // Review: Quit → SIGKILL after 5 s (exit 137) exited without letting go of held keys.
+            var s = BridgeSupervisor()
+            _ = s.start()
+            if s.quit(bridgeRunning: true) != [.stopBridge] { return "quit didn't stop the bridge" }
+            let out = s.exited(code: 137, at: 1)
+            return out == [.releaseKeys, .terminateApp] ? nil : "\(out)"
+        }
+
+        check("quit_after_clean_stop_just_exits") {
+            var s = BridgeSupervisor()
+            _ = s.start()
+            _ = s.quit(bridgeRunning: true)
+            let out = s.exited(code: 0, at: 1)
+            return out == [.terminateApp] ? nil : "\(out)"
+        }
+
+        check("crash_releases_alerts_and_schedules_once") {
+            var s = BridgeSupervisor()
+            if s.start() != [.spawn] { return "start" }
+            let out = s.exited(code: 1, at: 0)
+            return out == [.releaseKeys, .alert(.bridgeStopped(willRestart: true)), .scheduleRestart(token: 1, after: 5)]
+                ? nil : "\(out)"
+        }
+
+        check("manual_restart_during_wait_spawns_once") {
+            // Review: "Restart bridge" during the 5 s wait started a second bridge, and the app quit.
+            var s = BridgeSupervisor()
+            _ = s.start()
+            _ = s.exited(code: 1, at: 0)
+            if s.manualRestart() != [.spawn] { return "manual restart didn't spawn" }
+            let late = s.restartTimerFired(token: 1)
+            return late.isEmpty ? nil : "the stale timer also spawned: \(late)"
+        }
+
+        check("stale_restart_click_does_nothing") {
+            var s = BridgeSupervisor()
+            _ = s.start()
+            _ = s.exited(code: 1, at: 0)
+            if s.restartTimerFired(token: 1) != [.spawn] { return "the timer didn't restart it" }
+            let click = s.manualRestart()                // the menu was opened before the restart
+            return click.isEmpty ? nil : "a second bridge: \(click)"
+        }
+
+        check("status_ignored_once_the_bridge_is_gone") {
+            var s = BridgeSupervisor()
+            _ = s.start()
+            if !s.acceptsStatus { return "a running bridge's status was ignored" }
+            _ = s.exited(code: 1, at: 0)
+            if s.acceptsStatus { return "accepted status from a bridge that has exited" }
+            _ = s.quit(bridgeRunning: false)
+            return s.acceptsStatus ? "accepted status while quitting" : nil
+        }
+
+        check("already_running_quits_the_app") {
+            var s = BridgeSupervisor()
+            _ = s.start()
+            let out = s.exited(code: 3, at: 0)
+            return out == [.terminateApp] ? nil : "\(out)"
+        }
+
         check("status_pipe_reaches_the_app") {
             // Live check, 2026-11-16: the bridge got "Bad file descriptor" writing status to fd 3.
             // A stand-in "python" writes one status line to fd 3; the app must receive it.

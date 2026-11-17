@@ -52,10 +52,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
     private var bridge: BridgeProcess?
     private var statusItem: NSStatusItem?
     private var current: BridgeStatus?        // the bridge's last status line
-    private var stopped = false               // the bridge isn't running (and isn't about to restart)
-    private var quitting = false
+    private var supervisor = BridgeSupervisor()   // start / exit / restart / quit decisions (Policies.swift)
     private var alerts = AlertPolicy()
-    private var restarts = RestartPolicy()
     private var signalSources: [DispatchSourceSignal] = []
     private var timer: Timer?
 
@@ -96,60 +94,68 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
             guard let self = self else { return }
             self.post(self.alerts.tick(at: self.now()))
         }
-        startBridge()
+        perform(supervisor.start())
     }
 
-    private func startBridge() {
+    /// Carries out the supervisor's decisions.
+    private func perform(_ actions: [SupervisorAction]) {
+        for action in actions {
+            switch action {
+            case .spawn:
+                spawnBridge()
+            case .stopBridge:
+                bridge?.stop()                     // bridgeExited then finishes the quit
+                DispatchQueue.main.asyncAfter(deadline: .now() + 7) { NSApp.terminate(nil) }   // a last resort
+            case .releaseKeys:
+                BridgeProcess.releaseKeys()        // its own clean-up may not have run
+            case .alert(let alert):
+                post([alert])
+            case .scheduleRestart(let token, let delay):
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                    guard let self = self else { return }
+                    self.perform(self.supervisor.restartTimerFired(token: token))
+                }
+            case .terminateApp:
+                NSApp.terminate(nil)
+            }
+        }
+        updateIcon()
+    }
+
+    private func spawnBridge() {
+        guard !(bridge?.running ?? false) else { return }   // never two bridges
+        alerts.bridgeRestarted()
         let process = BridgeProcess(repo: repo, arguments: arguments)
         process.onStatus = { [weak self] status in self?.received(status) }
         process.onExit = { [weak self] code in self?.bridgeExited(code) }
         bridge = process
         current = nil
         if process.start() {
-            stopped = false
             BridgeProcess.log("bridge started (pid \(process.pid))")
         } else {
-            stopped = true
-            post([.bridgeStopped(willRestart: false)])
+            perform(supervisor.spawnFailed())
         }
-        updateIcon()
     }
 
     private func received(_ status: BridgeStatus) {
+        guard supervisor.acceptsStatus else { return }      // a bridge on its way out
         current = status
         post(alerts.status(status, at: now()))
         updateIcon()
     }
 
     private func bridgeExited(_ code: Int32) {
-        if quitting {
-            NSApp.terminate(nil)
-            return
-        }
+        alerts.bridgeStopped()                     // its shutdown isn't the Loupedeck being unplugged
         current = nil
+        let actions = supervisor.exited(code: code, at: now())
         if code == RestartPolicy.alreadyRunning {
             BridgeProcess.log("another LoupedeckBridge is already running; this one quits")
-            NSApp.terminate(nil)
-            return
+        } else {
+            let restarting = actions.contains { if case .scheduleRestart = $0 { return true }; return false }
+            BridgeProcess.log("the bridge stopped (exit code \(code))" + (restarting ? "; restarting in 5 s" : ""),
+                              level: code == 0 ? "INFO" : "ERROR")
         }
-        if code != 0 {
-            BridgeProcess.releaseKeys()            // its own clean-up may not have run
-        }
-        let restart = restarts.shouldRestart(exitCode: code, at: now())
-        BridgeProcess.log("the bridge stopped (exit code \(code))" + (restart ? "; restarting in 5 s" : ""),
-                          level: code == 0 ? "INFO" : "ERROR")
-        stopped = true
-        updateIcon()
-        if code != 0 {
-            post([.bridgeStopped(willRestart: restart)])
-        }
-        if restart {
-            DispatchQueue.main.asyncAfter(deadline: .now() + restarts.delay) { [weak self] in
-                guard let self = self, !self.quitting, self.stopped else { return }
-                self.alerts.bridgeRestarted()
-                self.startBridge()
-            }
-        }
+        perform(actions)
     }
 
     @objc private func didWake() {
@@ -158,7 +164,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
 
     // ---- the icon -----------------------------------------------------------
     private var allGood: Bool {
-        guard !stopped, let s = current else { return false }
+        guard supervisor.acceptsStatus, let s = current else { return false }
         return s.loupedeck && s.lightroom && s.keys != "missing"
     }
 
@@ -174,7 +180,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
     }
 
     private var problem: String {
-        if stopped { return "the bridge has stopped" }
+        if supervisor.isStopped { return "the bridge has stopped" }
         guard let s = current else { return "starting…" }
         if !s.loupedeck { return "the Loupedeck isn't connected" }
         if !s.lightroom { return "Lightroom isn't connected" }
@@ -185,7 +191,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
     // ---- the menu -----------------------------------------------------------
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
-        if stopped {
+        if supervisor.isStopped {
             menu.addItem(info("The bridge has stopped", ok: false))
             menu.addItem(action("Restart bridge", #selector(restartFromMenu)))
             menu.addItem(action("Open log", #selector(openLog)))
@@ -246,26 +252,18 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
     }
 
     @objc private func restartFromMenu() {
-        restarts = RestartPolicy()                 // a fresh budget after a deliberate restart
-        alerts.bridgeRestarted()
-        startBridge()
+        perform(supervisor.manualRestart())        // nothing if it's already running again
     }
 
     @objc private func quitFromMenu() {
         quit()
     }
 
-    /// Quit: stop the bridge (it lets go of held keys), then exit. Also on SIGTERM / SIGINT / SIGHUP.
+    /// Quit: stop the bridge (it lets go of held keys; if it has to be forced, the app does), then exit.
+    /// Also on SIGTERM / SIGINT / SIGHUP.
     private func quit() {
-        guard !quitting else { return }
-        quitting = true
-        BridgeProcess.log("quitting")
-        if let process = bridge, process.running {
-            process.stop()                         // bridgeExited then terminates the app
-            DispatchQueue.main.asyncAfter(deadline: .now() + 7) { NSApp.terminate(nil) }   // a last resort
-        } else {
-            NSApp.terminate(nil)
-        }
+        if supervisor.state != .quitting { BridgeProcess.log("quitting") }
+        perform(supervisor.quit(bridgeRunning: bridge?.running ?? false))
     }
 
     // ---- alerts -------------------------------------------------------------

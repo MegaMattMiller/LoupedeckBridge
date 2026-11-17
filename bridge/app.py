@@ -49,11 +49,13 @@ class App:
                     log.error("bridge stopping: the %s failed", task.get_name(), exc_info=exc)
                     raise exc
         finally:
+            # Stop reporting first: closing the MIDI port on the way out isn't the Loupedeck being
+            # unplugged, and the menu-bar app would alert "disconnected" for it.
+            self.status.close()
             self.dispatcher.release_all_keys()  # never leave Shift/Cmd stuck down on the way out
             for task in tasks + [status_task]:
                 task.cancel()
             await asyncio.gather(*tasks, status_task, return_exceptions=True)
-            self.status.close()
 
     async def _consume(self) -> None:
         async for event in self.midi.events():

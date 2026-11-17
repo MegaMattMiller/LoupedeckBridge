@@ -82,6 +82,14 @@ struct AlertPolicy {
         wakeUntil = now + wakeGrace
     }
 
+    /// The bridge exited: what it last said about the Loupedeck no longer counts. Its shutdown isn't an
+    /// unplug, so a pending "disconnected" is dropped (review fix).
+    mutating func bridgeStopped() {
+        armed = false
+        connected = false
+        goneSince = nil
+    }
+
     /// A new bridge run: nothing is known about the Loupedeck until it connects again.
     mutating func bridgeRestarted() {
         armed = false
@@ -106,5 +114,83 @@ struct RestartPolicy {
         guard restarts.count < maxRestarts else { return false }
         restarts.append(now)
         return true
+    }
+}
+
+/// What the app does when the bridge starts, exits or restarts, or the user quits: the decisions only, so
+/// they're testable without AppKit. The app (StatusMenu.swift) carries out the actions.
+/// Review fixes: keys are let go after a forced Quit too, status lines from a bridge that's on its way out
+/// are ignored, and a restart (automatic or from the menu) can never start a second bridge.
+enum SupervisorAction: Equatable {
+    case spawn                                   // start the bridge
+    case stopBridge                              // SIGTERM, then SIGKILL after 5 s
+    case releaseKeys                             // it ended without its own clean-up
+    case alert(Alert)
+    case scheduleRestart(token: Int, after: Double)
+    case terminateApp
+}
+
+struct BridgeSupervisor {
+    enum State: Equatable { case idle, running, waitingToRestart, stopped, quitting }
+    private(set) var state: State = .idle
+    private var restarts = RestartPolicy()
+    private var token = 0                        // only the newest scheduled restart may fire
+
+    /// Status lines count only while the bridge runs, not once it's exiting, stopped or quitting.
+    var acceptsStatus: Bool { state == .running }
+    /// The menu shows "stopped" (and offers Restart) in these states.
+    var isStopped: Bool { state == .stopped || state == .waitingToRestart }
+
+    mutating func start() -> [SupervisorAction] {
+        state = .running
+        return [.spawn]
+    }
+
+    mutating func spawnFailed() -> [SupervisorAction] {
+        state = .stopped
+        return [.alert(.bridgeStopped(willRestart: false))]
+    }
+
+    mutating func exited(code: Int32, at now: Double) -> [SupervisorAction] {
+        let hard = code != 0 && code != RestartPolicy.alreadyRunning   // no clean-up of its own
+        if state == .quitting {
+            return (hard ? [.releaseKeys] : []) + [.terminateApp]
+        }
+        if code == RestartPolicy.alreadyRunning {
+            state = .stopped
+            return [.terminateApp]                 // another LoupedeckBridge is in the menu bar
+        }
+        var out: [SupervisorAction] = hard ? [.releaseKeys] : []
+        let restart = restarts.shouldRestart(exitCode: code, at: now)
+        if hard { out.append(.alert(.bridgeStopped(willRestart: restart))) }
+        if restart {
+            token += 1
+            state = .waitingToRestart
+            out.append(.scheduleRestart(token: token, after: restarts.delay))
+        } else {
+            state = .stopped                       // exit 0: a deliberate stop; or the budget is used up
+        }
+        return out
+    }
+
+    mutating func restartTimerFired(token fired: Int) -> [SupervisorAction] {
+        guard state == .waitingToRestart, fired == token else { return [] }
+        state = .running
+        return [.spawn]
+    }
+
+    /// "Restart bridge" in the menu: only when it's stopped (a stale menu click does nothing).
+    mutating func manualRestart() -> [SupervisorAction] {
+        guard isStopped else { return [] }
+        token += 1                                 // cancels a pending automatic restart
+        restarts = RestartPolicy()                 // a fresh budget after a deliberate restart
+        state = .running
+        return [.spawn]
+    }
+
+    mutating func quit(bridgeRunning: Bool) -> [SupervisorAction] {
+        guard state != .quitting else { return [] }
+        state = .quitting
+        return bridgeRunning ? [.stopBridge] : [.terminateApp]
     }
 }

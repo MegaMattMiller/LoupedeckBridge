@@ -210,3 +210,37 @@ def test_status_wired(tmp_path):
     asyncio.run(main())
     assert last()["settings_url"] == "http://127.0.0.1:7699/"
     assert kb.events == [("down", "shift"), ("up", "shift")]   # on_close still lets go of held keys
+
+
+def test_shutdown_is_not_reported_as_a_disconnect(tmp_path):
+    # Review: closing the MIDI port during shutdown wrote {"loupedeck": false}; the menu-bar app took that
+    # for an unplug and alerted "Loupedeck disconnected" after every crash or stop.
+    import json
+    from bridge import app as appmod
+    from bridge.status import StatusReporter
+
+    class ClosingMidi:          # like MidiInput: its generator's finally reports the port closing
+        on_open = None
+        on_close = None
+
+        async def events(self):
+            try:
+                await asyncio.Event().wait()
+                yield  # pragma: no cover
+            finally:
+                self.on_close()
+
+    lines = []
+    midi = ClosingMidi()
+    bridge = appmod.build(config_dir=tmp_path, midi=midi, port=1, state_file=tmp_path / "c.json",
+                          status=StatusReporter(lines.append))
+
+    async def main():
+        task = asyncio.create_task(bridge.run())
+        await asyncio.sleep(0.05)
+        midi.on_open()
+        assert json.loads(lines[-1])["loupedeck"] is True
+        task.cancel()                                   # SIGTERM / Quit
+        await asyncio.gather(task, return_exceptions=True)
+    asyncio.run(main())
+    assert json.loads(lines[-1])["loupedeck"] is True   # nothing reported after shutdown began

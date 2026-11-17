@@ -59,6 +59,8 @@ class StatusReporter:
             log.exception("status reporting stopped")
 
     def close(self) -> None:
+        """Stop reporting (nothing is written after this) and close the pipe."""
+        self._write = None
         if self._file is not None:
             try:
                 self._file.close()

@@ -13,7 +13,10 @@ LAUNCHER = Path(__file__).resolve().parent.parent / "macos" / "launcher"
 CHECKS = ["never_connected_never_alerts", "drop_alerts_after_debounce", "quick_replug_is_silent", "wake_grace",
           "flapping_is_rate_limited", "rate_limited_alert_fires_later", "keys_missing_once_per_run",
           "restart_disarms", "restart_budget", "already_running_is_not_a_crash", "parse_rejects_garbage",
-          "status_pipe_reaches_the_app"]
+          "status_pipe_reaches_the_app", "bridge_exit_drops_pending_disconnect", "quit_after_forced_kill_releases_keys",
+          "quit_after_clean_stop_just_exits", "crash_releases_alerts_and_schedules_once",
+          "manual_restart_during_wait_spawns_once", "stale_restart_click_does_nothing",
+          "status_ignored_once_the_bridge_is_gone", "already_running_quits_the_app"]
 
 pytestmark = pytest.mark.skipif(sys.platform != "darwin" or shutil.which("swiftc") is None,
                                 reason="needs macOS and swiftc")
