@@ -227,6 +227,100 @@ enum PolicyTests {
             return nil
         }
 
+        // ---- milestone 6: updates --------------------------------------------------
+        check("version_compare") {
+            guard let a = Version("0.10.0"), let b = Version("0.9.9"), let c = Version("v0.5.1"), let d = Version("0.5.0")
+            else { return "didn't parse" }
+            if !(a > b) || !(c > d) || !(d == Version("v0.5.0")!) { return "order" }
+            for bad in ["0.5", "x.y.z", "", "1.2.3.4", "1.-2.3"] where Version(bad) != nil { return "accepted \(bad)" }
+            return d.description == "0.5.0" ? nil : "description \(d)"
+        }
+
+        let sampleRelease = """
+        {"tag_name": "v0.6.0", "draft": false, "prerelease": false, "assets": [
+          {"name": "LoupedeckBridge-v0.6.0-macos-arm64.zip",
+           "browser_download_url": "https://github.com/o/r/releases/download/v0.6.0/LoupedeckBridge-v0.6.0-macos-arm64.zip"},
+          {"name": "LoupedeckBridge-v0.6.0-macos-arm64.zip.sha256",
+           "browser_download_url": "https://github.com/o/r/releases/download/v0.6.0/LoupedeckBridge-v0.6.0-macos-arm64.zip.sha256"}]}
+        """
+
+        check("release_parse_accepts_a_real_shape") {
+            guard let r = ReleaseInfo.parse(Data(sampleRelease.utf8)) else { return "not parsed" }
+            if r.version != Version("0.6.0") { return "version \(r.version)" }
+            if !r.zipURL.absoluteString.hasSuffix("LoupedeckBridge-v0.6.0-macos-arm64.zip") { return "zip \(r.zipURL)" }
+            return r.sha256URL.absoluteString.hasSuffix(".zip.sha256") ? nil : "sha \(r.sha256URL)"
+        }
+
+        check("release_parse_rejects_garbage") {
+            let noSha = sampleRelease.replacingOccurrences(of: ".zip.sha256\"", with: ".zip.txt\"")
+            let bad = ["", "{}", "{\"message\":\"API rate limit exceeded\"}", "not json", noSha,
+                       sampleRelease.replacingOccurrences(of: "\"draft\": false", with: "\"draft\": true"),
+                       sampleRelease.replacingOccurrences(of: "\"prerelease\": false", with: "\"prerelease\": true"),
+                       sampleRelease.replacingOccurrences(of: "v0.6.0\", \"draft", with: "latest\", \"draft")]
+            for (i, text) in bad.enumerated() where ReleaseInfo.parse(Data(text.utf8)) != nil { return "accepted case \(i)" }
+            return nil
+        }
+
+        check("check_schedule") {
+            let s = UpdateSchedule()
+            let now = Date(timeIntervalSince1970: 1_000_000)
+            func check(_ last: Date?, enabled: Bool = true, dev: Bool = false, since: TimeInterval = 60) -> Bool {
+                s.shouldCheck(now: now, lastCheck: last, enabled: enabled, isDev: dev, sinceLaunch: since)
+            }
+            if check(nil, dev: true) || check(nil, enabled: false) || check(nil, since: 10) { return "checked when it shouldn't" }
+            if !check(nil) { return "no first check" }
+            if !check(now.addingTimeInterval(-86_400)) { return "no check after 24 h" }
+            return check(now.addingTimeInterval(-82_800)) ? "checked after 23 h" : nil
+        }
+
+        check("notice_once_per_version") {
+            var n = UpdateNotice()
+            let current = Version("0.5.0")!
+            let answers = ["0.6.0", "0.6.0", "0.6.1", "0.5.0"].map { n.announce(Version($0)!, current: current) }
+            return answers == [true, false, true, false] ? nil : "\(answers)"
+        }
+
+        check("install_plan_order") {
+            let order = installOrder
+            guard let verify = order.firstIndex(of: .verify) else { return "no verify step" }
+            for later: InstallStep in [.stopBridge, .moveOldToTrash, .moveNewIntoPlace, .launchNew] {
+                guard let i = order.firstIndex(of: later), i > verify else { return "\(later) isn't after verify" }
+            }
+            return order.first == .download ? nil : "\(order)"
+        }
+
+        let releaseID = "io.github.megamattmiller.loupedeckbridge"
+        let current = Version("0.5.0")!
+        let newer = Version("0.5.1")
+
+        check("install_plan_refuses_wrong_bundle") {
+            installProblem(bundleID: releaseID + ".dev", version: newer, current: current, signatureOK: true,
+                           appCount: 1, allowOlder: false) == nil ? "accepted a dev build" : nil
+        }
+        check("install_plan_refuses_bad_signature") {
+            let p = installProblem(bundleID: releaseID, version: newer, current: current, signatureOK: false,
+                                   appCount: 1, allowOlder: false)
+            return p?.contains("sign") == true ? nil : "\(String(describing: p))"
+        }
+        check("install_plan_refuses_two_apps") {
+            installProblem(bundleID: releaseID, version: newer, current: current, signatureOK: true,
+                           appCount: 2, allowOlder: false) == nil ? "accepted two apps" : nil
+        }
+        check("install_plan_refuses_not_newer") {
+            let same = installProblem(bundleID: releaseID, version: current, current: current, signatureOK: true,
+                                      appCount: 1, allowOlder: false)
+            let older = installProblem(bundleID: releaseID, version: Version("0.4.0"), current: current, signatureOK: true,
+                                       appCount: 1, allowOlder: false)
+            let allowed = installProblem(bundleID: releaseID, version: Version("0.4.0"), current: current,
+                                         signatureOK: true, appCount: 1, allowOlder: true)
+            return same != nil && older != nil && allowed == nil ? nil : "same \(String(describing: same)), older \(String(describing: older)), allowed \(String(describing: allowed))"
+        }
+        check("install_plan_accepts_valid") {
+            let p = installProblem(bundleID: releaseID, version: newer, current: current, signatureOK: true,
+                                   appCount: 1, allowOlder: false)
+            return p == nil ? nil : p
+        }
+
         check("status_pipe_reaches_the_app") {
             // Live check, 2026-11-16: the bridge got "Bad file descriptor" writing status to fd 3.
             // A stand-in "python" writes one status line to fd 3; the app must receive it.

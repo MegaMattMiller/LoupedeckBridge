@@ -215,3 +215,97 @@ struct RuntimePaths: Equatable {
         }
     }
 }
+
+// ---- updates (milestone 6) ------------------------------------------------------
+
+/// A release version: three numbers, compared numerically ("0.10.0" > "0.9.9"). A leading "v" is allowed.
+struct Version: Comparable, CustomStringConvertible {
+    let parts: [Int]
+
+    init?(_ text: String) {
+        let trimmed = text.hasPrefix("v") ? String(text.dropFirst()) : text
+        let pieces = trimmed.split(separator: ".", omittingEmptySubsequences: false)
+        guard pieces.count == 3 else { return nil }
+        var numbers: [Int] = []
+        for piece in pieces {
+            guard !piece.isEmpty, piece.allSatisfy(\.isNumber), let n = Int(piece) else { return nil }
+            numbers.append(n)
+        }
+        parts = numbers
+    }
+
+    static func < (a: Version, b: Version) -> Bool { a.parts.lexicographicallyPrecedes(b.parts) }
+    var description: String { parts.map(String.init).joined(separator: ".") }
+}
+
+/// The newest release, from GitHub's "latest release" JSON. Only a full release (not a draft or pre-release)
+/// with both `LoupedeckBridge-v<ver>-macos-arm64.zip` and its `.sha256` counts.
+struct ReleaseInfo: Equatable {
+    let version: Version
+    let zipURL: URL
+    let sha256URL: URL
+
+    static func assetName(for version: Version) -> String { "LoupedeckBridge-v\(version)-macos-arm64.zip" }
+
+    static func parse(_ data: Data) -> ReleaseInfo? {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let tag = json["tag_name"] as? String, let version = Version(tag),
+              (json["draft"] as? Bool) != true, (json["prerelease"] as? Bool) != true,
+              let assets = json["assets"] as? [[String: Any]] else { return nil }
+        var urls: [String: URL] = [:]
+        for asset in assets {
+            if let name = asset["name"] as? String, let link = asset["browser_download_url"] as? String,
+               let url = URL(string: link), url.scheme == "https" {
+                urls[name] = url
+            }
+        }
+        let zip = assetName(for: version)
+        guard let zipURL = urls[zip], let shaURL = urls[zip + ".sha256"] else { return nil }
+        return ReleaseInfo(version: version, zipURL: zipURL, sha256URL: shaURL)
+    }
+}
+
+/// When to ask GitHub: never for dev builds or when turned off; not in the first 30 s after launch; then at
+/// most once a day.
+struct UpdateSchedule {
+    var interval: TimeInterval = 86_400
+    var firstDelay: TimeInterval = 30
+
+    func shouldCheck(now: Date, lastCheck: Date?, enabled: Bool, isDev: Bool, sinceLaunch: TimeInterval) -> Bool {
+        guard !isDev, enabled, sinceLaunch >= firstDelay else { return false }
+        guard let last = lastCheck else { return true }
+        return now.timeIntervalSince(last) >= interval
+    }
+}
+
+/// One alert per newer version (the menu item stays as long as it's available).
+struct UpdateNotice {
+    private var announced: [Version] = []
+
+    mutating func announce(_ version: Version, current: Version) -> Bool {
+        guard version > current, !announced.contains(version) else { return false }
+        announced.append(version)
+        return true
+    }
+}
+
+/// The install steps, in order. Everything is checked (verify) before anything is stopped or moved.
+enum InstallStep: Equatable {
+    case download, unzip, verify, stopBridge, moveOldToTrash, moveNewIntoPlace, launchNew
+}
+
+let installOrder: [InstallStep] = [.download, .unzip, .verify, .stopBridge, .moveOldToTrash, .moveNewIntoPlace,
+                                   .launchNew]
+
+let releaseBundleID = "io.github.megamattmiller.loupedeckbridge"
+
+/// The first reason not to install a downloaded app, in plain words, or nil if it may be installed.
+func installProblem(bundleID: String, version: Version?, current: Version, signatureOK: Bool, appCount: Int,
+                    allowOlder: Bool) -> String? {
+    if appCount != 1 { return "the download should hold exactly one app (it holds \(appCount))" }
+    if bundleID != releaseBundleID { return "it isn't the LoupedeckBridge release (\(bundleID))" }
+    if !signatureOK { return "it isn't signed with your LoupedeckBridge release key" }
+    guard let version = version else { return "it has no readable version" }
+    if version <= current && !allowOlder { return "it isn't newer than the installed v\(current)" }
+    return nil
+}
