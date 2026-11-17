@@ -476,3 +476,96 @@ git commit -m "Settings page: Buttons & dials tab with Fn layer"
 git add tools/lr_check_commands.py README.md docs/FINDINGS.md config/commands.json
 git commit -m "Milestone 4: command check tool, docs, live-check results"
 ```
+
+---
+
+### Task 7: --/Col modes for the five buttons (design addendum)
+
+**Files:**
+- Modify: `bridge/hardware.py`, `bridge/actions.py`, `bridge/app.py`, `config/default_mapping.json`, `bridge/settings/layout.py`, `bridge/settings/server.py`, `bridge/settings/static/{app.js,remap.js,app.css,index.html}`, `README.md`, `docs/FINDINGS.md`
+- Test: `tests/test_hardware.py` (or the existing hardware test file), `tests/test_actions.py`, `tests/test_mapping.py`, `tests/test_layout.py`, `tests/test_settings_server.py`, `tests/test_app.py`
+
+**Interfaces:**
+- Produces in `bridge/hardware.py`:
+  - `COL = "col"`
+  - `FIVE = ["shift", "ctrl", "command", "alt", "tab"]` (physical order, notes 66–70)
+  - `FIVE_MODES = ["ratings", "colours", "keys"]`
+  - `five_id(control: str, mode: str) -> str`: `"keys"` → the control itself; otherwise `f"{mode}_{FIVE.index(control) + 1}"`.
+  - `HardwareMap.controls` also lists the ten per-mode ids (`ratings_1`…`ratings_5`, `colours_1`…`colours_5`) as `"button"`, after the physical buttons. MIDI decoding is unchanged.
+- Produces in `bridge/actions.py`:
+  - `Dispatcher.five_mode: str` (read-only property): starts as `"ratings"`, kept on `device_reconnected()`.
+  - `Dispatcher.banked(control: str) -> str`: `five_id(control, five_mode)` for the five, else `control`.
+  - `Dispatcher.on_mode_change: Optional[Callable[[], None]]`, called after each switch.
+  - Behaviour:
+    - `Press("col")` switches modes and does nothing else, in either layer, whatever `col` maps to:
+      - plain: Ratings ↔ Colours, and Keys → the last of Ratings/Colours
+      - with Fn: Keys on, or Keys off (back to the last of Ratings/Colours)
+    - A press of one of the five looks up `press_action(banked(control), fn=...)`.
+    - Held keys stay keyed by the physical control, so a release after a mode switch ends them.
+    - Each switch is logged at info, e.g. "five buttons: Colours".
+- `config/default_mapping.json` gains:
+  - `ratings_i` → `call rating{i}`
+  - `colours_i` → `call colorLabel{Red,Yellow,Green,Blue,Purple}`
+  - `col` stays `none` (it's fixed)
+- `bridge/settings/layout.py`:
+  - Group `"five"` ("Five buttons (--/Col)"), after `"your"`. Banks: `ratings`, `colours`, `keys` (keys = the five physical ids). Names: "Button 1"…"Button 5" for ratings/colours; keys keep their names.
+  - `fixed_reason("col", layer, "press")` for both layers. `FIXED_LABELS`: normal "Switch Ratings ↔ Colours", fn "Keys on / off" (shown instead of the mapped action).
+- `bridge/settings/server.py`:
+  - `state` gains `"five_mode"`.
+  - `used` for the five reports `dispatcher.banked(control)`.
+  - `set` on `col` is refused (fixed).
+  - `bridge/app.py` wires `dispatcher.on_mode_change` to a scheduled `settings.broadcast_state()` (same pattern as Lightroom disconnect).
+- Page:
+  - a header chip "Five buttons: Ratings|Colours|Keys" from `state.five_mode`
+  - the remapper's "Five buttons (--/Col)" section with bank sub-headings, after "Your buttons"
+
+- [ ] **Step 1: Write the failing tests:**
+  - `test_five_modes_switch_and_act` (actions):
+    - fresh dispatcher: `five_mode == "ratings"`
+    - `Press("shift")` calls `rating1`
+    - `Press("col")` → `"colours"`; `shift` calls `colorLabelRed`, `tab` calls `colorLabelPurple`
+    - `col` → `"ratings"`
+    - Fn + `col` → `"keys"`; `shift` → key down `shift`
+    - Fn + `col` again → back to `"ratings"`
+    - from Keys, plain `col` → the last of Ratings/Colours
+    - `on_mode_change` is called once per switch
+  - `test_held_key_released_after_mode_switch` (actions): in Keys, press `shift` (down), Fn + `col` → Ratings, release `shift` → key up `shift`, and no `rating1` call.
+  - `test_col_is_fixed_whatever_it_maps_to` (actions): `col` hand-mapped to `rating3` → pressing it switches mode and never calls `rating3`; `device_reconnected()` keeps the mode.
+  - `test_default_five_mode_actions` (mapping): `ratings_3` → `rating3`, `colours_4` → `colorLabelBlue`, `shift` still key `shift`; `HardwareMap.load().controls["ratings_1"] == "button"`; `five_id("tab", "colours") == "colours_5"`.
+  - `test_five_section_rows` (layout): 15 rows in group `five` (order: ratings 1–5, colours 1–5, then shift…tab) with banks; `col` fixed in both layers with the two labels.
+  - `test_five_mode_in_state_and_used` (server):
+    - `state["five_mode"] == "ratings"`
+    - `on_event(Press("shift"))` → `used` control `ratings_1`
+    - `set` on `col` → error
+    - `set` on `colours_2` → saved
+  - `test_mode_change_broadcast` (app): `bridge.dispatcher.on_mode_change()` schedules `settings.broadcast_state`.
+  - The Task 1 `test_milestone3_mapping_upgrades_cleanly` still passes: an upgraded mapping gains the ten new entries, with no warnings.
+
+- [ ] **Step 2: Run to verify they fail**
+
+Run: `.venv/bin/python -m pytest -q`
+Expected: the new tests FAIL (`five_id` missing, no `five_mode`, no `five` group).
+
+- [ ] **Step 3: Implement** the interfaces above, then the page parts (chip, section, bank names), and check them in the built-in browser with the preview tool. Extend `--demo-device` to press --/Col so the chip changes. `node --check` both scripts.
+
+- [ ] **Step 4: Run the whole suite**
+
+Run: `.venv/bin/python -m pytest -q`
+Expected: all pass.
+
+- [ ] **Step 5: Docs, restart, live check, commit.**
+  - README Buttons & dials: the --/Col modes.
+  - FINDINGS:
+    - the capture: same notes in every mode, no lights
+    - the device once went quiet while still on USB; replugging fixed it
+  - `tools/bridgectl restart`, then a live check with the user:
+    - starts in Ratings
+    - --/Col swaps Ratings and Colours, and the chip follows
+    - Fn + --/Col gives Keys
+    - a held key survives a switch
+    - a per-mode remap on the page works
+
+```bash
+git add -A bridge config tests tools README.md docs/FINDINGS.md
+git commit -m "--/Col modes: ratings, colour labels, keys for the five buttons"
+```
