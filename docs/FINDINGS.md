@@ -211,6 +211,13 @@ Also checked:
 - `--check-permission` reports and exits without an icon
 - granting Accessibility while it runs turns the menu's "Keyboard keys" to allowed within seconds
 
+**Re-check after the review fixes (2026-11-17), all passed:**
+- A normal stop (SIGTERM to the bridge, exit 0): no "disconnected" alert. The menu said "stopped", and
+  "Restart bridge" brought it back.
+- A hard kill (exit 137), then "Restart bridge" clicked during the 5 s wait: exactly one new bridge, the
+  automatic restart was cancelled, and the app stayed up.
+- Notifications survived this rebuild; Accessibility again had to be removed and re-added.
+
 ## API notes the handoff didn't capture
 - **How object handles come about:** `addAdjustmentChangeObserver(param?)` and `addHapticsObserver()` return a GUID/object. Later notifications arrive as extra responses for that same original `requestId` (this is the "one request, many responses" case). Call `close` on the handle when done.
 - **Tracking:** `startTracking(param)` turns itself off **2 s** after the last change, or as soon as a *different* parameter is adjusted. `stopTracking()` commits **one** history state. `setMultipleAdjustmentThreshold` defaults to **0.5 s** and has no effect if it's larger than the tracking delay.
