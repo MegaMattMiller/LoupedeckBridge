@@ -9,3 +9,7 @@ docs/adobe/
 
 # Built LoupedeckBridge.app (tools/build_mac_app.sh)
 build/
+
+# The release app build (tools/build_release_app.sh) and its downloads
+dist/
+.cache/

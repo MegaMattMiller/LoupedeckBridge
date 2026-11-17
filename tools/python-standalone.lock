@@ -1,0 +1,5 @@
+# The Python inside the release app (tools/build_release_app.sh): python-build-standalone's CPython 3.12,
+# install_only, for Apple Silicon. The newest 3.12 build at least two weeks old when it was chosen
+# (2026-11-17; built 2026-10-26). The build refuses a download whose SHA-256 differs.
+url=https://github.com/astral-sh/python-build-standalone/releases/download/20261026/cpython-3.12.16%2B20261026-aarch64-apple-darwin-install_only.tar.gz
+sha256=fbf4afef53c2a6b72bb741bc06d5671a9dfaf87bd84e5aa73ac9b3d0d589f14e

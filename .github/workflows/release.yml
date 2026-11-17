@@ -56,8 +56,9 @@ jobs:
         env:
           PYTHONDONTWRITEBYTECODE: "1"
         run: |
-          dist/LoupedeckBridge.app/Contents/Resources/python/bin/python3 -m venv .venv
-          .venv/bin/pip install -r requirements-dev.txt
+          # a venv that shares the bundle's packages, so the suite tests those (pytest goes in the venv)
+          dist/LoupedeckBridge.app/Contents/Resources/python/bin/python3 -m venv --system-site-packages --without-pip .venv
+          .venv/bin/python -m pip install --disable-pip-version-check -r requirements-dev.txt
           .venv/bin/python -m pytest -q
           LB_RELEASE_APP="$PWD/dist/LoupedeckBridge.app" .venv/bin/python -m pytest -q tests/test_release_bundle.py
       - name: Keep the tested build (zipped, so its links and permissions survive)

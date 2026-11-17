@@ -83,7 +83,7 @@ new_version="$(plutil -extract LBVersion raw "$new/Contents/Info.plist" 2>/dev/n
 
 codesign --verify --strict "$new" 2>/dev/null || fail "its signature isn't valid"
 codesign -d --extract-certificates="$work/cert" "$new" 2>/dev/null || fail "couldn't read its signing certificate"
-signer="$(shasum -a 256 "$work/cert0" 2>/dev/null | awk '{print $1}')"
+signer="$(shasum -a 256 "$work/cert0" 2>/dev/null | awk '{print $1}')" || true   # none: signed ad hoc
 [ "$signer" = "$PINNED" ] || fail "it isn't signed with the LoupedeckBridge release key"
 
 if [ -d "$APP" ]; then

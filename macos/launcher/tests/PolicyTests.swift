@@ -486,6 +486,27 @@ enum PolicyTests {
             if received?.loupedeck != true { return "no status arrived (stand-in exit code \(String(describing: exitCode)))" }
             return exitCode == 0 ? nil : "stand-in exit code \(String(describing: exitCode))"
         }
+
+        check("bridge_python_never_writes_bytecode") {
+            // A signed release must not change its own bundle: Python writing __pycache__ there would break the
+            // signature. The stand-in "python" records its arguments; -E (ignore PYTHON* variables) and -B come first.
+            let dir = FileManager.default.temporaryDirectory.appendingPathComponent("lb-args-\(getpid())")
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: dir) }
+            let script = dir.appendingPathComponent("python3")
+            let record = dir.appendingPathComponent("args")
+            try? "#!/bin/sh\necho \"$@\" > '\(record.path)'\n".write(to: script, atomically: true, encoding: .utf8)
+            chmod(script.path, 0o755)
+            BridgeProcess.logURL = dir.appendingPathComponent("bridge.log")
+            var exitCode: Int32?
+            let process = BridgeProcess(python: script.path, workdir: dir.path, arguments: ["--debug"])
+            process.onExit = { exitCode = $0 }
+            guard process.start() else { return "couldn't start the stand-in" }
+            let deadline = Date().addingTimeInterval(5)
+            while exitCode == nil && Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.05)) }
+            let args = (try? String(contentsOf: record, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return args == "-E -B -m bridge --debug" ? nil : "python ran with: \(String(describing: args))"
+        }
         exit(failures == 0 ? 0 : 1)
     }
 }

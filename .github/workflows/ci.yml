@@ -36,16 +36,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
-      - name: Make a throwaway signing identity
-        run: tools/make_signing_identity.sh --out "$RUNNER_TEMP/id"
-      - name: Build the release app, pinned to the throwaway identity
-        run: LB_SIGNER_SHA256="$(cat "$RUNNER_TEMP/id/signer.sha256")" tools/build_release_app.sh dist
+      - name: Make a throwaway signing identity, and pin it instead of the release key
+        run: |
+          tools/make_signing_identity.sh --out "$RUNNER_TEMP/id"
+          echo "LB_SIGNER_SHA256=$(cat "$RUNNER_TEMP/id/signer.sha256")" >> "$GITHUB_ENV"
+      - name: Build the release app
+        run: tools/build_release_app.sh dist
       - name: Test the build with its own Python
         env:
           PYTHONDONTWRITEBYTECODE: "1"
         run: |
-          dist/LoupedeckBridge.app/Contents/Resources/python/bin/python3 -m venv .venv
-          .venv/bin/pip install -r requirements-dev.txt
+          # a venv that shares the bundle's packages, so the suite tests those (pytest goes in the venv)
+          dist/LoupedeckBridge.app/Contents/Resources/python/bin/python3 -m venv --system-site-packages --without-pip .venv
+          .venv/bin/python -m pip install --disable-pip-version-check -r requirements-dev.txt
           .venv/bin/python -m pytest -q
           LB_RELEASE_APP="$PWD/dist/LoupedeckBridge.app" .venv/bin/python -m pytest -q tests/test_release_bundle.py
       - name: Sign it, check it and package it the way a release is
@@ -64,7 +67,7 @@ jobs:
           chmod +x "$RUNNER_TEMP/bin/open"
           PATH="$RUNNER_TEMP/bin:$PATH" LB_INSTALL_DIR="$RUNNER_TEMP/Applications" \
             LB_DOWNLOAD_BASE="file://$RUNNER_TEMP/releases" \
-            LB_PINNED_SIGNER_SHA256="$(cat "$RUNNER_TEMP/id/signer.sha256")" tools/install.sh "v$version"
+            LB_PINNED_SIGNER_SHA256="$LB_SIGNER_SHA256" tools/install.sh "v$version"
           app="$RUNNER_TEMP/Applications/LoupedeckBridge.app"
           "$app/Contents/MacOS/LoupedeckBridge" --check-signature "$app"
       - name: Delete the throwaway keychain

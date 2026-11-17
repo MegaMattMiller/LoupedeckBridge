@@ -23,10 +23,11 @@ name="${url##*/}"
 if [ -n "$out" ]; then cp "$FAKE_SERVER/$name" "$out"; else cat "$FAKE_SERVER/$name"; fi
 ''',
     # codesign --verify … APP: exit $FAKE_VERIFY; codesign -d --extract-certificates=PREFIX APP: writes PREFIX0
+    # (nothing with FAKE_NO_CERT: an ad hoc signature has no certificate)
     "codesign": r'''#!/bin/bash
 for a in "$@"; do case "$a" in
   --verify) exit "${FAKE_VERIFY:-0}";;
-  --extract-certificates=*) printf '%s' "$FAKE_CERT" > "${a#--extract-certificates=}0";;
+  --extract-certificates=*) [ -n "${FAKE_NO_CERT:-}" ] || printf '%s' "$FAKE_CERT" > "${a#--extract-certificates=}0";;
 esac; done
 exit 0
 ''',
@@ -106,6 +107,16 @@ def test_install_refuses_wrong_signature(tmp_path):
         result = install({**env, **bad})
         assert result.returncode == 1, (bad, result.stdout, result.stderr)
         assert installed_version(apps) == "0.4.0" and not list((home / ".Trash").iterdir())
+
+
+def test_install_refuses_ad_hoc_signature_and_says_why(tmp_path):
+    # Live check, 2026-11-17: an ad hoc build (valid signature, no certificate) was refused, but silently.
+    env, server, apps, home = rig(tmp_path)
+    make_app(apps, "0.4.0")
+    publish(server, tmp_path, "0.5.0")
+    result = install({**env, "FAKE_NO_CERT": "1"})
+    assert result.returncode == 1 and "release key" in result.stderr, result.stderr
+    assert installed_version(apps) == "0.4.0" and not list((home / ".Trash").iterdir())
 
 
 def test_install_refuses_bad_sha256(tmp_path):

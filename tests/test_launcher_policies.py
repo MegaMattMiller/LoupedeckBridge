@@ -20,7 +20,7 @@ CHECKS = ["never_connected_never_alerts", "drop_alerts_after_debounce", "quick_r
           "version_compare", "release_parse_accepts_a_real_shape", "release_parse_rejects_garbage", "check_schedule",
           "notice_once_per_version", "install_plan_order", "install_plan_refuses_wrong_bundle",
           "install_plan_refuses_bad_signature", "install_plan_refuses_two_apps", "install_plan_refuses_not_newer",
-          "install_plan_accepts_valid", "update_stops_the_bridge_without_quitting",
+          "install_plan_accepts_valid", "bridge_python_never_writes_bytecode", "update_stops_the_bridge_without_quitting",
           "update_after_a_forced_stop_releases_keys", "update_when_stopped_swaps_at_once",
           "update_cancels_a_pending_restart", "failed_update_restarts_the_bridge", "second_update_request_is_ignored",
           "quit_during_an_update_just_quits", "signature_accepts_the_pinned_certificate",
