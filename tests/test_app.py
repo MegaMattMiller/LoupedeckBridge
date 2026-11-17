@@ -167,3 +167,46 @@ def test_mode_change_broadcast(tmp_path):
         await asyncio.sleep(0)
     asyncio.run(main())
     assert announced == [1]
+
+
+def test_status_wired(tmp_path):
+    # Milestone 5: the bridge's state reaches the menu-bar app as status lines.
+    import json
+    from bridge import app as appmod
+    from bridge.status import StatusReporter
+    from tests.test_actions import FakeKeyboard
+
+    class HookedMidi:
+        on_open = None
+        on_close = None
+
+        async def events(self):
+            await asyncio.Event().wait()
+            yield  # pragma: no cover
+
+    lines = []
+    kb, midi = FakeKeyboard(), HookedMidi()
+    bridge = appmod.build(config_dir=tmp_path, midi=midi, port=1, state_file=tmp_path / "c.json", keyboard=kb,
+                          settings_port=7699, status=StatusReporter(lines.append))
+
+    def last():
+        return json.loads(lines[-1])
+
+    async def main():
+        midi.on_open()
+        assert last()["loupedeck"] is True
+        await bridge.dispatcher.handle(Press("fn"))
+        await bridge.dispatcher.handle(Press("col"))     # Keys mode
+        await bridge.dispatcher.handle(Release("col"))
+        await bridge.dispatcher.handle(Release("fn"))
+        assert last()["five_mode"] == "keys"
+        await bridge.dispatcher.handle(Press("shift"))    # held while the device goes away
+        midi.on_close()
+        assert last()["loupedeck"] is False
+        bridge.session.on_disconnect()
+        assert last()["lightroom"] is False
+        await bridge.session.on_connect()
+        assert last()["lightroom"] is True
+    asyncio.run(main())
+    assert last()["settings_url"] == "http://127.0.0.1:7699/"
+    assert kb.events == [("down", "shift"), ("up", "shift")]   # on_close still lets go of held keys
