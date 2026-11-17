@@ -32,6 +32,8 @@ UNDO_AFTER = {"rotateLeft", "rotateRight", "flipHorizontal", "flipVertical", "se
               "setWhiteBalance", "setUpright", "resetCrop", "resetAllDevelopAdjustments", "pasteEditSettings"}
 TWICE = {"showClipping", "toggleZoom", "toggleConstrainAspectRatio", "toggleHDR", "rotateAspectRatio"}
 GAP = 0.5  # seconds between commands, so you can watch
+# These move to another photo, view or selection: sent after every edit, so no edit lands on another photo.
+NAVIGATE = {"nextPhoto", "previousPhoto", "goBack", "goForward", "selectAll", "selectNone", "showView"}
 BACK = {"View": ("showView", "loupe"), "Tools": ("selectTool", "loupe")}  # where each group leaves you afterwards
 
 
@@ -42,9 +44,9 @@ async def check(groups, port) -> int:
     await lr.register()
     refused = 0
     try:
-        for command in catalog.commands.values():
-            if command["group"] not in groups:
-                continue
+        chosen = [c for c in catalog.commands.values() if c["group"] in groups]
+        chosen.sort(key=lambda c: c["message"] in NAVIGATE)  # stable: list order otherwise
+        for command in chosen:
             name = f"{command['id']:<24} {command['message']}{tuple(command['args']) if command['args'] else '()'}"
             if command["message"] in SKIP:
                 print(f"skip     {name}  (opens a dialog/app or adds a photo: check by hand)")
@@ -90,6 +92,7 @@ def main() -> None:
         sys.exit("This sends real commands to Lightroom. Open a test photo, then add --yes-this-is-a-test-photo.")
     refused = asyncio.run(check(set(args.group), args.port))
     print(f"\n{refused} refused" if refused else "\nall accepted")
+    print("If the Photos or View group ran, reselect your test photo in Lightroom.")
 
 
 if __name__ == "__main__":
