@@ -6,8 +6,9 @@ Loupedeck's own software only supports Lightroom Classic. Lightroom 10 has an ex
 WebSocket API, so this is a small local Python bridge: Loupedeck+ MIDI in → Lightroom API calls out,
 over `127.0.0.1` only.
 
-**Status:** on macOS, milestones 1–2 work: dials, dial clicks, Lightroom buttons and presets, plus
-real keyboard keys and shortcuts (run as LoupedeckBridge.app). The settings page comes next. See the
+**Status:** on macOS, milestones 1–4 work: dials, dial clicks, Lightroom buttons and presets, real
+keyboard keys and shortcuts (run as LoupedeckBridge.app), and a settings page for presets and for
+remapping any control, with an Fn layer. Start at login and a status display come next. See the
 [design](docs/superpowers/specs/2026-11-16-loupedeck-bridge-design.md) and
 [docs/FINDINGS.md](docs/FINDINGS.md) for everything verified so far.
 
@@ -69,6 +70,32 @@ The page is local only:
 - To work on the page without Lightroom or the device, run `.venv/bin/python tools/preview_settings.py`.
   It serves the page on port 7691 with fake presets and a throwaway mapping.
 
+## Settings page: buttons & dials (and the Fn layer)
+
+The **Buttons & dials** tab changes what any control does. Changes save and work at once.
+- Each control has two columns: **Normal**, and **With Fn held**. Holding the Loupedeck's **Fn** button
+  switches every control to its Fn action; a control with none ("Same as normal") does its normal job.
+  Fn itself does nothing else. If you let go of Fn before a button, that button still finishes its Fn action.
+- L1–L3 and C1–C6 come first. Other buttons, the dials and the colour dials (per Hue/Sat/Lum/B&W bank)
+  are folded below.
+- Click a cell, or **use the control on the Loupedeck**: it's selected on the page (and still does its
+  action). Holding Fn switches the page to the Fn column.
+- Buttons and dial clicks take a Lightroom command (ratings, flags, colour labels, next/previous photo,
+  views and zoom, tools, auto tone, white balance, Upright, Export…), **Nothing**, or **Open this
+  settings page**. Dial turns take any Lightroom slider, a **command pair** (one per direction, e.g.
+  previous/next photo), or Nothing.
+- A dial click **resets whatever that dial adjusts** in the layer in use ("Reset this dial's slider").
+- **Fn + Export exports with your previous export settings**, with no dialog. It's fixed, and it's the
+  only way to export without the dialog; plain Export always opens it. If Lightroom has no previous
+  settings yet, nothing happens.
+- **clr/bw** is fixed: it always keeps the photo's black & white in step with the device's lights.
+- P1–P8 keep their presets (set on the Presets tab); their Fn actions are set here.
+- **Reset** returns one control to its default; **Restore default layout** (two clicks) resets all of
+  them but keeps your P1–P8 presets.
+- The page can't create keyboard keys or shortcuts; keys you already have (e.g. Shift) can be replaced,
+  and Reset brings them back.
+- `tools/lr_check_commands.py` checks the command list against Lightroom (on a test photo).
+
 ## Run as an app (macOS, needed for keyboard keys)
 
 The Loupedeck's Shift/Ctrl/Cmd/Alt/Tab/arrow buttons and the Before/After and screen-mode shortcuts
@@ -113,7 +140,7 @@ Keys go to whichever app is in front, like a second keyboard.
 1. ✅ Core bridge on macOS: dials, dial clicks, Lightroom buttons, presets, reconnects
 2. ✅ Keyboard keys and shortcuts on macOS: Shift/Ctrl/Cmd/Alt/Tab and arrows, Before/After, screen mode (sent to whichever app is in front)
 3. ✅ Settings page: search presets and assign them to P1–P8
-4. Settings page: remap any control
+4. ✅ Settings page: remap any control, with an Fn layer
 5. Start at login, plus a status display
 6. Windows (macOS-tested code first, then a Windows test run)
 7. **GitHub Releases** once it's shippable: versioned downloads and a changelog
@@ -125,7 +152,9 @@ Keys go to whichever app is in front, like a second keyboard.
 | `bridge/__main__.py`, `bridge/app.py` | Entry point and wiring |
 | `bridge/midi_input.py`, `bridge/hardware.py` | Loupedeck+ MIDI → control events (survives unplugging) |
 | `bridge/mapping.py`, `config/default_mapping.json` | Control → action layout |
-| `bridge/actions.py` | Runs actions: Lightroom calls, presets, dial adjustments |
+| `bridge/actions.py` | Runs actions: Lightroom calls, presets, dial adjustments, the Fn layer |
+| `bridge/commands.py`, `config/commands.json` | What the settings page may assign, in plain words |
+| `bridge/settings/` | The settings page: server, layout list, static page |
 | `bridge/dials.py`, `bridge/dial_feel.py` | Detent coalescing, tracking, the dial-feel curve |
 | `bridge/session.py` | Keeps a registered Lightroom connection alive |
 | `bridge/platform/` | Per-OS paths (macOS, Windows) |
@@ -137,6 +166,8 @@ Keys go to whichever app is in front, like a second keyboard.
 | `tools/find_unknown.py` | Chime on the first control not in the map yet |
 | `tools/lr_probe.py` | Read-only Lightroom smoke test (shows reply shapes) |
 | `tools/lr_dump_params.py` | Regenerate `docs/lr_parameters_<version>.json` (read-only) |
+| `tools/lr_check_commands.py` | Check `config/commands.json` against Lightroom (test photo) |
+| `tools/preview_settings.py` | The settings page with a fake Lightroom (no device needed) |
 | `captures/` | Raw MIDI / Lightroom frame logs the map and notes are based on |
 
 Not affiliated with Adobe, Loupedeck or Logitech.

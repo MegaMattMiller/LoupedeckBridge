@@ -131,6 +131,12 @@ USB-A dongle) dropped off USB; the page and Lightroom connection looked fine, bu
 "Loupedeck disconnected; waiting for it to come back" and macOS listed no MIDI inputs. Replugging
 the dongle fixed it; the bridge reopened the device by itself. A visible device status is for milestone 5.
 
+## Fn button (milestone 4 capture, 2026-11-16)
+With the bridge paused, holding Fn and pressing L1, C3 and C1, then the same without Fn, then turning
+and clicking Exposure with and without Fn: **every control sent exactly the same MIDI either way**.
+Fn itself sends note 110 on when pressed and off when released. So Fn layers are entirely the
+bridge's job: it tracks Fn and picks each press's layer when the press starts.
+
 ## API notes the handoff didn't capture
 - **How object handles come about:** `addAdjustmentChangeObserver(param?)` and `addHapticsObserver()` return a GUID/object. Later notifications arrive as extra responses for that same original `requestId` (this is the "one request, many responses" case). Call `close` on the handle when done.
 - **Tracking:** `startTracking(param)` turns itself off **2 s** after the last change, or as soon as a *different* parameter is adjusted. `stopTracking()` commits **one** history state. `setMultipleAdjustmentThreshold` defaults to **0.5 s** and has no effect if it's larger than the tracking delay.
