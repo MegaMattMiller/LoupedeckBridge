@@ -1,0 +1,89 @@
+"""The list the Buttons & dials tab shows: every control (except Fn) with its normal and Fn actions."""
+from __future__ import annotations
+
+import re
+from typing import Dict, List, Optional
+
+from bridge.commands import CommandCatalog
+from bridge.mapping import FN_KEY, LAYERS
+
+YOUR_BUTTONS = ["l1", "l2", "l3", "c1", "c2", "c3", "c4", "c5", "c6"]  # what the user mainly remaps
+P_SLOTS = [f"p{i}" for i in range(1, 9)]
+BANKS = ["hue", "sat", "lum", "bw"]
+BANK_NAMES = {"hue": "Hue", "sat": "Sat", "lum": "Lum", "bw": "B&W"}
+GROUPS = ["your", "buttons", "dials", "colour"]
+NAMES = {"clr_bw": "clr/bw", "col": "--/col", "custom_mode": "Custom mode", "before_after": "Before/After",
+         "screen_mode": "Screen mode", "command": "Cmd", "ctrl": "Ctrl", "hue": "HUE", "sat": "SAT", "lum": "LUM",
+         "up": "↑", "down": "↓", "left": "←", "right": "→"}
+NOTES = {"custom_mode": "This button opens this page",
+         "hue": "Also switches the colour dials' bank", "sat": "Also switches the colour dials' bank",
+         "lum": "Also switches the colour dials' bank"}
+
+
+def fixed_reason(control: str, layer: str, slot: str) -> Optional[str]:
+    """Why a slot can't be changed on the page, or None if it can."""
+    if control == "clr_bw" and slot == "press":
+        return "Keeps the photo's black & white in step with the device"
+    if (control, layer, slot) == ("export", "fn", "press"):
+        return "Fixed: export with previous settings"
+    if control in P_SLOTS and layer == "normal" and slot == "press":
+        return "Set on the Presets tab"
+    return None
+
+
+def slots_of(kind: str) -> List[str]:
+    return ["turn", "press"] if kind == "dial" else ["press"]
+
+
+def _bank(control: str) -> Optional[str]:
+    head = control.split("_", 1)[0]
+    return head if "_" in control and head in BANKS else None
+
+
+def _name(control: str) -> str:
+    if control in NAMES:
+        return NAMES[control]
+    if re.fullmatch(r"[a-z]\d", control):
+        return control.upper()
+    bank = _bank(control)
+    if bank:
+        return f"{BANK_NAMES[bank]} {control.split('_', 1)[1]}"
+    return control.replace("_", " ").capitalize()
+
+
+def _group(control: str, kind: str) -> str:
+    if control in YOUR_BUTTONS:
+        return "your"
+    if kind == "button":
+        return "buttons"
+    return "colour" if _bank(control) else "dials"
+
+
+def rows(mapping, commands: CommandCatalog, controls: Dict[str, str]) -> List[dict]:
+    """One row per control except Fn, in the order the tab shows them."""
+    ordered = [c for c in controls if c != FN_KEY]
+    ordered.sort(key=lambda c: (GROUPS.index(_group(c, controls[c])),
+                                YOUR_BUTTONS.index(c) if c in YOUR_BUTTONS else 0,
+                                BANKS.index(_bank(c)) if _bank(c) else 0))  # stable: hardware order otherwise
+    result = []
+    for control in ordered:
+        kind = controls[control]
+        slots = slots_of(kind)
+        normal = {s: commands.describe(mapping.turn_action(control) if s == "turn" else mapping.press_action(control))
+                  for s in slots}
+        fn = {}
+        for s in slots:
+            own = mapping.fn_action(control, s)
+            fn[s] = None if own is None else commands.describe(own)
+        fixed = {}
+        for layer in LAYERS:
+            for s in slots:
+                reason = fixed_reason(control, layer, s)
+                if reason:
+                    fixed[f"{layer}.{s}"] = reason
+        row = {"control": control, "name": _name(control), "group": _group(control, kind), "slots": slots,
+               "normal": normal, "fn": fn, "fixed": fixed, "note": NOTES.get(control)}
+        if row["group"] == "colour":
+            row["bank"] = _bank(control)
+        result.append(row)
+    return result

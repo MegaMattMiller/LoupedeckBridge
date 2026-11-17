@@ -12,7 +12,7 @@ import websockets
 from websockets.exceptions import ConnectionClosed, InvalidStatus
 
 from bridge.actions import Dispatcher
-from bridge.hardware import Press
+from bridge.hardware import Press, Release, Turn
 from bridge.mapping import Mapping
 from bridge.presets import PresetCatalog
 from bridge.settings.server import SettingsServer
@@ -279,14 +279,14 @@ def test_change_broadcast_to_all_tabs(tmp_path):
 
 
 def test_device_press_highlights_slot(tmp_path):
+    # Milestone 4: any control's use is announced (the Presets tab flashes P slots).
     async def main():
         async with Rig(tmp_path) as rig:
             async with rig.connect() as ws:
                 await rig.hello(ws)
-                rig.server.on_event(Press("c1"))   # not a preset slot: ignored
+                await rig.next(ws, "layout")
                 rig.server.on_event(Press("p2"))
-                msg = json.loads(await asyncio.wait_for(ws.recv(), 3))
-                assert msg == {"type": "pressed", "slot": "p2"}
+                assert await rig.next(ws, "used") == {"type": "used", "control": "p2", "layer": "normal"}
     asyncio.run(main())
 
 
@@ -385,3 +385,171 @@ def test_port_busy_does_not_stop_bridge(tmp_path, caplog):
     with caplog.at_level(logging.ERROR):
         asyncio.run(main())
     assert any("settings page" in r.getMessage() for r in caplog.records)
+
+
+# ---- milestone 4: the Buttons & dials tab ------------------------------------------
+def row_of(layout, control):
+    return next(r for r in layout["rows"] if r["control"] == control)
+
+
+def set_op(control, layer, slot, choice):
+    return json.dumps({"op": "set", "control": control, "layer": layer, "slot": slot, "choice": choice})
+
+
+def test_connect_sends_catalog_and_layout(tmp_path):
+    async def main():
+        async with Rig(tmp_path) as rig:
+            async with rig.connect() as ws:
+                await rig.hello(ws)
+                catalog = json.loads(await asyncio.wait_for(ws.recv(), 3))
+                layout = json.loads(await asyncio.wait_for(ws.recv(), 3))
+                assert catalog["type"] == "catalog" and any(c["id"] == "rating_3" for c in catalog["commands"])
+                assert layout["type"] == "layout" and row_of(layout, "c3")["fn"]["press"] is None
+    asyncio.run(main())
+
+
+def test_set_fn_command_saves_and_broadcasts(tmp_path):
+    async def main():
+        async with Rig(tmp_path) as rig:
+            async with rig.connect() as a, rig.connect() as b:
+                await rig.hello(a)
+                await rig.hello(b)
+                await rig.next(b, "layout")
+                await a.send(set_op("c3", "fn", "press", {"kind": "command", "id": "rating_3"}))
+                row = row_of(await rig.next(b, "layout"), "c3")
+                assert row["fn"]["press"]["choice"] == {"kind": "command", "id": "rating_3"}
+                assert rig.mapping.press_action("c3", fn=True)["message"] == "rating3"
+    asyncio.run(main())
+
+
+def test_set_same_clears_fn_and_slider_pair_on_dials(tmp_path):
+    async def main():
+        async with Rig(tmp_path) as rig:
+            async with rig.connect() as ws:
+                await rig.hello(ws)
+                await rig.next(ws, "layout")
+                await ws.send(set_op("c3", "fn", "press", {"kind": "command", "id": "rating_3"}))
+                await rig.next(ws, "layout")
+                await ws.send(set_op("c3", "fn", "press", {"kind": "same"}))
+                assert row_of(await rig.next(ws, "layout"), "c3")["fn"]["press"] is None
+                await ws.send(set_op("exposure", "fn", "turn", {"kind": "slider", "param": "Contrast2012"}))
+                await rig.next(ws, "layout")
+                await ws.send(set_op("d1", "normal", "turn", {"kind": "pair", "id": "pair_photo"}))
+                await rig.next(ws, "layout")
+        m = Mapping.load(rig.path)
+        assert m.press_action("c3", fn=True) == m.press_action("c3")
+        assert m.turn_action("exposure", fn=True) == {"type": "adjust", "param": "Contrast2012"}
+        assert m.turn_action("d1")["type"] == "step" and m.turn_action("d1")["cw"]["message"] == "nextPhoto"
+    asyncio.run(main())
+
+
+def test_set_refuses_what_the_page_cannot_change(tmp_path):
+    # Review Focus 4: a stale or hostile page message is refused; the file doesn't change.
+    async def main():
+        async with Rig(tmp_path) as rig:
+            async with rig.connect() as ws:
+                await rig.hello(ws)
+                await rig.next(ws, "layout")
+                before = rig.path.read_bytes()
+                rating = {"kind": "command", "id": "rating_3"}
+                refused = [
+                    set_op("fn", "normal", "press", rating),
+                    set_op("clr_bw", "normal", "press", rating),
+                    set_op("clr_bw", "fn", "press", rating),
+                    set_op("export", "fn", "press", rating),
+                    set_op("p1", "normal", "press", rating),
+                    set_op("c3", "normal", "press", {"kind": "key", "key": "shift"}),
+                    set_op("c3", "fn", "press", {"kind": "shortcut", "mac": ["cmd", "q"], "windows": ["alt", "f4"]}),
+                    set_op("c3", "normal", "press", {"kind": "command", "id": "no_such_command"}),
+                    set_op("c3", "normal", "press", {"kind": "slider", "param": "Exposure2012"}),
+                    set_op("c3", "normal", "turn", rating),
+                    set_op("c3", "normal", "press", {"kind": "same"}),
+                    set_op("nope", "normal", "press", rating),
+                    set_op("c3", "shift", "press", rating),
+                    json.dumps({"op": "reset", "control": "fn"}),
+                ]
+                for raw in refused:
+                    await ws.send(raw)
+                    assert (await rig.next(ws, "error"))["message"], raw
+                    assert rig.path.read_bytes() == before, raw
+                await ws.send(set_op("c3", "fn", "press", rating))           # the connection still works
+                assert row_of(await rig.next(ws, "layout"), "c3")["fn"]["press"]["label"]
+    asyncio.run(main())
+
+
+def test_reset_and_restore_defaults_keep_presets(tmp_path):
+    async def main():
+        async with Rig(tmp_path) as rig:
+            rig.mapping.set_press_action("p1", {"type": "preset", "id": "ID-WARM", "name": "Warm"})
+            rig.mapping.set_action("p1", "press", RATING3, layer="fn")
+            rig.mapping.set_action("c3", "press", RATING3, layer="fn")
+            async with rig.connect() as ws:
+                await rig.hello(ws)
+                await rig.next(ws, "layout")
+                await ws.send(json.dumps({"op": "reset", "control": "p1"}))
+                await rig.next(ws, "layout")
+                assert rig.mapping.press_action("p1")["id"] == "ID-WARM" and rig.mapping.fn_action("p1", "press") is None
+                await ws.send(json.dumps({"op": "restore_defaults"}))
+                assert row_of(await rig.next(ws, "layout"), "c3")["fn"]["press"] is None
+                assert slot(await rig.next(ws, "state"), "p1")["id"] == "ID-WARM"
+        m = Mapping.load(rig.path)
+        assert m.press_action("p1")["name"] == "Warm" and m.fn_action("c3", "press") is None
+    asyncio.run(main())
+
+
+def test_restore_refused_when_mapping_unreadable(tmp_path):
+    async def main():
+        async with Rig(tmp_path, mapping_text="{not json") as rig:
+            async with rig.connect() as ws:
+                await rig.hello(ws)
+                await ws.send(json.dumps({"op": "restore_defaults"}))
+                assert "couldn't be read" in (await rig.next(ws, "error"))["message"]
+            assert rig.path.read_text() == "{not json"
+    asyncio.run(main())
+
+
+def test_device_use_and_fn_are_broadcast(tmp_path):
+    async def main():
+        async with Rig(tmp_path) as rig:
+            async with rig.connect() as ws:
+                await rig.hello(ws)
+                await rig.next(ws, "layout")
+                await rig.dispatcher.handle(Press("fn"))
+                rig.server.on_event(Press("fn"))
+                assert await rig.next(ws, "fn") == {"type": "fn", "held": True}
+                await rig.dispatcher.handle(Press("c3"))
+                rig.server.on_event(Press("c3"))
+                assert await rig.next(ws, "used") == {"type": "used", "control": "c3", "layer": "fn"}
+                await rig.dispatcher.handle(Release("fn"))
+                rig.server.on_event(Release("fn"))
+                assert await rig.next(ws, "fn") == {"type": "fn", "held": False}
+    asyncio.run(main())
+
+
+def test_turns_are_throttled_for_the_page(tmp_path):
+    # Review Focus 5: a dial sends up to ~150 messages a second; the page gets at most 4 a second.
+    async def main():
+        async with Rig(tmp_path) as rig:
+            async with rig.connect() as ws:
+                await rig.hello(ws)
+                await rig.next(ws, "layout")
+                for _ in range(3):
+                    rig.server.on_event(Turn("exposure", 1))
+                assert (await rig.next(ws, "used"))["control"] == "exposure"
+                with pytest.raises(asyncio.TimeoutError):
+                    await asyncio.wait_for(ws.recv(), 0.3)
+    asyncio.run(main())
+
+
+def test_other_action_on_a_p_button_shows_its_label(tmp_path):
+    from bridge.commands import CommandCatalog
+    text = json.dumps({"version": 1, "controls": {"p8": {"press": RATING3}}})
+    async def main():
+        async with Rig(tmp_path, mapping_text=text) as rig:
+            async with rig.connect() as ws:
+                return slot(await rig.hello(ws), "p8")
+    p8 = asyncio.run(main())
+    assert p8["status"] == "other" and p8["label"] == CommandCatalog.load().describe(RATING3)["label"]
+
+
+RATING3 = {"type": "call", "message": "rating3", "args": []}
