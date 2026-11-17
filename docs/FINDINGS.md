@@ -162,6 +162,13 @@ Preferences, the merges, Copy settings…), Edit in Photoshop, and Duplicate pho
 - Fn + Export exports with the previous settings; plain Export still opens the dialog.
 - clr/bw keeps the lights and the photo in step, with and without Fn.
 - Reset and Restore default layout keep the P1–P3 presets.
+- **--/Col modes (Task 7), all passed:**
+  - starts in Ratings (★ to ★★★★★)
+  - --/Col gives Colours (red to purple) and back, with the page's chip following
+  - Fn + --/Col gives Keys (Tab toggles the side panels)
+  - a Shift held through a mode switch is let go properly
+  - from Keys, --/Col returns to the last of Ratings/Colours
+  - a per-mode remap on the page works
 
 ## API notes the handoff didn't capture
 - **How object handles come about:** `addAdjustmentChangeObserver(param?)` and `addHapticsObserver()` return a GUID/object. Later notifications arrive as extra responses for that same original `requestId` (this is the "one request, many responses" case). Call `close` on the handle when done.
