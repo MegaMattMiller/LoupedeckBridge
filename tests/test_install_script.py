@@ -175,3 +175,10 @@ def test_no_pinned_key_refuses(tmp_path):
 def test_usage(tmp_path):
     env, *_ = rig(tmp_path)
     assert install(env, "--nope").returncode == 2
+
+
+def test_release_key_is_pinned():
+    # The release certificate's SHA-256 (made by tools/make_signing_identity.sh, 2026-11-17). Every release app
+    # copies it into its Info.plist at build time, so clearing or changing it strands installed apps.
+    text = (REPO / "tools" / "install.sh").read_text()
+    assert 'PINNED_SIGNER_SHA256_DEFAULT="4927ccbb8cc8c7e3c32afa79d58f11f2129b84b3c7638cb530cb2ced0faa2cf4"' in text

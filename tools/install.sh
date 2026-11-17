@@ -13,8 +13,9 @@
 # /Applications/LoupedeckBridge.app. The old app goes to the Trash. If any check fails, nothing is replaced.
 set -euo pipefail
 
-# The LoupedeckBridge release certificate's SHA-256 (public, not a secret). Set when the key was made.
-PINNED_SIGNER_SHA256_DEFAULT=""
+# The LoupedeckBridge release certificate's SHA-256 (public, not a secret), from tools/make_signing_identity.sh
+# on 2026-11-17. The release build copies it into each app, which checks every update against it.
+PINNED_SIGNER_SHA256_DEFAULT="4927ccbb8cc8c7e3c32afa79d58f11f2129b84b3c7638cb530cb2ced0faa2cf4"
 PINNED="${LB_PINNED_SIGNER_SHA256-$PINNED_SIGNER_SHA256_DEFAULT}"
 
 SLUG="MegaMattMiller/LoupedeckBridge"
