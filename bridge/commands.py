@@ -86,6 +86,8 @@ class CommandCatalog:
         if slot not in ("turn", "press"):
             raise ValueError(f"unknown slot {slot!r}")
         kind = choice.get("kind") if isinstance(choice, dict) else None
+        if not isinstance(kind, str) or not all(isinstance(choice.get(k, ""), str) for k in ("id", "param")):
+            raise ValueError(f"not something the settings page can assign: {choice!r}")
         if kind == "same":
             return None
         if kind == "none":
@@ -131,7 +133,7 @@ class CommandCatalog:
             if cid is not None:
                 return {"label": self.commands[cid]["label"], "choice": {"kind": "command", "id": cid}}
             message, args = action["message"], action.get("args", [])
-            if message == "resetToDefault" and args:
+            if message == "resetToDefault" and args and isinstance(args[0], str):
                 return {"label": f"Reset {self.sliders.get(args[0], args[0])}", "choice": None}
             return {"label": SPECIAL_LABELS.get(message, f"Lightroom: {message}"), "choice": None}
         if kind == "key":

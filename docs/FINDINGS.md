@@ -151,7 +151,7 @@ doesn't use it.
 ## Milestone 4 live check (remapper and Fn layer, 2026-11-16)
 **Commands:** `tools/lr_check_commands.py` sent all 72 checkable commands in `config/commands.json`
 to Lightroom on a test photo: **all accepted**. 8 were left for checking by hand: the dialogs (Export,
-Preferences, the merges, Copy settings…), Edit in Photoshop, and Duplicate photo.
+Preferences, the merges, Copy settings…), Edit in Photoshop, and Duplicate photo. **Not yet checked by hand:** Duplicate photo, Edit in Photoshop, Preferences, the three merge dialogs and Copy settings (choose…); only the Export dialog is known to work (milestone 1).
 
 **With the user, all passed:**
 - The mapping upgraded by itself: P1–P3 presets kept, dial clicks became "reset this dial's slider", Export gained Fn + Export, no warnings.

@@ -185,14 +185,15 @@ class SettingsServer:
                 log.info("restored the default layout (P1–P8 presets kept)")
             else:
                 control = msg.get("control")
-                if control not in self.controls or control == FN_KEY:
+                if not isinstance(control, str) or control not in self.controls or control == FN_KEY:
                     raise ValueError(f"there's no control {control!r} to change here")
                 if op == "reset":
                     self.mapping.reset_control(control, keep_normal_press=control in SLOTS)
                     log.info("%s: reset to the default", control)
                 else:
                     layer, slot = msg.get("layer"), msg.get("slot")
-                    if layer not in LAYERS or slot not in layout.slots_of(self.controls[control]):
+                    if not isinstance(layer, str) or not isinstance(slot, str) or layer not in LAYERS \
+                            or slot not in layout.slots_of(self.controls[control]):
                         raise ValueError(f"{control} has no {layer} {slot} to change")
                     reason = layout.fixed_reason(control, layer, slot)
                     if reason:
@@ -205,6 +206,8 @@ class SettingsServer:
                     log.info("%s %s%s: %s", control, slot, " (Fn)" if layer == "fn" else "", label)
         except (MappingNotWritable, ValueError) as e:
             return await self._error(ws, str(e))
+        except TypeError:  # a malformed request the checks above didn't foresee: refuse it, keep the connection
+            return await self._error(ws, "couldn't read that request")
         except OSError as e:
             return await self._error(ws, self._save_error(e))
         await self._broadcast(self._layout())

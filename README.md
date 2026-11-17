@@ -104,8 +104,8 @@ The **Buttons & dials** tab changes what any control does. Changes save and work
 
 ## Run as an app (macOS, needed for keyboard keys)
 
-The Loupedeck's Shift/Ctrl/Cmd/Alt/Tab/arrow buttons and the Before/After and screen-mode shortcuts
-send real key presses. macOS only allows that with the **Accessibility** permission, which it grants
+The Loupedeck's arrow buttons, the Before/After and screen-mode shortcuts, and Shift/Ctrl/Cmd/Alt/Tab
+in Keys mode (Fn + --/Col; the bridge starts in Ratings) send real key presses. macOS only allows that with the **Accessibility** permission, which it grants
 to the *app* that started the bridge. Run the bridge from the small **LoupedeckBridge.app** so the
 permission covers only the bridge, not your terminal:
 

@@ -26,6 +26,7 @@ const Remap = (() => {
   let query = "";
   let pendingCustom = null;  // a choice waiting for its second click (changing custom mode)
   let restoreTimer = null;   // set while "Restore default layout" waits for its second click
+  let editorKey = null;      // which control/layer/slot the editor last showed (to keep its scroll position)
   const open = {};           // folded sections the user opened
 
   const keyOf = (choice) => JSON.stringify(choice);
@@ -135,6 +136,12 @@ const Remap = (() => {
   function renderEditor() {
     const box = $("editor");
     const hadFocus = document.activeElement && document.activeElement.id === "remap-search";
+    const key = sel ? `${sel.control}|${sel.layer}|${sel.slot}` : null;
+    const oldChoices = $("choices");
+    // Every change redraws the editor; staying on the same slot keeps the list where it was,
+    // so the ✓ you just clicked stays in view.
+    const keepScroll = oldChoices && key === editorKey ? oldChoices.scrollTop : 0;
+    editorKey = key;
     box.replaceChildren();
     const r = sel && rowOf(sel.control);
     if (!r) return;
@@ -156,6 +163,7 @@ const Remap = (() => {
       search.addEventListener("input", () => { query = search.value; renderChoices(r, current); });
       box.append(search, el("div", { id: "choices" }));
       renderChoices(r, current);
+      $("choices").scrollTop = keepScroll;
       if (hadFocus) search.focus();
     }
     const reset = el("button", { type: "button", class: "secondary", onclick: () => send({ op: "reset", control: r.control }) },

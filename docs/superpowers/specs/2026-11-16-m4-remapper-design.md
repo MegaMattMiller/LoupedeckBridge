@@ -45,7 +45,7 @@ do little or nothing today), with **Lightroom commands** as the actions for now.
   release still ends the Fn action (matters for held keys and repeating actions).
 - Dial turns use the layer at the moment of each turn message.
 - Fn counts as released when the device disconnects or reconnects, so a layer can't stick.
-- One layer only. Shift, Ctrl, Cmd and Alt stay real keyboard keys.
+- One layer only. Shift, Ctrl, Cmd and Alt stay real keyboard keys *(amended by the --/Col addendum below: only in Keys mode)*.
 
 ## Decided
 - **Mapping file:** Fn actions live inside each control's entry:

@@ -477,6 +477,16 @@ def test_set_refuses_what_the_page_cannot_change(tmp_path):
                     set_op("nope", "normal", "press", rating),
                     set_op("c3", "shift", "press", rating),
                     json.dumps({"op": "reset", "control": "fn"}),
+                    # wrongly typed fields (review): refused, the connection stays up
+                    set_op([], "normal", "press", rating),
+                    set_op({}, "normal", "press", rating),
+                    set_op("c3", [], "press", rating),
+                    set_op("c3", "normal", {}, rating),
+                    set_op("c3", "normal", "press", {"kind": []}),
+                    set_op("c3", "normal", "press", {"kind": "command", "id": []}),
+                    set_op("exposure", "normal", "turn", {"kind": "slider", "param": {}}),
+                    set_op("c3", "normal", "press", []),
+                    json.dumps({"op": "reset", "control": {}}),
                 ]
                 for raw in refused:
                     await ws.send(raw)
@@ -581,4 +591,22 @@ def test_five_mode_in_state_and_used(tmp_path):
                 assert rig.path.read_bytes() == before
                 await ws.send(set_op("colours_2", "normal", "press", {"kind": "command", "id": "rating_3"}))
                 assert row_of(await rig.next(ws, "layout"), "colours_2")["normal"]["press"]["choice"]["id"] == "rating_3"
+    asyncio.run(main())
+
+
+def test_odd_hand_edits_dont_break_the_page(tmp_path):
+    # Review: one odd action in mapping.json made every page connection fail.
+    text = json.dumps({"version": 1, "controls": {
+        "c5": {"press": {"type": "shortcut", "mac": ["cmd", 5], "windows": ["ctrl", 5]}},
+        "c6": {"press": {"type": "call", "message": "resetToDefault", "args": [[1]]}},
+        "c4": {"press": {"type": "call", "message": "resetToDefault", "args": [{"a": 1}]}}}})
+    async def main():
+        async with Rig(tmp_path, mapping_text=text) as rig:
+            async with rig.connect() as ws:
+                await rig.hello(ws)
+                layout = await rig.next(ws, "layout")
+                assert row_of(layout, "c5")["normal"]["press"]["label"] == "Nothing"
+                assert row_of(layout, "c6")["normal"]["press"]["label"]
+                await ws.send(set_op("c3", "fn", "press", {"kind": "command", "id": "rating_3"}))
+                await rig.next(ws, "layout")                 # still working
     asyncio.run(main())

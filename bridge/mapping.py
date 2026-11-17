@@ -59,7 +59,8 @@ def _check(slot: str, action) -> Optional[dict]:
         return {"type": "preset", "id": action.get("id"), "name": action.get("name")}
     if kind == "key" and isinstance(action.get("key"), str) and action["key"] in KEY_NAMES:
         return action
-    if kind == "shortcut" and all(isinstance(action.get(k), list) for k in ("mac", "windows")):
+    if kind == "shortcut" and all(isinstance(action.get(k), list) and all(isinstance(key, str) for key in action[k])
+                                  for k in ("mac", "windows")):
         return action
     if kind == "open_settings":
         return {"type": "open_settings"}
@@ -72,7 +73,9 @@ def _rule_problem(control: str, layer: str, slot: str, action: dict) -> Optional
     """Rules beyond an action's own shape, which depend on where it's placed."""
     if layer == "fn" and action.get("type") == "preset":
         return "presets can't go on the Fn layer"
-    if action.get("type") == "call" and action.get("message") == "exportWithPrevious" \
+    kind = action.get("type")
+    calls = [action] if kind == "call" else [action.get("cw"), action.get("ccw")] if kind == "step" else []
+    if any(isinstance(c, dict) and c.get("message") == "exportWithPrevious" for c in calls) \
             and (control, layer, slot) != ("export", "fn", "press"):
         return "export with previous settings only works as Fn + Export"  # never without a dialog by accident
     return None

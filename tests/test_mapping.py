@@ -364,6 +364,8 @@ def test_milestone3_mapping_upgrades_cleanly(tmp_path):
     assert [m.press_action(f"p{i}")["name"] for i in (1, 2, 3)] == ["Blues", "Moody", "Neon"]
     assert m.press_action("exposure") == {"type": "reset_dial"}
     assert m.press_action("export", fn=True) == EXPORT_PREVIOUS
+    assert m.press_action("ratings_1")["message"] == "rating1"                 # Task 7: the ten per-mode entries
+    assert m.press_action("colours_5")["message"] == "colorLabelPurple"
     assert m.warnings == []
 
 
@@ -377,6 +379,23 @@ def test_default_five_mode_actions(tmp_path):
     assert controls["ratings_1"] == "button" and controls["colours_5"] == "button"
     assert five_id("tab", "colours") == "colours_5" and five_id("shift", "keys") == "shift"
     assert five_id("ctrl", "ratings") == "ratings_2"
+
+
+def test_export_with_previous_in_a_step_is_rejected(tmp_path):
+    # Review: a hand-edited command pair carried exportWithPrevious past the "only Fn + Export" rule.
+    step = {"type": "step", "cw": EXPORT_PREVIOUS, "ccw": RATING3}
+    m = Mapping.load(write(tmp_path / "m.json", {"d1": {"turn": step}, "d2": {"turn": NONE, "fn": {"turn": step}}}))
+    assert m.turn_action("d1") == NONE and m.turn_action("d2", fn=True) == NONE
+    assert any("d1" in w for w in m.warnings) and any("d2" in w for w in m.warnings)
+    with pytest.raises(ValueError):
+        m.set_action("d1", "turn", step)
+
+
+def test_shortcut_keys_must_be_names(tmp_path):
+    # Review: ["cmd", 5] loaded without a warning, then broke the settings page.
+    m = Mapping.load(write(tmp_path / "m.json", {"c5": {"press": {"type": "shortcut", "mac": ["cmd", 5],
+                                                                  "windows": ["ctrl", 5]}}}))
+    assert m.press_action("c5") == NONE and any("c5" in w for w in m.warnings)
 
 
 def test_user_file_replaces_default(tmp_path):

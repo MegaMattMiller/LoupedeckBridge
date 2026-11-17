@@ -1,12 +1,15 @@
 """The list the Buttons & dials tab shows: every control (except Fn) with its normal and Fn actions."""
 from __future__ import annotations
 
+import logging
 import re
 from typing import Dict, List, Optional
 
 from bridge.commands import CommandCatalog
 from bridge.hardware import COL, FIVE, FIVE_MODES
 from bridge.mapping import FN_KEY, LAYERS
+
+log = logging.getLogger("settings")
 
 YOUR_BUTTONS = ["l1", "l2", "l3", "c1", "c2", "c3", "c4", "c5", "c6"]  # what the user mainly remaps
 P_SLOTS = [f"p{i}" for i in range(1, 9)]
@@ -79,6 +82,15 @@ def _group(control: str, kind: str) -> str:
     return "colour" if _bank(control) else "dials"
 
 
+def _describe(commands: CommandCatalog, control: str, action: dict) -> dict:
+    """describe(), but one odd hand-edited action never takes the whole page down."""
+    try:
+        return commands.describe(action)
+    except Exception:  # noqa: BLE001 — anything describe() can't handle
+        log.warning("%s: can't show %r on the settings page", control, action)
+        return {"label": "Unreadable action (see mapping.json)", "choice": None}
+
+
 def rows(mapping, commands: CommandCatalog, controls: Dict[str, str]) -> List[dict]:
     """One row per control except Fn, in the order the tab shows them."""
     def order(c: str) -> tuple:
@@ -93,12 +105,13 @@ def rows(mapping, commands: CommandCatalog, controls: Dict[str, str]) -> List[di
     for control in ordered:
         kind = controls[control]
         slots = slots_of(kind)
-        normal = {s: commands.describe(mapping.turn_action(control) if s == "turn" else mapping.press_action(control))
+        normal = {s: _describe(commands, control,
+                               mapping.turn_action(control) if s == "turn" else mapping.press_action(control))
                   for s in slots}
         fn = {}
         for s in slots:
             own = mapping.fn_action(control, s)
-            fn[s] = None if own is None else commands.describe(own)
+            fn[s] = None if own is None else _describe(commands, control, own)
         fixed = {}
         for layer in LAYERS:
             for s in slots:
