@@ -1,5 +1,6 @@
-// The menu-bar icon and menu, the alerts, and Start at login (milestone 5).
-// The rules for when to alert and when to restart live in Policies.swift (tested separately).
+// The menu-bar icon and menu, the alerts, and Start at login (milestone 5); the update items (milestone 6).
+// The rules for when to alert and when to restart live in Policies.swift (tested separately); updates are in
+// Updater.swift.
 
 import AppKit
 import ServiceManagement
@@ -57,6 +58,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
     private var alerts = AlertPolicy()
     private var signalSources: [DispatchSourceSignal] = []
     private var timer: Timer?
+    private let updater: Updater?             // release builds only
+    private var afterStop: (() -> Void)?      // the update waiting for the bridge to stop
 
     private func now() -> Double { ProcessInfo.processInfo.systemUptime }
 
@@ -66,6 +69,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
         let version = info["LBVersion"] as? String ?? "?"
         self.title = (info["LBIsDev"] as? Bool ?? false) ? "LoupedeckBridge Dev (repo, v\(version))"
                                                           : "LoupedeckBridge v\(version)"
+        self.updater = Updater(info: info)
         super.init()
         // Before the bridge is spawned, so an early stop request can't leave it running without us.
         for sig in [SIGTERM, SIGINT, SIGHUP] {
@@ -82,6 +86,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         let menu = NSMenu()
         menu.delegate = self
+        menu.autoenablesItems = false              // items are enabled or not as menuNeedsUpdate says
         item.menu = menu
         statusItem = item
 
@@ -99,6 +104,20 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
             self.post(self.alerts.tick(at: self.now()))
         }
         perform(supervisor.start())
+
+        if let updater = updater {
+            updater.notify = { [weak self] title, body in self?.notify(title, body) }
+            updater.stopBridge = { [weak self] then in
+                guard let self = self else { return }
+                self.afterStop = then
+                self.perform(self.supervisor.stopForUpdate(bridgeRunning: self.bridge?.running ?? false))
+            }
+            updater.restartBridge = { [weak self] in
+                guard let self = self else { return }
+                self.perform(self.supervisor.updateAbandoned())
+            }
+            updater.start()
+        }
     }
 
     /// Carries out the supervisor's decisions.
@@ -108,8 +127,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
             case .spawn:
                 spawnBridge()
             case .stopBridge:
-                bridge?.stop()                     // bridgeExited then finishes the quit
-                DispatchQueue.main.asyncAfter(deadline: .now() + 7) { NSApp.terminate(nil) }   // a last resort
+                bridge?.stop()                     // bridgeExited then finishes the quit or the update
+                if supervisor.state == .quitting {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 7) { NSApp.terminate(nil) }   // a last resort
+                }
             case .releaseKeys:
                 BridgeProcess.releaseKeys()        // its own clean-up may not have run
             case .alert(let alert):
@@ -121,6 +142,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
                 }
             case .terminateApp:
                 NSApp.terminate(nil)
+            case .readyToSwap:
+                let next = afterStop
+                afterStop = nil
+                DispatchQueue.main.async { next?() }
             }
         }
         updateIcon()
@@ -184,6 +209,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
     }
 
     private var problem: String {
+        if supervisor.state == .updating { return "updating…" }
         if supervisor.isStopped { return "the bridge has stopped" }
         guard let s = current else { return "starting…" }
         if !s.loupedeck { return "the Loupedeck isn't connected" }
@@ -197,10 +223,16 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
         menu.removeAllItems()
         menu.addItem(info(title, ok: nil))
         menu.addItem(.separator())
-        if supervisor.isStopped {
+        if supervisor.state == .updating {
+            menu.addItem(info("The bridge is stopped for the update", ok: nil))
+        } else if supervisor.isStopped {
             menu.addItem(info("The bridge has stopped", ok: false))
             menu.addItem(action("Restart bridge", #selector(restartFromMenu)))
             menu.addItem(action("Open log", #selector(openLog)))
+            // An update that keeps failing (the restart budget is used up) can be undone.
+            if supervisor.state == .stopped, let previous = updater?.previous {
+                menu.addItem(action("Go back to the previous version (v\(previous.version))…", #selector(goBack)))
+            }
         } else if let s = current {
             menu.addItem(info("Loupedeck: " + (s.loupedeck ? "connected" : "not connected"), ok: s.loupedeck))
             menu.addItem(info("Lightroom: " + (s.lightroom ? "connected" : "not connected"), ok: s.lightroom))
@@ -217,6 +249,21 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
         let login = action("Start at login", #selector(toggleLogin))
         login.state = LoginItem.isOn ? .on : .off
         menu.addItem(login)
+        if let updater = updater {
+            menu.addItem(.separator())
+            if case .installing(let step) = updater.phase {
+                menu.addItem(info("Installing \(updater.target): \(step.label)…", ok: nil))
+            } else if let release = updater.available {
+                menu.addItem(action("Update available: v\(release.version) – Install…", #selector(installUpdate)))
+            }
+            let check = action(updater.phase == .checking ? "Checking for updates…" : "Check for updates now",
+                               #selector(checkForUpdates))
+            check.isEnabled = updater.phase == .idle
+            menu.addItem(check)
+            let automatic = action("Check for updates automatically", #selector(toggleAutomaticUpdates))
+            automatic.state = updater.automatic ? .on : .off
+            menu.addItem(automatic)
+        }
         menu.addItem(.separator())
         menu.addItem(action("Quit LoupedeckBridge", #selector(quitFromMenu)))
     }
@@ -257,6 +304,22 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
         }
     }
 
+    @objc private func installUpdate() {
+        updater?.installAvailable()
+    }
+
+    @objc private func checkForUpdates() {
+        updater?.checkNow()
+    }
+
+    @objc private func toggleAutomaticUpdates() {
+        updater?.automatic.toggle()
+    }
+
+    @objc private func goBack() {
+        updater?.goBack()
+    }
+
     @objc private func restartFromMenu() {
         perform(supervisor.manualRestart())        // nothing if it's already running again
     }
@@ -275,27 +338,30 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
     // ---- alerts -------------------------------------------------------------
     private func post(_ list: [Alert]) {
         for alert in list {
-            let content = UNMutableNotificationContent()
             switch alert {
             case .disconnected:
-                content.title = "Loupedeck disconnected"
-                content.body = "Check its USB cable or dongle. The controls work again as soon as it's back."
+                notify("Loupedeck disconnected",
+                       "Check its USB cable or dongle. The controls work again as soon as it's back.")
             case .back:
-                content.title = "Loupedeck is back"
-                content.body = "Its controls work again."
+                notify("Loupedeck is back", "Its controls work again.")
             case .keysMissing:
-                content.title = "Keyboard keys need permission"
-                content.body = "Allow LoupedeckBridge in System Settings → Privacy & Security → Accessibility."
+                notify("Keyboard keys need permission",
+                       "Allow LoupedeckBridge in System Settings → Privacy & Security → Accessibility.")
             case .bridgeStopped(let willRestart):
-                content.title = "LoupedeckBridge stopped"
-                content.body = willRestart
+                notify("LoupedeckBridge stopped", willRestart
                     ? "It hit an error and is restarting. Details are in its log."
-                    : "It stopped after repeated errors. Use the menu-bar icon to restart it or open the log."
+                    : "It stopped after repeated errors. Use the menu-bar icon to restart it or open the log.")
             }
-            let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
-            UNUserNotificationCenter.current().add(request) { error in
-                if let error = error { BridgeProcess.log("couldn't show an alert: \(error.localizedDescription)") }
-            }
+        }
+    }
+
+    private func notify(_ title: String, _ body: String) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error { BridgeProcess.log("couldn't show an alert: \(error.localizedDescription)") }
         }
     }
 

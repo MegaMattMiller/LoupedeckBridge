@@ -2,6 +2,7 @@
 // Prints "ok <name>" or "FAIL <name>: <why>" per check, and exits non-zero on any failure.
 // Time is a plain Double (seconds), so every timing rule is exact and instant to test.
 
+import CryptoKit
 import Foundation
 
 var failures = 0
@@ -29,6 +30,47 @@ func run(_ p: inout AlertPolicy, changes: [Double: Bool], from: Double = 0, to: 
         t += 1
     }
     return out
+}
+
+@discardableResult
+func shell(_ tool: String, _ args: String...) -> Int32 {
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: tool)
+    p.arguments = args
+    p.standardOutput = FileHandle.nullDevice
+    p.standardError = FileHandle.nullDevice
+    guard (try? p.run()) != nil else { return -1 }
+    p.waitUntilExit()
+    return p.terminationStatus
+}
+
+/// The SHA-256 of the app's signing certificate as `codesign -d --extract-certificates` writes it (DER).
+func leafSHA256ByCodesign(_ app: URL) -> String? {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("lb-cert-\(getpid())")
+    try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+    shell("/usr/bin/codesign", "-d", "--extract-certificates=" + dir.appendingPathComponent("c").path, app.path)
+    guard let der = try? Data(contentsOf: dir.appendingPathComponent("c0")) else { return nil }
+    return SHA256.hash(data: der).map { String(format: "%02x", $0) }.joined()
+}
+
+/// A minimal unsigned app bundle (a copy of /usr/bin/true as its executable) in a fresh temp folder.
+func tinyApp(bundleID: String) -> URL? {
+    let fm = FileManager.default
+    let app = fm.temporaryDirectory.appendingPathComponent("lb-app-\(getpid())/Tiny.app")
+    try? fm.removeItem(at: app.deletingLastPathComponent())
+    do {
+        try fm.createDirectory(at: app.appendingPathComponent("Contents/MacOS"), withIntermediateDirectories: true)
+        try fm.createDirectory(at: app.appendingPathComponent("Contents/Resources"), withIntermediateDirectories: true)
+        try fm.copyItem(at: URL(fileURLWithPath: "/usr/bin/true"), to: app.appendingPathComponent("Contents/MacOS/Tiny"))
+        let plist: [String: Any] = ["CFBundleIdentifier": bundleID, "CFBundleExecutable": "Tiny",
+                                    "CFBundlePackageType": "APPL"]
+        try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
+            .write(to: app.appendingPathComponent("Contents/Info.plist"))
+        return app
+    } catch {
+        return nil
+    }
 }
 
 @main
@@ -319,6 +361,103 @@ enum PolicyTests {
             let p = installProblem(bundleID: releaseID, version: newer, current: current, signatureOK: true,
                                    appCount: 1, allowOlder: false)
             return p == nil ? nil : p
+        }
+
+        // ---- the updater stops the bridge without quitting (Task 4) ----------------
+        check("update_stops_the_bridge_without_quitting") {
+            var s = BridgeSupervisor()
+            _ = s.start()
+            let stop = s.stopForUpdate(bridgeRunning: true)
+            if stop != [.stopBridge] { return "stop: \(stop)" }
+            if s.acceptsStatus || s.isStopped { return "the menu would show it as running or stopped" }
+            let exited = s.exited(code: 0, at: 1)
+            if exited != [.readyToSwap] { return "exited: \(exited)" }
+            return s.state == .updating ? nil : "state \(s.state)"
+        }
+        check("update_after_a_forced_stop_releases_keys") {
+            var s = BridgeSupervisor()
+            _ = s.start()
+            _ = s.stopForUpdate(bridgeRunning: true)
+            let exited = s.exited(code: -9, at: 1)
+            return exited == [.releaseKeys, .readyToSwap] ? nil : "\(exited)"      // and no "stopped" alert
+        }
+        check("update_when_stopped_swaps_at_once") {
+            var s = BridgeSupervisor()
+            _ = s.start()
+            _ = s.spawnFailed()
+            let stop = s.stopForUpdate(bridgeRunning: false)
+            return stop == [.readyToSwap] ? nil : "\(stop)"
+        }
+        check("update_cancels_a_pending_restart") {
+            var s = BridgeSupervisor()
+            _ = s.start()
+            let crash = s.exited(code: 1, at: 0)
+            guard let token = crash.compactMap({ action -> Int? in
+                if case .scheduleRestart(let t, _) = action { return t }
+                return nil
+            }).first else { return "no restart scheduled: \(crash)" }
+            _ = s.stopForUpdate(bridgeRunning: false)
+            let fired = s.restartTimerFired(token: token)
+            return fired.isEmpty ? nil : "restarted mid-update: \(fired)"
+        }
+        check("failed_update_restarts_the_bridge") {
+            var s = BridgeSupervisor()
+            _ = s.start()
+            _ = s.stopForUpdate(bridgeRunning: true)
+            _ = s.exited(code: 0, at: 1)
+            let back = s.updateAbandoned()
+            if back != [.spawn] || s.state != .running { return "\(back), \(s.state)" }
+            return s.updateAbandoned().isEmpty ? nil : "spawned twice"
+        }
+        check("second_update_request_is_ignored") {
+            var s = BridgeSupervisor()
+            _ = s.start()
+            _ = s.stopForUpdate(bridgeRunning: true)
+            return s.stopForUpdate(bridgeRunning: true).isEmpty ? nil : "stopped twice"
+        }
+        check("quit_during_an_update_just_quits") {
+            var s = BridgeSupervisor()
+            _ = s.start()
+            _ = s.stopForUpdate(bridgeRunning: true)
+            _ = s.quit(bridgeRunning: true)                 // the bridge is still on its way out
+            let exited = s.exited(code: 0, at: 1)
+            return exited == [.terminateApp] ? nil : "\(exited)"
+        }
+
+        // ---- the signature check (Task 4) ------------------------------------------
+        // Calculator stands in for a release: really signed, and codesign itself says which certificate signed it
+        // (the same way tools/install.sh reads it), so the app's check and the installer's are compared too.
+        let calculator = URL(fileURLWithPath: "/System/Applications/Calculator.app")
+        let calculatorLeaf = leafSHA256ByCodesign(calculator)
+        check("signature_accepts_the_pinned_certificate") {
+            guard let pin = calculatorLeaf else { return "codesign gave no certificate" }
+            return Signature.problem(app: calculator, identifier: "com.apple.calculator", pinnedSHA256: pin)
+        }
+        check("signature_refuses_another_certificate") {
+            let p = Signature.problem(app: calculator, identifier: "com.apple.calculator",
+                                      pinnedSHA256: String(repeating: "0", count: 64))
+            return p?.contains("release key") == true ? nil : "\(String(describing: p))"
+        }
+        check("signature_refuses_another_identifier") {
+            guard let pin = calculatorLeaf else { return "codesign gave no certificate" }
+            return Signature.problem(app: calculator, identifier: releaseBundleID, pinnedSHA256: pin) == nil
+                ? "accepted Calculator as LoupedeckBridge" : nil
+        }
+        check("signature_needs_a_pinned_key") {
+            let p = Signature.problem(app: calculator, identifier: "com.apple.calculator", pinnedSHA256: "")
+            return p?.contains("pinned") == true ? nil : "\(String(describing: p))"
+        }
+        check("signature_refuses_unsigned_ad_hoc_and_changed_apps") {
+            // An app with the release bundle id: unsigned; then signed ad hoc (valid, but no certificate);
+            // then changed after signing. None may pass, whatever the pinned value.
+            guard let app = tinyApp(bundleID: releaseBundleID) else { return "couldn't make the test app" }
+            defer { try? FileManager.default.removeItem(at: app.deletingLastPathComponent()) }
+            let pin = calculatorLeaf ?? String(repeating: "0", count: 64)
+            if Signature.problem(app: app, identifier: releaseBundleID, pinnedSHA256: pin) == nil { return "unsigned passed" }
+            guard shell("/usr/bin/codesign", "--force", "--sign", "-", app.path) == 0 else { return "ad hoc signing failed" }
+            if Signature.problem(app: app, identifier: releaseBundleID, pinnedSHA256: pin) == nil { return "ad hoc passed" }
+            try? Data("changed".utf8).write(to: app.appendingPathComponent("Contents/Resources/extra.txt"))
+            return Signature.problem(app: app, identifier: releaseBundleID, pinnedSHA256: pin) == nil ? "changed passed" : nil
         }
 
         check("status_pipe_reaches_the_app") {

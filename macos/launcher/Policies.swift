@@ -128,10 +128,11 @@ enum SupervisorAction: Equatable {
     case alert(Alert)
     case scheduleRestart(token: Int, after: Double)
     case terminateApp
+    case readyToSwap                             // an update may now replace the app (the bridge has stopped)
 }
 
 struct BridgeSupervisor {
-    enum State: Equatable { case idle, running, waitingToRestart, stopped, quitting }
+    enum State: Equatable { case idle, running, waitingToRestart, stopped, updating, quitting }
     private(set) var state: State = .idle
     private var restarts = RestartPolicy()
     private var token = 0                        // only the newest scheduled restart may fire
@@ -155,6 +156,9 @@ struct BridgeSupervisor {
         let hard = code != 0 && code != RestartPolicy.alreadyRunning   // no clean-up of its own
         if state == .quitting {
             return (hard ? [.releaseKeys] : []) + [.terminateApp]
+        }
+        if state == .updating {
+            return (hard ? [.releaseKeys] : []) + [.readyToSwap]
         }
         if code == RestartPolicy.alreadyRunning {
             state = .stopped
@@ -184,6 +188,23 @@ struct BridgeSupervisor {
         guard isStopped else { return [] }
         token += 1                                 // cancels a pending automatic restart
         restarts = RestartPolicy()                 // a fresh budget after a deliberate restart
+        state = .running
+        return [.spawn]
+    }
+
+    /// An update is about to replace the app: stop the bridge like Quit does, but keep the app running so it can
+    /// swap itself out (or bring the bridge back if the swap fails). A pending automatic restart is cancelled.
+    mutating func stopForUpdate(bridgeRunning: Bool) -> [SupervisorAction] {
+        guard state != .updating, state != .quitting else { return [] }
+        token += 1
+        state = .updating
+        return bridgeRunning ? [.stopBridge] : [.readyToSwap]
+    }
+
+    /// The update failed after the bridge was stopped: start it again, with a fresh restart budget.
+    mutating func updateAbandoned() -> [SupervisorAction] {
+        guard state == .updating else { return [] }
+        restarts = RestartPolicy()
         state = .running
         return [.spawn]
     }

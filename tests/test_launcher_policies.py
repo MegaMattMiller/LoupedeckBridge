@@ -1,5 +1,5 @@
 """The menu-bar app's alert and restart rules (macos/launcher/Policies.swift) and its status pipe
-(BridgeProcess.swift), checked by compiling and running macos/launcher/tests/PolicyTests.swift. macOS with swiftc only."""
+(BridgeProcess.swift) and its signature check (Signature.swift), checked by compiling and running macos/launcher/tests/PolicyTests.swift. macOS with swiftc only."""
 from __future__ import annotations
 
 import shutil
@@ -20,7 +20,12 @@ CHECKS = ["never_connected_never_alerts", "drop_alerts_after_debounce", "quick_r
           "version_compare", "release_parse_accepts_a_real_shape", "release_parse_rejects_garbage", "check_schedule",
           "notice_once_per_version", "install_plan_order", "install_plan_refuses_wrong_bundle",
           "install_plan_refuses_bad_signature", "install_plan_refuses_two_apps", "install_plan_refuses_not_newer",
-          "install_plan_accepts_valid"]
+          "install_plan_accepts_valid", "update_stops_the_bridge_without_quitting",
+          "update_after_a_forced_stop_releases_keys", "update_when_stopped_swaps_at_once",
+          "update_cancels_a_pending_restart", "failed_update_restarts_the_bridge", "second_update_request_is_ignored",
+          "quit_during_an_update_just_quits", "signature_accepts_the_pinned_certificate",
+          "signature_refuses_another_certificate", "signature_refuses_another_identifier", "signature_needs_a_pinned_key",
+          "signature_refuses_unsigned_ad_hoc_and_changed_apps"]
 
 pytestmark = pytest.mark.skipif(sys.platform != "darwin" or shutil.which("swiftc") is None,
                                 reason="needs macOS and swiftc")
@@ -30,7 +35,8 @@ pytestmark = pytest.mark.skipif(sys.platform != "darwin" or shutil.which("swiftc
 def results(tmp_path_factory):
     binary = tmp_path_factory.mktemp("policies") / "policy-tests"
     build = subprocess.run(["swiftc", "-parse-as-library", str(LAUNCHER / "Policies.swift"),
-                            str(LAUNCHER / "BridgeProcess.swift"), str(LAUNCHER / "tests" / "PolicyTests.swift"),
+                            str(LAUNCHER / "BridgeProcess.swift"), str(LAUNCHER / "Signature.swift"),
+                            str(LAUNCHER / "tests" / "PolicyTests.swift"),
                             "-o", str(binary)],
                            capture_output=True, text=True)
     if build.returncode != 0:
