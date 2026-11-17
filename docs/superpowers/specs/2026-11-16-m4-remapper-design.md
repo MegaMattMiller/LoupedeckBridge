@@ -103,6 +103,31 @@ do little or nothing today), with **Lightroom commands** as the actions for now.
 - **Command pairs** for dial turns come from a curated list, not any two commands, so a direction
   can't end up with something odd (e.g. "export dialog" on one side). *(My call.)*
 
+## Addendum: --/Col modes for the five buttons (approved by the user, 2026-11-16)
+The user's request: **--/Col** switches the five buttons next to it between **star ratings 1–5** and
+**colour labels**, and **Fn + --/Col** turns them into **keyboard modifiers**.
+- **Verified on the device (capture, 2026-11-16):** the five buttons always send notes 66–70 (today's
+  Shift, Ctrl, Cmd, Alt, Tab, in that physical order), whatever --/Col (note 65) or Fn + --/Col did, and no
+  lights change. The modes are entirely the bridge's job, and the page is the only place to see them.
+- **Three modes**, by position:
+  - **Ratings:** rating 1–5
+  - **Colours:** red, yellow, green, blue, purple
+  - **Keys:** Shift, Ctrl, Cmd, Alt, Tab, as before
+- **Switching:**
+  - --/Col swaps Ratings and Colours; in Keys it goes back to whichever of those two was last used
+  - **Fn + --/Col** turns Keys on and off
+  - the bridge always **starts in Ratings** (the user's choice: predictable without a light)
+  - a device reconnect keeps the current mode
+- **--/Col is fixed in both layers** (it's the mode switch), like clr/bw.
+- **A press belongs to the mode it started in:** a key held when the mode changes is still let go properly.
+- **Remapper:** each mode's five buttons are their own rows, in a "Five buttons (--/Col)" section with
+  Ratings, Colours and Keys sub-headings, like the colour-dial banks. Any of the 15 can be changed, each with
+  its Fn layer as usual. Keys-mode rows keep today's control ids, so existing mappings are unchanged.
+- The page shows the current mode, and the log notes each switch.
+- *(My call, how it's built: per-mode control ids, `ratings_1`…`ratings_5` and `colours_1`…`colours_5` plus the
+  existing ids for Keys, chosen by the bridge from its mode. That reuses the colour-dial pattern; a "mode
+  layer" inside each entry would need a second kind of layer everywhere.)*
+
 ## Goals and anti-goals
 - **Goals:** remap any control in both layers from the page; Fn layers that never stick; changes live
   at once; nothing about today's default behaviour changes except the new Fn + Export.
