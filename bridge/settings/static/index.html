@@ -4,16 +4,20 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="token" content="__TOKEN__">
-  <title>LoupedeckBridge · Presets</title>
+  <title>LoupedeckBridge · Settings</title>
   <link rel="stylesheet" href="/app.css">
 </head>
 <body>
   <header>
-    <h1>LoupedeckBridge <span class="dim">· Presets</span></h1>
+    <h1>LoupedeckBridge</h1>
     <p id="status" class="status" role="status"><span class="dot"></span><span id="status-text">Connecting…</span></p>
   </header>
+  <nav class="tabs" role="tablist" aria-label="Settings">
+    <button id="tab-btn-presets" type="button" role="tab" aria-controls="tab-presets" aria-selected="true">Presets</button>
+    <button id="tab-btn-remap" type="button" role="tab" aria-controls="tab-remap" aria-selected="false">Buttons &amp; dials</button>
+  </nav>
   <p id="notice" class="notice" hidden></p>
-  <main>
+  <main id="tab-presets" role="tabpanel" aria-labelledby="tab-btn-presets">
     <section class="slots" aria-labelledby="slots-title">
       <h2 id="slots-title">P1–P8</h2>
       <p class="hint">Pick a slot, then click a preset on the right.</p>
@@ -31,7 +35,16 @@
       <ul id="results"></ul>
     </section>
   </main>
+  <div id="tab-remap" class="remap" role="tabpanel" aria-labelledby="tab-btn-remap" hidden>
+    <section class="remap-list" aria-label="Controls">
+      <p class="hint">Click a cell to change it, or use the control on the Loupedeck. Hold Fn on the device for the Fn layer.</p>
+      <div id="remap-list"></div>
+      <button id="restore" type="button" class="secondary">Restore default layout</button>
+    </section>
+    <section id="editor" class="editor" aria-label="Change the selected control"></section>
+  </div>
   <footer class="dim">Changes save to your mapping.json right away. No restart needed.</footer>
   <script src="/app.js"></script>
+  <script src="/remap.js"></script>
 </body>
 </html>

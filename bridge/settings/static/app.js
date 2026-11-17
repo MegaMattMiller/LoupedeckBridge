@@ -56,7 +56,8 @@ function connect() {
     else if (msg.type === "presets") onPresets(msg.items);
     else if (msg.type === "progress") onProgress(msg.done, msg.total);
     else if (msg.type === "error") onError(msg.message);
-    else if (msg.type === "pressed") flash(msg.slot);
+    else if (msg.type === "used") onUsed(msg);
+    else if (msg.type === "catalog" || msg.type === "layout" || msg.type === "fn") toRemap(msg);
   });
   ws.addEventListener("close", (e) => {
     presetsRequested = false;
@@ -114,6 +115,17 @@ function onState(msg) {
   }
   renderSlots();
   renderResults();
+  if (typeof Remap !== "undefined") Remap.render();  // e.g. the file became (un)writable
+}
+
+// Messages for the Buttons & dials tab (remap.js).
+function toRemap(msg) {
+  if (typeof Remap !== "undefined") Remap.onMessage(msg);
+}
+
+function onUsed(msg) {
+  if (/^p[1-8]$/.test(msg.control)) flash(msg.control);  // the Presets tab lights up P slots
+  toRemap(msg);
 }
 
 function onPresets(items) {
@@ -147,6 +159,7 @@ const BADGES = {
   missing: ["warn", "Not found in Lightroom"],
   ambiguous: ["warn", "Several presets have this name"],
   unknown: ["dim", "Not checked yet"],
+  other: ["dim", "Not a preset"],
 };
 
 function renderSlots() {
@@ -154,6 +167,8 @@ function renderSlots() {
   list.replaceChildren();
   for (const s of state ? state.slots : []) {
     const empty = s.status === "empty";
+    const other = s.status === "other";  // e.g. a hand-edited action: shown as what it is
+    const shown = empty ? "Empty" : other ? s.label : (s.name || s.id);
     const badge = BADGES[s.status];
     const row = el("li", {
       class: `slot${s.slot === selected ? " selected" : ""}${empty ? " empty" : ""}`,
@@ -161,13 +176,13 @@ function renderSlots() {
     },
       el("button", {
         type: "button", class: "pick", "aria-pressed": String(s.slot === selected),
-        "aria-label": `${s.slot.toUpperCase()}: ${empty ? "Empty" : (s.name || s.id)}${badge ? ` (${badge[1]})` : ""}`,
+        "aria-label": `${s.slot.toUpperCase()}: ${shown}${badge ? ` (${badge[1]})` : ""}`,
         onclick: () => { selected = s.slot; renderSlots(); renderResults(); $("search").focus(); },
       },
         el("span", { class: "key" }, s.slot.toUpperCase()),
-        el("span", { class: "name" }, empty ? "Empty" : (s.name || s.id)),
+        el("span", { class: "name" }, shown),
         badge ? el("span", { class: `badge ${badge[0]}` }, badge[1]) : null),
-      empty ? null : el("button", {
+      empty || other ? null : el("button", {
         type: "button", class: "clear", title: `Clear ${s.slot.toUpperCase()}`,
         "aria-label": `Clear ${s.slot.toUpperCase()}`,
         onclick: () => send({ op: "clear", slot: s.slot }),
@@ -199,6 +214,21 @@ function renderResults() {
       }, name, assigned ? el("span", { class: "dim" }, ` · on ${selected.toUpperCase()}`) : null)));
   }
 }
+
+// ---- tabs -------------------------------------------------------------------------
+function showTab(name) {
+  for (const t of ["presets", "remap"]) {
+    $(`tab-${t}`).hidden = t !== name;
+    $(`tab-btn-${t}`).setAttribute("aria-selected", String(t === name));
+  }
+  try { localStorage.setItem("lb.tab", name); } catch (_) { /* storage blocked: the tab just isn't remembered */ }
+  if (name === "remap" && typeof Remap !== "undefined") Remap.render();
+}
+$("tab-btn-presets").addEventListener("click", () => showTab("presets"));
+$("tab-btn-remap").addEventListener("click", () => showTab("remap"));
+let startTab = "presets";
+try { if (localStorage.getItem("lb.tab") === "remap") startTab = "remap"; } catch (_) { /* storage blocked */ }
+showTab(startTab);
 
 $("search").addEventListener("input", renderResults);
 $("retry").addEventListener("click", () => requestPresets(false));

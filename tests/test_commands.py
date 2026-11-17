@@ -51,6 +51,20 @@ def test_sliders_are_number_params(c):
     assert len(c.sliders) > 100
 
 
+def test_slider_labels_are_unique_and_readable(c):
+    # Browser check: Lightroom's own labels repeat (11 sliders are just "Hue"), so the list
+    # and the colour-dial rows couldn't be told apart.
+    labels = list(c.sliders.values())
+    assert len(labels) == len(set(labels))
+    assert c.sliders["Clarity2012"] == "Clarity" and c.sliders["Exposure2012"] == "Exposure"
+    assert c.sliders["HueAdjustmentRed"] == "Hue (HSL red)"
+    assert c.sliders["SaturationAdjustmentAqua"] == "Saturation (HSL aqua)"
+    assert c.sliders["RedHue"] == "Hue (Red primary)"
+    assert c.sliders["SDRClarity"] == "Clarity (SDR)"
+    assert c.sliders["SharpenDetail"] == "Detail (Sharpen)"
+    assert c.sliders["GrayMixerRed"] == "B&W mix (red)"          # Lightroom just says "Red"
+
+
 def test_action_for_each_kind_and_refusals(c):
     assert c.action_for({"kind": "command", "id": "rating_3"}, "press") == \
         {"type": "call", "message": "rating3", "args": []}

@@ -56,7 +56,8 @@ SLOTS = [f"p{i}" for i in range(1, 9)]
 USED_INTERVAL = 0.25  # a turning dial re-selects its row on the page at most this often (seconds)
 FILES = {"/": ("index.html", "text/html; charset=utf-8"),
          "/app.js": ("app.js", "text/javascript; charset=utf-8"),
-         "/app.css": ("app.css", "text/css; charset=utf-8")}
+         "/app.css": ("app.css", "text/css; charset=utf-8"),
+         "/remap.js": ("remap.js", "text/javascript; charset=utf-8")}
 
 
 class SettingsServer:
@@ -261,7 +262,8 @@ class SettingsServer:
         elif not isinstance(event, Press):
             return
         self._later({"type": "used", "control": event.control,
-                     "layer": "fn" if self.dispatcher.fn_held else "normal"})
+                     "layer": "fn" if self.dispatcher.fn_held else "normal",
+                     "slot": "turn" if isinstance(event, Turn) else "press"})
 
     def _later(self, msg: dict) -> None:
         task = asyncio.get_running_loop().create_task(self._broadcast(msg))

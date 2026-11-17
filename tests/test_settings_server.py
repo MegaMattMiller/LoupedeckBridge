@@ -108,17 +108,27 @@ def test_page_assets_are_local(tmp_path):
 
     async def main():
         async with Rig(tmp_path) as rig:
-            pages = [await rig.http_get(p) for p in ("/", "/app.js", "/app.css")]
+            pages = [await rig.http_get(p) for p in ("/", "/app.js", "/app.css", "/remap.js")]
         return pages
     pages = asyncio.run(main())
     for status, _, body in pages:
         assert status == 200
         urls = re.findall(r"https?://[^\s\"')]+", body)
         assert all(re.match(r"https?://(127\.0\.0\.1|localhost)[:/]", u) for u in urls), urls
-    html, js, _ = (body for _, _, body in pages)
+    html, js, _, remap = (body for _, _, body in pages)
     assert 'src="/app.js"' in html and 'href="/app.css"' in html
+    assert html.index('src="/app.js"') < html.index('src="/remap.js"')   # remap.js uses app.js's helpers
     assert "<script>" not in html                 # no inline script (the CSP forbids it)
-    assert "innerHTML" not in js                  # preset names are shown as text, never as HTML
+    assert "innerHTML" not in js and "innerHTML" not in remap   # names are shown as text, never as HTML
+
+
+def test_serves_remap_js(tmp_path):
+    async def main():
+        async with Rig(tmp_path) as rig:
+            return await rig.http_get("/remap.js")
+    status, headers, body = asyncio.run(main())
+    assert status == 200 and headers["Content-Type"].startswith("text/javascript")
+    assert "Remap" in body
 
 
 def test_wrong_host_refused(tmp_path):
@@ -286,7 +296,7 @@ def test_device_press_highlights_slot(tmp_path):
                 await rig.hello(ws)
                 await rig.next(ws, "layout")
                 rig.server.on_event(Press("p2"))
-                assert await rig.next(ws, "used") == {"type": "used", "control": "p2", "layer": "normal"}
+                assert await rig.next(ws, "used") == {"type": "used", "control": "p2", "layer": "normal", "slot": "press"}
     asyncio.run(main())
 
 
@@ -519,7 +529,7 @@ def test_device_use_and_fn_are_broadcast(tmp_path):
                 assert await rig.next(ws, "fn") == {"type": "fn", "held": True}
                 await rig.dispatcher.handle(Press("c3"))
                 rig.server.on_event(Press("c3"))
-                assert await rig.next(ws, "used") == {"type": "used", "control": "c3", "layer": "fn"}
+                assert await rig.next(ws, "used") == {"type": "used", "control": "c3", "layer": "fn", "slot": "press"}
                 await rig.dispatcher.handle(Release("fn"))
                 rig.server.on_event(Release("fn"))
                 assert await rig.next(ws, "fn") == {"type": "fn", "held": False}
@@ -535,7 +545,8 @@ def test_turns_are_throttled_for_the_page(tmp_path):
                 await rig.next(ws, "layout")
                 for _ in range(3):
                     rig.server.on_event(Turn("exposure", 1))
-                assert (await rig.next(ws, "used"))["control"] == "exposure"
+                used = await rig.next(ws, "used")
+                assert (used["control"], used["slot"]) == ("exposure", "turn")   # a turn selects the Turn slot
                 with pytest.raises(asyncio.TimeoutError):
                     await asyncio.wait_for(ws.recv(), 0.3)
     asyncio.run(main())

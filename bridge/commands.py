@@ -8,6 +8,8 @@ Loupedeck type keys.
 from __future__ import annotations
 
 import json
+import re
+from collections import Counter
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
@@ -22,6 +24,41 @@ SPECIAL_LABELS = {"toggleBlackAndWhite": "Black & white (kept in step with the d
                   "exportWithPrevious": "Export with previous settings"}
 PRESS_ONLY = {"command", "reset_dial", "open_settings"}
 TURN_ONLY = {"slider", "pair"}
+
+
+HSL = re.compile(r"(Hue|Saturation|Luminance)Adjustment(\w+)")
+PRIMARY = re.compile(r"(Red|Green|Blue)(Hue|Saturation)")
+GRAY = re.compile(r"GrayMixer(\w+)")
+
+
+def _words(name: str) -> list:
+    return re.findall(r"[A-Z]+(?=[A-Z][a-z]|\b|\d)|[A-Z]?[a-z]+|\d+", name.replace(".", " "))
+
+
+def _slider_labels(params: Dict[str, dict]) -> Dict[str, str]:
+    """Lightroom's labels repeat (11 sliders are just "Hue"), so a repeated label gets a qualifier
+    from the parameter's name: "Hue (HSL red)", "Hue (Red primary)", "Clarity (SDR)"."""
+    plain = {name: (info.get("label") or name).rstrip(":").strip() for name, info in params.items()
+             if isinstance(info, dict) and info.get("type") == "number"}
+    counts = Counter(plain.values())
+    labels: Dict[str, str] = {}
+    for name, label in plain.items():
+        gray = GRAY.fullmatch(name)
+        if gray:  # Lightroom labels these just "Red", "Orange", …
+            label = f"B&W mix ({gray.group(1).lower()})"
+        elif counts[label] > 1:
+            hsl, primary = HSL.fullmatch(name), PRIMARY.fullmatch(name)
+            if hsl:
+                qualifier = f"HSL {hsl.group(2).lower()}"
+            elif primary:
+                qualifier = f"{primary.group(1)} primary"
+            else:
+                taken = {w.lower() for w in _words(label)} | {"2012"}
+                qualifier = " ".join(w for w in _words(name) if w.lower() not in taken)
+            label = f"{label} ({qualifier})" if qualifier else label
+        labels[name] = label
+    clashes = Counter(labels.values())
+    return {name: (f"{label} [{name}]" if clashes[label] > 1 else label) for name, label in labels.items()}
 
 
 def _call(command: dict) -> dict:
@@ -40,10 +77,7 @@ class CommandCatalog:
         commands = {c["id"]: {"id": c["id"], "label": c["label"], "group": c["group"],
                               "message": c["message"], "args": list(c.get("args", []))} for c in raw["commands"]}
         pairs = {p["id"]: {"id": p["id"], "label": p["label"], "cw": p["cw"], "ccw": p["ccw"]} for p in raw["pairs"]}
-        params = json.loads(params_path.read_text())
-        sliders = {name: info.get("label") or name for name, info in params.items()
-                   if isinstance(info, dict) and info.get("type") == "number"}
-        return cls(commands, pairs, sliders)
+        return cls(commands, pairs, _slider_labels(json.loads(params_path.read_text())))
 
     # ---- page choice → mapping action -------------------------------------------
     def action_for(self, choice: dict, slot: str) -> Optional[dict]:

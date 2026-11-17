@@ -2,7 +2,7 @@
 """Preview the settings page with a fake Lightroom (no device, no Lightroom, no real mapping).
 
     .venv/bin/python tools/preview_settings.py [--port 7691] [--presets 1500] [--down]
-                                               [--lightroom-after S] [--name-delay S]
+                                               [--lightroom-after S] [--name-delay S] [--demo-device]
 
 Serves the real page and server code against sample presets and a throwaway mapping in a
 temp folder, so the UI can be tried and tested without touching a running bridge.
@@ -19,6 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from bridge.actions import Dispatcher  # noqa: E402
+from bridge.hardware import Press, Release, Turn  # noqa: E402
 from bridge.mapping import Mapping  # noqa: E402
 from bridge.presets import PresetCatalog  # noqa: E402
 from bridge.settings.server import SettingsServer  # noqa: E402
@@ -54,6 +55,8 @@ async def main() -> None:
     ap.add_argument("--lightroom-after", type=float, metavar="S", help="start closed; 'open' Lightroom after S s")
     ap.add_argument("--name-delay", type=float, default=0.0, metavar="S",
                     help="each preset name takes S s (the real Lightroom: about 0.02)")
+    ap.add_argument("--demo-device", action="store_true",
+                    help="every 4 s, act out holding Fn and pressing C3, then turning Exposure")
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)-7s %(name)s: %(message)s")
     tmp = Path(tempfile.mkdtemp(prefix="lb-preview-"))
@@ -74,7 +77,20 @@ async def main() -> None:
         await dispatcher.resolve_presets()
         await server.broadcast_state()
 
+    async def demo_device() -> None:  # what the device and bridge.app would do
+        async def use(event) -> None:
+            if not isinstance(event, Turn):          # turns would need the dial engine; the page only needs to hear
+                await dispatcher.handle(event)
+            server.on_event(event)
+        while True:
+            await asyncio.sleep(4)
+            for event in (Press("fn"), Press("c3"), Release("c3"), Release("fn"), Turn("exposure", 1)):
+                await use(event)
+                await asyncio.sleep(0.5)
+
     later = [open_lightroom_later()] if args.lightroom_after is not None else []
+    if args.demo_device:
+        later.append(demo_device())
     await asyncio.gather(server.serve(), *later)
 
 
