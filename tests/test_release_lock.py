@@ -32,3 +32,12 @@ def test_release_requirements_pin_what_requirements_pins():
     for line in release.read_text().splitlines():
         if line.strip() and not line.startswith("#"):
             assert re.search(r"--hash=sha256:[0-9a-f]{64}", line), line
+
+
+def test_release_test_tools_are_hash_pinned():
+    # The test tools that run in the release build's job (milestone 6 review, Critical 1).
+    tools = REPO / "tools" / "release-test-requirements.txt"
+    assert pins(tools).get("pytest") == pins(REPO / "requirements-dev.txt")["pytest"]
+    for line in tools.read_text().splitlines():
+        if line.strip() and not line.startswith("#"):
+            assert re.search(r"--hash=sha256:[0-9a-f]{64}", line), line

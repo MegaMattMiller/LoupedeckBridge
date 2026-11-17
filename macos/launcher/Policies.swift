@@ -284,6 +284,20 @@ struct ReleaseInfo: Equatable {
         guard let zipURL = urls[zip], let shaURL = urls[zip + ".sha256"] else { return nil }
         return ReleaseInfo(version: version, zipURL: zipURL, sha256URL: shaURL)
     }
+
+    /// For the app's defaults, so a found update survives a relaunch.
+    var saved: [String: String] {
+        ["version": version.description, "zip": zipURL.absoluteString, "sha256": sha256URL.absoluteString]
+    }
+
+    /// A saved release, if it's still newer than the running version (nil once installed, or if unreadable).
+    static func restore(_ saved: Any?, newerThan current: Version) -> ReleaseInfo? {
+        guard let fields = saved as? [String: String], let version = fields["version"].flatMap(Version.init),
+              version > current,
+              let zipURL = fields["zip"].flatMap(URL.init(string:)), zipURL.scheme == "https",
+              let shaURL = fields["sha256"].flatMap(URL.init(string:)), shaURL.scheme == "https" else { return nil }
+        return ReleaseInfo(version: version, zipURL: zipURL, sha256URL: shaURL)
+    }
 }
 
 /// When to ask GitHub: never for dev builds or when turned off; not in the first 30 s after launch; then at
@@ -299,13 +313,19 @@ struct UpdateSchedule {
     }
 }
 
-/// One alert per newer version (the menu item stays as long as it's available).
+/// One alert per newer version (the menu item stays as long as it's available). `lastAnnounced` is saved in
+/// the app's defaults, so a relaunch doesn't alert again for the same version.
 struct UpdateNotice {
-    private var announced: [Version] = []
+    private(set) var lastAnnounced: Version?
+
+    init(lastAnnounced: Version? = nil) {
+        self.lastAnnounced = lastAnnounced
+    }
 
     mutating func announce(_ version: Version, current: Version) -> Bool {
-        guard version > current, !announced.contains(version) else { return false }
-        announced.append(version)
+        guard version > current else { return false }
+        if let last = lastAnnounced, version <= last { return false }
+        lastAnnounced = version
         return true
     }
 }

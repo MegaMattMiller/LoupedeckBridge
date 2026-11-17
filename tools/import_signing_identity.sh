@@ -17,7 +17,8 @@ keychain_password="$(uuidgen)"
 security create-keychain -p "$keychain_password" "$keychain"
 security set-keychain-settings -lut 3600 "$keychain"
 security unlock-keychain -p "$keychain_password" "$keychain"
-security import "$p12" -k "$keychain" -f pkcs12 -P "$(cat "$password_file")" -T /usr/bin/codesign >/dev/null
+# -x: the key can't be exported from the keychain, only used by codesign
+security import "$p12" -k "$keychain" -f pkcs12 -x -P "$(cat "$password_file")" -T /usr/bin/codesign >/dev/null
 security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain" >/dev/null
 # codesign looks identities up through the user's keychain search list
 # shellcheck disable=SC2046

@@ -322,6 +322,27 @@ enum PolicyTests {
             return answers == [true, false, true, false] ? nil : "\(answers)"
         }
 
+        // Milestone 6 review: a found update and its one alert must survive a relaunch (start at login).
+        check("notice_survives_a_relaunch") {
+            var before = UpdateNotice()
+            let current = Version("0.5.0")!
+            guard before.announce(Version("0.6.0")!, current: current) else { return "no first alert" }
+            var after = UpdateNotice(lastAnnounced: before.lastAnnounced)
+            if after.announce(Version("0.6.0")!, current: current) { return "alerted again after a relaunch" }
+            return after.announce(Version("0.6.1")!, current: current) ? nil : "no alert for a newer version"
+        }
+
+        check("found_update_survives_a_relaunch") {
+            guard let found = ReleaseInfo.parse(Data(sampleRelease.utf8)) else { return "sample didn't parse" }
+            if ReleaseInfo.restore(found.saved, newerThan: Version("0.5.0")!) != found { return "not restored" }
+            if ReleaseInfo.restore(found.saved, newerThan: Version("0.6.0")!) != nil { return "restored once installed" }
+            var http = found.saved
+            http["zip"] = "http://example.com/x.zip"
+            for bad: Any? in [nil, ["version": "x"], http, "garbage"]
+                where ReleaseInfo.restore(bad, newerThan: Version("0.5.0")!) != nil { return "restored \(String(describing: bad))" }
+            return nil
+        }
+
         check("install_plan_order") {
             let order = installOrder
             guard let verify = order.firstIndex(of: .verify) else { return "no verify step" }
@@ -487,9 +508,11 @@ enum PolicyTests {
             return exitCode == 0 ? nil : "stand-in exit code \(String(describing: exitCode))"
         }
 
-        check("bridge_python_never_writes_bytecode") {
+        check("bridge_python_runs_only_its_own_code") {
             // A signed release must not change its own bundle: Python writing __pycache__ there would break the
-            // signature. The stand-in "python" records its arguments; -E (ignore PYTHON* variables) and -B come first.
+            // signature (-B). And it must run only its own code: -E ignores PYTHON* variables, and -s the user's
+            // ~/.local site-packages, where any program could drop a .pth file (milestone 6 review).
+            // The stand-in "python" records its arguments.
             let dir = FileManager.default.temporaryDirectory.appendingPathComponent("lb-args-\(getpid())")
             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             defer { try? FileManager.default.removeItem(at: dir) }
@@ -505,7 +528,7 @@ enum PolicyTests {
             let deadline = Date().addingTimeInterval(5)
             while exitCode == nil && Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.05)) }
             let args = (try? String(contentsOf: record, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines)
-            return args == "-E -B -m bridge --debug" ? nil : "python ran with: \(String(describing: args))"
+            return args == "-E -s -B -m bridge --debug" ? nil : "python ran with: \(String(describing: args))"
         }
         exit(failures == 0 ? 0 : 1)
     }

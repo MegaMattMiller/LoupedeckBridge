@@ -46,7 +46,7 @@ final class BridgeProcess {
     }
 
     // ---- starting -----------------------------------------------------------
-    /// Spawns `<python> -E -B -m bridge …` in `workdir` (the repo, or the app's bundled code), with stdout and
+    /// Spawns `<python> -E -s -B -m bridge …` in `workdir` (the repo, or the app's bundled code), with stdout and
     /// stderr appended to the log (so a crash before logging starts is still recorded) and, if given,
     /// `statusWrite` as fd 3.
     private static func spawn(python: String, workdir: String, arguments: [String], statusWrite: Int32?,
@@ -70,8 +70,10 @@ final class BridgeProcess {
 
         var env = ProcessInfo.processInfo.environment
         env["LB_STATUS_FD"] = statusWrite == nil ? nil : String(statusFD)
-        // -B: never write __pycache__ (a release's bundle is signed, and comes precompiled)
-        var cArgs: [UnsafeMutablePointer<CChar>?] = ([python, "-E", "-B", "-m", "bridge"] + arguments).map { strdup($0) } + [nil]
+        // -E: ignore PYTHON* variables; -s: ignore the user's ~/.local site-packages (only the app's own code
+        // runs under its Accessibility permission); -B: never write __pycache__ (a release's bundle is signed,
+        // and comes precompiled)
+        var cArgs: [UnsafeMutablePointer<CChar>?] = ([python, "-E", "-s", "-B", "-m", "bridge"] + arguments).map { strdup($0) } + [nil]
         var cEnv: [UnsafeMutablePointer<CChar>?] = env.map { strdup("\($0.key)=\($0.value)") } + [nil]
         defer { (cArgs + cEnv).forEach { free($0) } }
 

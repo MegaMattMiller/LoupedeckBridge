@@ -1,6 +1,6 @@
 """The release app (tools/build_release_app.sh), checked when LB_RELEASE_APP points at a built
 LoupedeckBridge.app: CI's release build sets it; locally, build into a scratch folder first. Python runs the way
-the app runs it (-E -B, in Contents/Resources/app). The whole suite also runs with the bundled Python in CI."""
+the app runs it (-E -s -B, in Contents/Resources/app). The whole suite also runs with the bundled Python in CI."""
 from __future__ import annotations
 
 import os
@@ -23,9 +23,10 @@ pytestmark = pytest.mark.skipif("LB_RELEASE_APP" not in os.environ,
                                 reason="set LB_RELEASE_APP to a built release app")
 
 
-def run_bundled(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run([str(PYTHON), "-E", "-B", *args], cwd=RESOURCES / "app", capture_output=True, text=True,
-                          timeout=120)
+def run_bundled(*args: str, env: "dict | None" = None) -> subprocess.CompletedProcess:
+    # as the app runs it (BridgeProcess.swift): -E -s -B, in Contents/Resources/app
+    return subprocess.run([str(PYTHON), "-E", "-s", "-B", *args], cwd=RESOURCES / "app", capture_output=True,
+                          text=True, timeout=120, env=env)
 
 
 def pinned_signer() -> str:
@@ -100,3 +101,13 @@ def test_everything_is_precompiled():
 def test_signature_is_valid():
     result = subprocess.run(["codesign", "--verify", "--strict", str(APP)], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
+
+
+def test_user_site_packages_are_ignored(tmp_path):
+    # Milestone 6 review: without -s, a .pth file in ~/.local ran inside the app (which holds Accessibility).
+    site = tmp_path / ".local" / "lib" / "python3.12" / "site-packages"
+    site.mkdir(parents=True)
+    (site / "planted.pth").write_text("import sys; print('PLANTED')\n")
+    result = run_bundled("-c", "import mido; print(mido.__file__)", env={**os.environ, "HOME": str(tmp_path)})
+    assert result.returncode == 0, result.stderr
+    assert "PLANTED" not in result.stdout and str(RESOURCES.resolve()) in str(Path(result.stdout.split()[-1]).resolve())

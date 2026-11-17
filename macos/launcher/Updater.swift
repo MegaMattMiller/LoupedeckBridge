@@ -31,7 +31,7 @@ final class Updater {
     private let pinnedSHA256: String
     private let userAgent: String
     private let schedule = UpdateSchedule()
-    private var notice = UpdateNotice()
+    private var notice: UpdateNotice
     private let launched = Date()
     private var timer: Timer?
     private let defaults = UserDefaults.standard
@@ -43,6 +43,10 @@ final class Updater {
         current = version
         pinnedSHA256 = info["LBSignerSHA256"] as? String ?? ""
         userAgent = "LoupedeckBridge/\(version)"
+        // What earlier runs found and announced (start at login relaunches the app every day).
+        available = ReleaseInfo.restore(defaults.dictionary(forKey: "availableRelease"), newerThan: version)
+        notice = UpdateNotice(lastAnnounced: defaults.string(forKey: "announcedVersion").flatMap(Version.init))
+        if available == nil { defaults.removeObject(forKey: "availableRelease") }   // installed, or unreadable
     }
 
     /// "Check for updates automatically" (on unless turned off).
@@ -104,13 +108,16 @@ final class Updater {
         }
         guard release.version > current else {
             available = nil
+            defaults.removeObject(forKey: "availableRelease")
             BridgeProcess.log("update check: up to date (v\(current))")
             if manual { tell("LoupedeckBridge is up to date", "v\(current) is the newest version.") }
             return
         }
         available = release
+        defaults.set(release.saved, forKey: "availableRelease")
         BridgeProcess.log("update check: v\(release.version) is available (this is v\(current))")
         let first = notice.announce(release.version, current: current)
+        if first, let announced = notice.lastAnnounced { defaults.set(announced.description, forKey: "announcedVersion") }
         if manual {
             installAvailable()
         } else if first {

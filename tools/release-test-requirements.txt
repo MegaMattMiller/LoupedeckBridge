@@ -1,0 +1,6 @@
+# The test tools installed, by hash, into a venv on the release app's bundled Python, in CI and in the release
+# workflow, after the build is saved (milestone 6 review). The same pytest as requirements-dev.txt; its
+# `packaging` comes from the bundle.
+iniconfig==2.1.0 --hash=sha256:9deba5723312380e77435581c6bf4935c94cbfab9b1ed33ef8d238ea168eb760
+pluggy==1.6.0 --hash=sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746
+pytest==8.3.5 --hash=sha256:c69214aa47deac29fad6c2a4f590b9c4a9fdb16a403176fe154b79c0b4d4d820

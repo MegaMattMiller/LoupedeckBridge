@@ -1,8 +1,9 @@
 # Tests on every push and pull request. No secrets, read-only.
 #   suite:          the whole test suite with Python 3.9 (the oldest the bridge supports)
-#   release-build:  builds the release app with its bundled Python, runs the suite with that Python, then
-#                   rehearses signing with a throwaway identity (not the release key): import into a
-#                   temporary keychain, sign, the app's own update check, package, and tools/install.sh
+#   release-build:  builds the release app with its bundled Python, runs the suite with that Python (test
+#                   tools pinned by hash), then rehearses release.yml's signing with a throwaway identity (not
+#                   the release key): sign in one step that deletes the keychain, the app's own update check,
+#                   package, and tools/install.sh
 name: Tests
 
 on:
@@ -46,16 +47,21 @@ jobs:
         env:
           PYTHONDONTWRITEBYTECODE: "1"
         run: |
-          # a venv that shares the bundle's packages, so the suite tests those (pytest goes in the venv)
+          # a venv that shares the bundle's packages, so the suite tests those; the test tools go in the venv
           dist/LoupedeckBridge.app/Contents/Resources/python/bin/python3 -m venv --system-site-packages --without-pip .venv
-          .venv/bin/python -m pip install --disable-pip-version-check -r requirements-dev.txt
+          .venv/bin/python -m pip install --disable-pip-version-check --require-hashes --only-binary=:all: --no-deps \
+            -r tools/release-test-requirements.txt
           .venv/bin/python -m pytest -q
           LB_RELEASE_APP="$PWD/dist/LoupedeckBridge.app" .venv/bin/python -m pytest -q tests/test_release_bundle.py
-      - name: Sign it, check it and package it the way a release is
+      - name: Sign it the way a release is (the throwaway key exists during this step only)
         run: |
-          tools/import_signing_identity.sh "$RUNNER_TEMP/id/LoupedeckBridge-Release.p12" \
-            "$RUNNER_TEMP/id/p12-password" "$RUNNER_TEMP/rehearsal.keychain-db"
+          set -euo pipefail
+          keychain="$RUNNER_TEMP/rehearsal.keychain-db"
+          trap 'security delete-keychain "$keychain" 2>/dev/null || true' EXIT
+          tools/import_signing_identity.sh "$RUNNER_TEMP/id/LoupedeckBridge-Release.p12" "$RUNNER_TEMP/id/p12-password" "$keychain"
           tools/sign_release_app.sh dist/LoupedeckBridge.app "LoupedeckBridge Release"
+      - name: Check it and package it
+        run: |
           dist/LoupedeckBridge.app/Contents/MacOS/LoupedeckBridge --check-signature dist/LoupedeckBridge.app
           tools/package_release.sh dist/LoupedeckBridge.app out
       - name: Install it with tools/install.sh, as on another Mac
@@ -70,6 +76,3 @@ jobs:
             LB_PINNED_SIGNER_SHA256="$LB_SIGNER_SHA256" tools/install.sh "v$version"
           app="$RUNNER_TEMP/Applications/LoupedeckBridge.app"
           "$app/Contents/MacOS/LoupedeckBridge" --check-signature "$app"
-      - name: Delete the throwaway keychain
-        if: always()
-        run: security delete-keychain "$RUNNER_TEMP/rehearsal.keychain-db" 2>/dev/null || true
