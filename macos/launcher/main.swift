@@ -16,17 +16,19 @@ if arguments.first == "--login" {
     exit(LoginItem.command(arguments.count > 1 ? arguments[1] : "status"))
 }
 
-guard let repo = (Bundle.main.infoDictionary ?? [:])["LBRepoPath"] as? String else {
-    BridgeProcess.log("LBRepoPath is missing from Info.plist; rebuild with tools/build_mac_app.sh", level: "ERROR")
+let info = Bundle.main.infoDictionary ?? [:]
+guard let paths = RuntimePaths.resolve(info: info, bundle: Bundle.main.bundlePath) else {
+    BridgeProcess.log("Info.plist doesn't say which Python to run (LBRuntime / LBRepoPath); rebuild the app",
+                      level: "ERROR")
     exit(2)
 }
 
 if arguments.contains("--check-permission") {
-    exit(BridgeProcess.runOnce(repo: repo, arguments: arguments))
+    exit(BridgeProcess.runOnce(paths: paths, arguments: arguments))
 }
 
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)        // menu-bar only: no Dock icon (LSUIElement too)
-let controller = AppController(repo: repo, arguments: arguments)   // installs signal handlers first
+let controller = AppController(paths: paths, arguments: arguments, info: info)   // installs signal handlers first
 app.delegate = controller
 app.run()

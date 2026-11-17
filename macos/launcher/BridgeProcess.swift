@@ -11,15 +11,17 @@ final class BridgeProcess {
     /// Shift, Ctrl, Alt, Cmd, Tab and the four arrows.
     static let holdableKeys: [CGKeyCode] = [56, 59, 58, 55, 48, 123, 124, 125, 126]
 
-    let repo: String
+    let python: String
+    let workdir: String
     let arguments: [String]
     var onStatus: ((BridgeStatus) -> Void)?
     var onExit: ((Int32) -> Void)?
     private(set) var pid: pid_t = 0
     private(set) var running = false
 
-    init(repo: String, arguments: [String]) {
-        self.repo = repo
+    init(python: String, workdir: String, arguments: [String]) {
+        self.python = python
+        self.workdir = workdir
         self.arguments = arguments
     }
 
@@ -44,9 +46,11 @@ final class BridgeProcess {
     }
 
     // ---- starting -----------------------------------------------------------
-    /// Spawns `.venv/bin/python -E -m bridge …` in the repo, with stdout and stderr appended to the log
-    /// (so a crash before logging starts is still recorded) and, if given, `statusWrite` as fd 3.
-    private static func spawn(repo: String, arguments: [String], statusWrite: Int32?, closeInChild: Int32?) -> pid_t? {
+    /// Spawns `<python> -E -m bridge …` in `workdir` (the repo, or the app's bundled code), with stdout and
+    /// stderr appended to the log (so a crash before logging starts is still recorded) and, if given,
+    /// `statusWrite` as fd 3.
+    private static func spawn(python: String, workdir: String, arguments: [String], statusWrite: Int32?,
+                              closeInChild: Int32?) -> pid_t? {
         let logFD = openLog()
         var actions: posix_spawn_file_actions_t?
         posix_spawn_file_actions_init(&actions)
@@ -64,14 +68,13 @@ final class BridgeProcess {
         }
         if logFD > 2 && logFD != statusFD { posix_spawn_file_actions_addclose(&actions, logFD) }
 
-        let python = repo + "/.venv/bin/python"
         var env = ProcessInfo.processInfo.environment
         env["LB_STATUS_FD"] = statusWrite == nil ? nil : String(statusFD)
         var cArgs: [UnsafeMutablePointer<CChar>?] = ([python, "-E", "-m", "bridge"] + arguments).map { strdup($0) } + [nil]
         var cEnv: [UnsafeMutablePointer<CChar>?] = env.map { strdup("\($0.key)=\($0.value)") } + [nil]
         defer { (cArgs + cEnv).forEach { free($0) } }
 
-        FileManager.default.changeCurrentDirectoryPath(repo)
+        FileManager.default.changeCurrentDirectoryPath(workdir)
         var child: pid_t = 0
         let rc = posix_spawn(&child, python, &actions, nil, &cArgs, &cEnv)
         if logFD >= 0 { close(logFD) }
@@ -89,7 +92,8 @@ final class BridgeProcess {
             Self.log("couldn't make the status pipe: \(String(cString: strerror(errno)))", level: "ERROR")
             return false
         }
-        let child = Self.spawn(repo: repo, arguments: arguments, statusWrite: fds[1], closeInChild: fds[0])
+        let child = Self.spawn(python: python, workdir: workdir, arguments: arguments, statusWrite: fds[1],
+                               closeInChild: fds[0])
         close(fds[1])                              // only the bridge writes
         guard let pid = child else {
             close(fds[0])
@@ -103,8 +107,9 @@ final class BridgeProcess {
     }
 
     /// For one-shot runs (`--check-permission`): no pipe, no menu; returns the bridge's exit code.
-    static func runOnce(repo: String, arguments: [String]) -> Int32 {
-        guard let child = spawn(repo: repo, arguments: arguments, statusWrite: nil, closeInChild: nil) else { return 1 }
+    static func runOnce(paths: RuntimePaths, arguments: [String]) -> Int32 {
+        guard let child = spawn(python: paths.python, workdir: paths.workdir, arguments: arguments, statusWrite: nil,
+                                closeInChild: nil) else { return 1 }
         return wait(for: child)
     }
 

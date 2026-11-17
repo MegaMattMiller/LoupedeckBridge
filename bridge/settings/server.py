@@ -25,6 +25,7 @@ from websockets.datastructures import Headers
 from websockets.exceptions import ConnectionClosed
 from websockets.http11 import Response
 
+from bridge import __version__
 from bridge.commands import CommandCatalog
 from bridge.hardware import Event, HardwareMap, Press, Release, Turn
 from bridge.lightroom import LightroomError
@@ -101,7 +102,7 @@ class SettingsServer:
         name, content_type = FILES[request.path]
         body = (STATIC / name).read_text()
         if name == "index.html":
-            body = body.replace("__TOKEN__", self.token)
+            body = body.replace("__TOKEN__", self.token).replace("__VERSION__", __version__)
         ws_sources = " ".join(f"ws://{h}" for h in sorted(self._hosts))
         headers = Headers([
             ("Content-Type", content_type),

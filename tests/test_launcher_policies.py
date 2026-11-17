@@ -16,7 +16,7 @@ CHECKS = ["never_connected_never_alerts", "drop_alerts_after_debounce", "quick_r
           "status_pipe_reaches_the_app", "bridge_exit_drops_pending_disconnect", "quit_after_forced_kill_releases_keys",
           "quit_after_clean_stop_just_exits", "crash_releases_alerts_and_schedules_once",
           "manual_restart_during_wait_spawns_once", "stale_restart_click_does_nothing",
-          "status_ignored_once_the_bridge_is_gone", "already_running_quits_the_app"]
+          "status_ignored_once_the_bridge_is_gone", "already_running_quits_the_app", "runtime_paths_bundled_and_repo"]
 
 pytestmark = pytest.mark.skipif(sys.platform != "darwin" or shutil.which("swiftc") is None,
                                 reason="needs macOS and swiftc")

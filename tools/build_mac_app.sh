@@ -1,16 +1,26 @@
 #!/bin/bash
-# Build build/LoupedeckBridge.app (or OUT_DIR/LoupedeckBridge.app): the menu-bar app that runs this repo's
-# bridge, so macOS grants the keyboard (Accessibility) permission to LoupedeckBridge instead of your terminal.
-# Rebuilding may make macOS ask for the permissions again (the app is signed locally).
-#   tools/build_mac_app.sh [OUT_DIR]
+# Build the macOS menu-bar app.
+#   tools/build_mac_app.sh [--dev] [OUT_DIR]     "LoupedeckBridge Dev.app" (default, into build/): runs this repo's
+#                                                code with its .venv; its own bundle id, so it never mixes with the
+#                                                installed release in Login Items, notifications or Accessibility
+#   tools/build_mac_app.sh --release OUT_DIR …   the self-contained release app (tools/build_release_app.sh)
+# Rebuilding the dev app may make macOS ask for its permissions again (it's signed ad hoc).
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
+if [ "${1:-}" = "--release" ]; then
+  shift
+  exec "$REPO/tools/build_release_app.sh" "$@"
+fi
+[ "${1:-}" = "--dev" ] && shift
 OUT="${1:-$REPO/build}"
-APP="$OUT/LoupedeckBridge.app"
-BUNDLE_ID="io.github.megamattmiller.loupedeckbridge"
+NAME="LoupedeckBridge Dev"
+APP="$OUT/$NAME.app"
+BUNDLE_ID="io.github.megamattmiller.loupedeckbridge.dev"
+VERSION="$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' "$REPO/bridge/__init__.py")"
 
 [ -x "$REPO/.venv/bin/python" ] || { echo "No .venv yet: python3 -m venv .venv && .venv/bin/pip install -r requirements.txt" >&2; exit 1; }
+[ -n "$VERSION" ] || { echo "couldn't read __version__ from bridge/__init__.py" >&2; exit 1; }
 xml_escape() { sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' <<<"$1"; }
 
 rm -rf "$APP"
@@ -23,14 +33,18 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <plist version="1.0">
 <dict>
   <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
-  <key>CFBundleName</key><string>LoupedeckBridge</string>
-  <key>CFBundleDisplayName</key><string>LoupedeckBridge</string>
+  <key>CFBundleName</key><string>$NAME</string>
+  <key>CFBundleDisplayName</key><string>$NAME</string>
   <key>CFBundleExecutable</key><string>LoupedeckBridge</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>0.1</string>
-  <key>CFBundleVersion</key><string>1</string>
+  <key>CFBundleShortVersionString</key><string>$VERSION</string>
+  <key>CFBundleVersion</key><string>$VERSION</string>
   <key>LSUIElement</key><true/>
+  <key>LBRuntime</key><string>repo</string>
   <key>LBRepoPath</key><string>$(xml_escape "$REPO")</string>
+  <key>LBVersion</key><string>$VERSION</string>
+  <key>LBIsDev</key><true/>
+  <key>LBSignerSHA256</key><string></string>
 </dict>
 </plist>
 PLIST

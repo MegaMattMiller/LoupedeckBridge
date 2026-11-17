@@ -20,6 +20,8 @@ from bridge.status import StatusReporter
 
 log = logging.getLogger("app")
 
+# Sent to Lightroom on register. Kept at "0.1" whatever the release version (bridge.__version__), so a new
+# release never gives Lightroom a reason to show its Allow dialog again (milestone 6 design).
 APP_NAME, APP_VERSION = "Loupedeck+ Bridge", "0.1"
 SETTINGS_PORT = 7690
 

@@ -610,3 +610,13 @@ def test_odd_hand_edits_dont_break_the_page(tmp_path):
                 await ws.send(set_op("c3", "fn", "press", {"kind": "command", "id": "rating_3"}))
                 await rig.next(ws, "layout")                 # still working
     asyncio.run(main())
+
+
+def test_page_shows_version(tmp_path):
+    # Milestone 6: the version (bridge.__version__) shows on the page.
+    import bridge
+    async def main():
+        async with Rig(tmp_path) as rig:
+            return await rig.http_get("/")
+    status, _, body = asyncio.run(main())
+    assert status == 200 and f"v{bridge.__version__}" in body and bridge.__version__ == "0.5.0"

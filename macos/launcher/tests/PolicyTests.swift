@@ -212,6 +212,21 @@ enum PolicyTests {
             return out == [.terminateApp] ? nil : "\(out)"
         }
 
+        check("runtime_paths_bundled_and_repo") {
+            let bundled = RuntimePaths.resolve(info: ["LBRuntime": "bundled"], bundle: "/Applications/LoupedeckBridge.app")
+            if bundled?.python != "/Applications/LoupedeckBridge.app/Contents/Resources/python/bin/python3"
+                || bundled?.workdir != "/Applications/LoupedeckBridge.app/Contents/Resources/app" {
+                return "bundled: \(String(describing: bundled))"
+            }
+            for info: [String: Any] in [["LBRuntime": "repo", "LBRepoPath": "/r"], ["LBRepoPath": "/r"]] {
+                let repo = RuntimePaths.resolve(info: info, bundle: "/x.app")
+                if repo?.python != "/r/.venv/bin/python" || repo?.workdir != "/r" { return "repo: \(String(describing: repo))" }
+            }
+            if RuntimePaths.resolve(info: ["LBRuntime": "weird"], bundle: "/x.app") != nil { return "accepted a weird runtime" }
+            if RuntimePaths.resolve(info: ["LBRuntime": "repo"], bundle: "/x.app") != nil { return "repo without a path" }
+            return nil
+        }
+
         check("status_pipe_reaches_the_app") {
             // Live check, 2026-11-16: the bridge got "Bad file descriptor" writing status to fd 3.
             // A stand-in "python" writes one status line to fd 3; the app must receive it.
@@ -226,7 +241,7 @@ enum PolicyTests {
             BridgeProcess.logURL = dir.appendingPathComponent("bridge.log")
             var received: BridgeStatus?
             var exitCode: Int32?
-            let process = BridgeProcess(repo: dir.path, arguments: [])
+            let process = BridgeProcess(python: script.path, workdir: dir.path, arguments: [])
             process.onStatus = { received = $0 }
             process.onExit = { exitCode = $0 }
             guard process.start() else { return "couldn't start the stand-in" }

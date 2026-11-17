@@ -47,8 +47,9 @@ enum LoginItem {
 }
 
 final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNotificationCenterDelegate {
-    private let repo: String
+    private let paths: RuntimePaths
     private let arguments: [String]
+    private let title: String                 // "LoupedeckBridge v0.5.0", or "LoupedeckBridge Dev (repo)"
     private var bridge: BridgeProcess?
     private var statusItem: NSStatusItem?
     private var current: BridgeStatus?        // the bridge's last status line
@@ -59,9 +60,12 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
 
     private func now() -> Double { ProcessInfo.processInfo.systemUptime }
 
-    init(repo: String, arguments: [String]) {
-        self.repo = repo
+    init(paths: RuntimePaths, arguments: [String], info: [String: Any]) {
+        self.paths = paths
         self.arguments = arguments
+        let version = info["LBVersion"] as? String ?? "?"
+        self.title = (info["LBIsDev"] as? Bool ?? false) ? "LoupedeckBridge Dev (repo, v\(version))"
+                                                          : "LoupedeckBridge v\(version)"
         super.init()
         // Before the bridge is spawned, so an early stop request can't leave it running without us.
         for sig in [SIGTERM, SIGINT, SIGHUP] {
@@ -125,7 +129,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
     private func spawnBridge() {
         guard !(bridge?.running ?? false) else { return }   // never two bridges
         alerts.bridgeRestarted()
-        let process = BridgeProcess(repo: repo, arguments: arguments)
+        let process = BridgeProcess(python: paths.python, workdir: paths.workdir, arguments: arguments)
         process.onStatus = { [weak self] status in self?.received(status) }
         process.onExit = { [weak self] code in self?.bridgeExited(code) }
         bridge = process
@@ -191,6 +195,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
     // ---- the menu -----------------------------------------------------------
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
+        menu.addItem(info(title, ok: nil))
+        menu.addItem(.separator())
         if supervisor.isStopped {
             menu.addItem(info("The bridge has stopped", ok: false))
             menu.addItem(action("Restart bridge", #selector(restartFromMenu)))

@@ -194,3 +194,24 @@ struct BridgeSupervisor {
         return bridgeRunning ? [.stopBridge] : [.terminateApp]
     }
 }
+
+/// Which Python to run, and where, from the app's Info.plist (milestone 6):
+/// - `LBRuntime = bundled` (releases): the Python and code inside the app
+/// - `LBRuntime = repo`, or no `LBRuntime` (dev builds, older builds): `LBRepoPath`'s `.venv` and checkout
+struct RuntimePaths: Equatable {
+    let python: String
+    let workdir: String
+
+    static func resolve(info: [String: Any], bundle: String) -> RuntimePaths? {
+        switch info["LBRuntime"] as? String {
+        case "bundled":
+            let resources = bundle + "/Contents/Resources"
+            return RuntimePaths(python: resources + "/python/bin/python3", workdir: resources + "/app")
+        case "repo", nil:
+            guard let repo = info["LBRepoPath"] as? String, !repo.isEmpty else { return nil }
+            return RuntimePaths(python: repo + "/.venv/bin/python", workdir: repo)
+        default:
+            return nil
+        }
+    }
+}

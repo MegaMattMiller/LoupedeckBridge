@@ -1,47 +1,99 @@
 #!/bin/bash
-# Control the macOS LoupedeckBridge.app:  tools/bridgectl {build|start|stop|restart|status|logs|settings|login on|off|status}
+# Control LoupedeckBridge on macOS.
+#   tools/bridgectl start|stop|restart|status [--dev]   the installed release, or with --dev the dev build
+#   tools/bridgectl login on|off|status [--dev]         Start at login (as the menu's checkmark)
+#   tools/bridgectl build                               build the dev app ("LoupedeckBridge Dev") from this repo
+#   tools/bridgectl install [vX.Y.Z|latest] [--allow-older]   install a release (tools/install.sh)
+#   tools/bridgectl logs | settings
+# Only one bridge runs at a time: `start --dev` pauses the installed release, `stop --dev` brings it back.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-APP="$REPO/build/LoupedeckBridge.app"
+RELEASE_APP="${LB_RELEASE_APP:-/Applications/LoupedeckBridge.app}"
+DEV_APP="${LB_DEV_APP:-$REPO/build/LoupedeckBridge Dev.app}"
 LOG="$HOME/Library/Logs/loupedeck-lr-bridge/bridge.log"
-LAUNCHER='LoupedeckBridge.app/Contents/MacOS/LoupedeckBridge'
+STATE="$HOME/Library/Application Support/loupedeck-lr-bridge"
+PAUSED="$STATE/release-paused"     # set by `start --dev` while it has paused the release
 
-running() { pgrep -f "$LAUNCHER" >/dev/null; }
+usage() {
+  echo "usage: tools/bridgectl {start|stop|restart|status|login on|off|status} [--dev]" >&2
+  echo "       tools/bridgectl {build|install [vX.Y.Z|latest] [--allow-older]|logs|settings}" >&2
+  exit 2
+}
 
-case "${1:-}" in
+cmd="${1:-}"
+[ $# -gt 0 ] && shift
+dev=0
+args=()
+for a in "$@"; do
+  if [ "$a" = "--dev" ]; then dev=1; else args+=("$a"); fi
+done
+APP="$RELEASE_APP"
+[ "$dev" = 1 ] && APP="$DEV_APP"
+
+exe() { echo "$1/Contents/MacOS/LoupedeckBridge"; }           # matched by full path: never confuses the two
+running() { pgrep -f "$(exe "$1")" >/dev/null; }
+
+start_app() {
+  local app="$1"
+  [ -d "$app" ] || { echo "Not found: $app (dev: tools/bridgectl build; release: tools/bridgectl install)" >&2; return 1; }
+  if running "$app"; then echo "already running"; return 0; fi
+  open -g "$app"
+  sleep 1.5
+  if running "$app"; then
+    echo "started $(basename "$app" .app). Logs: tools/bridgectl logs"
+  else
+    echo "$(basename "$app" .app) didn't stay running. Last log lines:" >&2
+    tail -n 8 "$LOG" >&2 || true
+    return 1
+  fi
+}
+
+stop_app() {
+  # SIGTERM → the app stops the bridge (it releases any held keys; forced after 5 s) and quits.
+  local app="$1"
+  if ! running "$app"; then echo "not running"; return 0; fi
+  pkill -TERM -f "$(exe "$app")"
+  for _ in $(seq 1 80); do
+    running "$app" || { echo "stopped"; return 0; }
+    sleep 0.1
+  done
+  echo "still running after 8 s" >&2
+  return 1
+}
+
+case "$cmd" in
   build)
-    "$REPO/tools/build_mac_app.sh" ;;
+    "$REPO/tools/build_mac_app.sh" --dev ;;
   start)
-    [ -d "$APP" ] || { echo "Build it first: tools/bridgectl build" >&2; exit 1; }
-    if running; then echo "already running"; exit 0; fi
-    open -g "$APP"
-    sleep 1.5
-    if running; then
-      echo "started. Logs: tools/bridgectl logs"
-    else
-      echo "LoupedeckBridge didn't stay running. Last log lines:" >&2
-      tail -n 8 "$LOG" >&2
+    if [ "$dev" = 1 ] && running "$RELEASE_APP"; then
+      stop_app "$RELEASE_APP" >/dev/null
+      mkdir -p "$STATE" && touch "$PAUSED"
+      echo "paused the installed LoupedeckBridge (tools/bridgectl stop --dev brings it back)"
+    elif [ "$dev" = 0 ] && running "$DEV_APP"; then
+      echo "The dev build is running; stop it first: tools/bridgectl stop --dev" >&2
       exit 1
-    fi ;;
+    fi
+    start_app "$APP" ;;
   stop)
-    # SIGTERM → the app stops the bridge (it releases any held keys; forced after 5 s) and quits.
-    if ! running; then echo "not running"; exit 0; fi
-    pkill -TERM -f "$LAUNCHER"
-    for _ in $(seq 1 80); do running || { echo "stopped"; exit 0; }; sleep 0.1; done
-    echo "still running after 8 s" >&2; exit 1 ;;
+    stop_app "$APP"
+    if [ "$dev" = 1 ] && [ -f "$PAUSED" ]; then
+      rm -f "$PAUSED"
+      start_app "$RELEASE_APP"
+    fi ;;
   restart)
-    "$0" stop && "$0" start ;;
+    stop_app "$APP" && start_app "$APP" ;;
   status)
-    if running; then echo "running"; else echo "not running"; fi ;;
+    if running "$APP"; then echo "running"; else echo "not running"; fi ;;
+  login)
+    [ -d "$APP" ] || { echo "Not found: $APP" >&2; exit 1; }
+    "$(exe "$APP")" --login "${args[0]:-status}" ;;
+  install)
+    exec "$REPO/tools/install.sh" ${args[@]+"${args[@]}"} ;;
   logs)
     tail -n 30 -f "$LOG" ;;
   settings)
     open "http://127.0.0.1:7690/" ;;
-  login)
-    # Start at login, like the checkmark in the menu-bar menu (macOS Login Items).
-    [ -d "$APP" ] || { echo "Build it first: tools/bridgectl build" >&2; exit 1; }
-    "$APP/Contents/MacOS/LoupedeckBridge" --login "${2:-status}" ;;
   *)
-    echo "usage: tools/bridgectl {build|start|stop|restart|status|logs|settings|login on|off|status}" >&2; exit 2 ;;
+    usage ;;
 esac
