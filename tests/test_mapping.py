@@ -246,6 +246,104 @@ def test_open_settings_action(tmp_path):
     assert m2.turn_action("d1") == NONE and any("d1" in w for w in m2.warnings)
 
 
+# ---- milestone 4: the Fn layer -------------------------------------------------
+RATING3 = {"type": "call", "message": "rating3", "args": []}
+EXPORT_PREVIOUS = {"type": "call", "message": "exportWithPrevious", "args": []}
+
+
+def test_fn_layer_falls_back_to_normal(tmp_path):
+    m = Mapping.load(write(tmp_path / "m.json", {
+        "c3": {"press": NONE, "fn": {"press": RATING3}},
+        "c4": {"press": RATING3},
+        "c5": {"press": RATING3, "fn": {"press": NONE}}}))
+    assert m.press_action("c3", fn=True) == RATING3 and m.press_action("c3") == NONE
+    assert m.press_action("c4", fn=True) == RATING3          # no Fn slot: same as normal
+    assert m.press_action("c5", fn=True) == NONE             # Fn slot set to Nothing
+    assert m.fn_action("c4", "press") is None and m.fn_action("c3", "press") == RATING3
+
+
+def test_set_action_fn_layer_saves_and_clears(tmp_path):
+    user = tmp_path / "m.json"
+    m = Mapping.load(user)
+    m.set_action("c3", "press", RATING3, layer="fn")
+    assert json.loads(user.read_text())["controls"]["c3"]["fn"] == {"press": RATING3}
+    m.set_action("c3", "press", None, layer="fn")
+    assert "fn" not in json.loads(user.read_text())["controls"]["c3"]
+    assert m.press_action("c3", fn=True) == NONE
+
+
+def test_set_action_validates(tmp_path):
+    user = tmp_path / "m.json"
+    m = Mapping.load(user)
+    before = user.read_text()
+    attempts = [
+        ("exposure", "turn", RATING3, "normal"),                                   # a call as a turn
+        ("c3", "press", None, "normal"),                                           # "same as normal" in normal
+        ("c3", "press", {"type": "preset", "id": "A", "name": "W"}, "fn"),         # a preset in Fn
+        ("c1", "press", EXPORT_PREVIOUS, "normal"),                                # export w/o dialog elsewhere
+        ("c1", "press", EXPORT_PREVIOUS, "fn"),
+        ("c3", "spin", RATING3, "normal"),                                         # no such slot
+        ("c3", "press", RATING3, "shift"),                                         # no such layer
+    ]
+    for control, slot, action, layer in attempts:
+        with pytest.raises(ValueError):
+            m.set_action(control, slot, action, layer=layer)
+        assert user.read_text() == before, (control, slot, layer)
+    assert m.press_action("c1") == {"type": "call", "message": "flagPickToggle", "args": []}
+
+
+def test_reset_control_restores_both_layers(tmp_path):
+    user = tmp_path / "m.json"
+    m = Mapping.load(user)
+    default = json.loads(DEFAULT_PATH.read_text())["controls"]
+    m.set_action("c3", "press", RATING3)
+    m.set_action("c3", "press", NONE, layer="fn")
+    m.reset_control("c3")
+    assert json.loads(user.read_text())["controls"]["c3"] == default["c3"]
+    assert m.press_action("c3") == NONE and m.fn_action("c3", "press") is None
+    m.set_press_action("p1", PRESET)
+    m.set_action("p1", "press", RATING3, layer="fn")
+    m.reset_control("p1", keep_normal_press=True)
+    assert m.press_action("p1") == PRESET and m.fn_action("p1", "press") is None
+    assert Mapping.load(user).press_action("p1") == PRESET
+
+
+def test_restore_defaults_keeps_listed_presses(tmp_path):
+    user = tmp_path / "m.json"
+    m = Mapping.load(user)
+    m.set_press_action("p1", PRESET)
+    m.set_press_action("p2", {"type": "preset", "id": "B", "name": "Cool"})
+    m.set_action("c3", "press", RATING3, layer="fn")
+    m.set_action("c1", "press", NONE)
+    m.restore_defaults(keep_normal_press=["p1", "p2"])
+    again = Mapping.load(user)
+    assert again.press_action("p1") == PRESET and again.press_action("p2")["id"] == "B"
+    assert again.fn_action("c3", "press") is None
+    assert again.press_action("c1") == {"type": "call", "message": "flagPickToggle", "args": []}
+
+
+def test_export_fn_default(tmp_path):
+    m = Mapping.load(tmp_path / "m.json")
+    assert m.press_action("export", fn=True) == EXPORT_PREVIOUS
+    assert m.press_action("export") == {"type": "call", "message": "openExport", "args": []}
+    assert m.warnings == []
+
+
+def test_odd_fn_entries_load_with_warnings(tmp_path):
+    # Review Focus 3: hand edits load with warnings, never crash, never run.
+    m = Mapping.load(write(tmp_path / "m.json", {
+        "c1": {"press": NONE, "fn": 5},
+        "c2": {"press": NONE, "fn": {"press": "x"}},
+        "c3": {"press": NONE, "fn": {"press": {"type": "preset", "id": "A", "name": "W"}}},
+        "c4": {"press": EXPORT_PREVIOUS},
+        "c5": {"press": NONE, "fn": {"spin": RATING3}},
+    }))
+    for control in ("c1", "c2", "c3", "c4", "c5"):
+        assert any(control in w for w in m.warnings), control
+        assert m.press_action(control, fn=True) == NONE, control
+    assert m.press_action("c4") == NONE
+
+
 def test_user_file_replaces_default(tmp_path):
     m = Mapping.load(write(tmp_path / "m.json", {"c1": {"press": {"type": "call", "message": "undo", "args": []}}}))
     assert m.press_action("c1") == {"type": "call", "message": "undo", "args": []}

@@ -71,7 +71,7 @@
     "p6": {"press": {"type": "preset", "id": null, "name": null}},
     "p7": {"press": {"type": "preset", "id": null, "name": null}},
     "p8": {"press": {"type": "preset", "id": null, "name": null}},
-    "export": {"press": {"type": "call", "message": "openExport", "args": []}},
+    "export": {"press": {"type": "call", "message": "openExport", "args": []}, "fn": {"press": {"type": "call", "message": "exportWithPrevious", "args": []}}},
     "copy": {"press": {"type": "call", "message": "copyEditSettings", "args": []}},
     "paste": {"press": {"type": "call", "message": "pasteEditSettings", "args": []}},
     "undo": {"press": {"type": "call", "message": "undo", "args": []}},
