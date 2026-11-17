@@ -170,6 +170,16 @@ Preferences, the merges, Copy settings…), Edit in Photoshop, and Duplicate pho
   - from Keys, --/Col returns to the last of Ratings/Colours
   - a per-mode remap on the page works
 
+## Milestone 5 platform checks (2026-11-16)
+A throwaway, ad-hoc-signed app (bundle id `…loupedeckbridge.spike`) answered the design's two open questions:
+- **Login item:** `SMAppService.mainApp.register()` works for an ad-hoc-signed app. The status went
+  notFound → enabled, and `unregister()` returned it to notRegistered. The plan's main route stands; no
+  LaunchAgent fallback is needed.
+- **Notifications:** they work from the repo's `build/` folder (authorized, posted). From a temporary
+  folder (`/private/tmp`), UserNotifications refused at once with "Notifications are not allowed for this
+  application" (UNErrorDomain 1), without asking. The real app lives in `build/`, so alerts carry the
+  LoupedeckBridge name as designed. Don't run the app from a temp folder.
+
 ## API notes the handoff didn't capture
 - **How object handles come about:** `addAdjustmentChangeObserver(param?)` and `addHapticsObserver()` return a GUID/object. Later notifications arrive as extra responses for that same original `requestId` (this is the "one request, many responses" case). Call `close` on the handle when done.
 - **Tracking:** `startTracking(param)` turns itself off **2 s** after the last change, or as soon as a *different* parameter is adjusted. `stopTracking()` commits **one** history state. `setMultipleAdjustmentThreshold` defaults to **0.5 s** and has no effect if it's larger than the tracking delay.
