@@ -24,6 +24,7 @@ class FakeSession:
         self.photo_bw = False  # Lightroom's B&W state for the current photo
         self.slow: Set[str] = set()   # messages that wait for `gate` (a busy Lightroom)
         self.gate = None
+        self.can_export = True        # canExportWithPrevious's answer
 
     async def call(self, message, *params):
         self.calls.append((message, list(params)))
@@ -40,6 +41,8 @@ class FakeSession:
             return [list(PRESET_NAMES)]
         if message == "getPresetName":
             return [PRESET_NAMES[params[0]]]
+        if message == "canExportWithPrevious":
+            return [self.can_export]
         return {}
 
 
@@ -476,3 +479,124 @@ def test_unknown_shortcut_key_logged(tmp_path, caplog):
         run(d.handle(Press("c3")))  # must not raise
     assert kb.events == []
     assert any("c3" in r.getMessage() for r in caplog.records)
+
+
+# ---- milestone 4: the Fn layer -------------------------------------------------
+NONE = {"type": "none"}
+RATING3 = {"type": "call", "message": "rating3", "args": []}
+
+
+def test_key_released_even_if_fn_let_go_first(tmp_path):
+    kb = FakeKeyboard()
+    d, _, _ = setup(tmp_path, {"c3": {"press": NONE, "fn": {"press": {"type": "key", "key": "shift"}}}}, keyboard=kb)
+
+    async def main():
+        for e in (Press("fn"), Press("c3"), Release("fn"), Release("c3")):
+            await d.handle(e)
+    run(main())
+    assert kb.events == [("down", "shift"), ("up", "shift")]
+
+
+def test_reset_dial_follows_the_layers_turn(tmp_path):
+    d, s, _ = setup(tmp_path, {"exposure": {"turn": {"type": "adjust", "param": "Exposure2012"},
+                                            "press": {"type": "reset_dial"},
+                                            "fn": {"turn": {"type": "adjust", "param": "Contrast2012"}}},
+                               "d1": {"turn": NONE, "press": {"type": "reset_dial"}}})
+
+    async def main():
+        await d.handle(Press("exposure"))
+        await d.handle(Release("exposure"))
+        await d.handle(Press("fn"))
+        await d.handle(Press("exposure"))
+        await d.handle(Release("exposure"))
+        await d.handle(Release("fn"))
+        await d.handle(Press("d1"))
+    run(main())
+    assert s.calls == [("resetToDefault", ["Exposure2012"]), ("resetToDefault", ["Contrast2012"])]
+
+
+def test_fn_layer_press_and_turn(tmp_path):
+    d, s, dials = setup(tmp_path, {"c3": {"press": NONE, "fn": {"press": RATING3}},
+                                   "exposure": {"turn": {"type": "adjust", "param": "Exposure2012"},
+                                                "fn": {"turn": {"type": "adjust", "param": "Contrast2012"}}}})
+
+    async def main():
+        await d.handle(Press("c3"))
+        await d.handle(Release("c3"))
+        assert s.calls == []                       # normal layer: nothing
+        await d.handle(Press("fn"))
+        await d.handle(Press("c3"))
+        await d.handle(Release("c3"))
+        await d.handle(Turn("exposure", 1))
+        await d.handle(Release("fn"))
+        await d.handle(Turn("exposure", 1))
+    run(main())
+    assert s.calls == [("rating3", [])]
+    assert dials.added == [("Contrast2012", 1), ("Exposure2012", 1)]
+
+
+def test_fn_presses_do_nothing_else(tmp_path):
+    d, s, _ = setup(tmp_path, {"fn": {"press": RATING3}})
+
+    async def main():
+        await d.handle(Press("fn"))
+        held = d.fn_held
+        await d.handle(Release("fn"))
+        return held
+    assert run(main()) is True
+    assert d.fn_held is False
+    assert s.calls == []
+
+
+def test_fn_cleared_on_unplug_and_reconnect(tmp_path):
+    # Review Focus 2: a layer can't stick after the device goes away.
+    d, _, _ = setup(tmp_path)
+    run(d.handle(Press("fn")))
+    d.release_all_keys()                           # unplugged (or the bridge stopping)
+    assert d.fn_held is False
+    run(d.handle(Press("fn")))
+    d.device_reconnected()
+    assert d.fn_held is False
+
+
+def test_clr_bw_syncs_whatever_it_maps_to(tmp_path):
+    d, s, _ = setup(tmp_path, {"clr_bw": {"press": NONE, "fn": {"press": RATING3}},
+                               "bw_red": {"turn": {"type": "adjust", "param": "GrayMixerRed"}}})
+
+    async def main():
+        await d.handle(Turn("bw_red", 1))          # the device is in its B&W mode
+        await d.handle(Press("fn"))
+        await d.handle(Press("clr_bw"))            # device → colour; photo is colour: in step
+        await d.handle(Release("clr_bw"))
+        await d.handle(Press("clr_bw"))            # device → B&W; photo colour → toggle
+        await d.handle(Release("clr_bw"))
+    run(main())
+    messages = [m for m, _ in s.calls]
+    assert messages.count("toggleBlackAndWhite") == 1 and "rating3" not in messages
+
+
+def test_bw_guard_only_for_gray_mixer_resets(tmp_path):
+    d, s, _ = setup(tmp_path, {"bw_red": {"turn": {"type": "adjust", "param": "GrayMixerRed"},
+                                          "press": RATING3},
+                               "bw_blue": {"turn": {"type": "adjust", "param": "GrayMixerBlue"},
+                                           "press": {"type": "reset_dial"}}})
+    run(d.handle(Press("bw_red")))                 # photo is colour, but this isn't a B&W mix reset
+    run(d.handle(Press("bw_blue")))                # a B&W mix reset on a colour photo: ignored
+    messages = [m for m, _ in s.calls]
+    assert "rating3" in messages and "resetToDefault" not in messages
+
+
+def test_export_with_previous_checks_first(tmp_path):
+    d, s, _ = setup(tmp_path)
+
+    async def fn_export():
+        await d.handle(Press("fn"))
+        await d.handle(Press("export"))
+        await d.handle(Release("export"))
+        await d.handle(Release("fn"))
+    s.can_export = False
+    run(fn_export())
+    assert s.calls == [("canExportWithPrevious", [])]
+    s.can_export = True
+    run(fn_export())
+    assert s.calls[-2:] == [("canExportWithPrevious", []), ("exportWithPrevious", [])]

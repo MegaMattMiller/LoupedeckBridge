@@ -32,7 +32,7 @@ def test_default_covers_every_control(tmp_path):
 def test_default_layout_spot_checks(tmp_path):
     m = Mapping.load(tmp_path / "m.json")
     assert m.turn_action("exposure") == {"type": "adjust", "param": "Exposure2012"}
-    assert m.press_action("exposure") == {"type": "call", "message": "resetToDefault", "args": ["Exposure2012"]}
+    assert m.press_action("exposure") == {"type": "reset_dial"}
     assert m.turn_action("control") == {"type": "adjust", "param": "straightenAngle"}
     assert m.turn_action("d2") == {"type": "adjust", "param": "Dehaze"}
     assert m.turn_action("sat_aqua") == {"type": "adjust", "param": "SaturationAdjustmentAqua"}
@@ -58,7 +58,7 @@ def test_default_params_exist(tmp_path):
             params.append(turn["param"])
         if press.get("type") == "call" and press["message"] == "resetToDefault":
             params.extend(press["args"])
-    assert len(params) == 2 * (14 + 32)
+    assert len(params) == 14 + 32          # dial clicks reset whatever their dial adjusts (milestone 4)
     assert [p for p in params if p not in known] == []
 
 
@@ -342,6 +342,29 @@ def test_odd_fn_entries_load_with_warnings(tmp_path):
         assert any(control in w for w in m.warnings), control
         assert m.press_action(control, fn=True) == NONE, control
     assert m.press_action("c4") == NONE
+
+
+def test_default_dial_clicks_reset_dial(tmp_path):
+    m = Mapping.load(tmp_path / "m.json")
+    for control, kind in HardwareMap.load().controls.items():
+        if kind == "dial":
+            assert m.press_action(control) == {"type": "reset_dial"}, control
+
+
+def test_milestone3_mapping_upgrades_cleanly(tmp_path):
+    # Review Focus 1: the user's own mapping (presets on P1–P3, the rest untouched) after upgrading.
+    m3 = REPO / "tests" / "data" / "default_mapping_m3.json"
+    user, base = tmp_path / "mapping.json", tmp_path / "mapping.base.json"
+    data = json.loads(m3.read_text())
+    for i, name in enumerate(("Blues", "Moody", "Neon"), 1):
+        data["controls"][f"p{i}"] = {"press": {"type": "preset", "id": f"ID{i}", "name": name}}
+    user.write_text(json.dumps(data))
+    base.write_text(m3.read_text())
+    m = Mapping.load(user)
+    assert [m.press_action(f"p{i}")["name"] for i in (1, 2, 3)] == ["Blues", "Moody", "Neon"]
+    assert m.press_action("exposure") == {"type": "reset_dial"}
+    assert m.press_action("export", fn=True) == EXPORT_PREVIOUS
+    assert m.warnings == []
 
 
 def test_user_file_replaces_default(tmp_path):

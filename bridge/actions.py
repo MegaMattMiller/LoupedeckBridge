@@ -9,7 +9,7 @@ from typing import Callable, Dict, List, Optional
 
 from bridge.hardware import Event, Press, Release, Turn
 from bridge.lightroom import LightroomError
-from bridge.mapping import Mapping
+from bridge.mapping import FN_KEY, Mapping
 from bridge.presets import PresetCatalog
 
 log = logging.getLogger("actions")
@@ -17,6 +17,7 @@ log = logging.getLogger("actions")
 _ERRORS = (LightroomError, ConnectionError, asyncio.TimeoutError)
 STEP_CAP = 3  # most calls one step event may trigger (the device sends ±1 per message anyway)
 MODIFIERS = {"shift", "ctrl", "cmd", "alt"}  # held without repeating
+CLR_BW = "clr_bw"  # fixed: always keeps the photo's black & white in step with the device
 PERMISSION_HELP = ("Keyboard keys need macOS's Accessibility permission: System Settings → Privacy & Security → "
                    "Accessibility → turn on LoupedeckBridge (run the bridge from LoupedeckBridge.app; "
                    "see the README).")
@@ -44,10 +45,16 @@ class Dispatcher:
         # None until something tells us which it is.
         self._device_bw: Optional[bool] = None
         self._stepping: Dict[str, asyncio.Task] = {}  # control → its in-flight step call
+        self._fn = False  # the Fn button is held: controls use their Fn layer
+
+    @property
+    def fn_held(self) -> bool:
+        return self._fn
 
     def device_reconnected(self) -> None:
         """The device was (re)plugged: it may have powered up in a different mode."""
         self._device_bw = None
+        self._fn = False
 
     def _track_device_mode(self, event: Event) -> None:
         if isinstance(event, Turn):
@@ -63,13 +70,21 @@ class Dispatcher:
                 self._device_bw = not self._device_bw
 
     async def handle(self, event: Event) -> None:
+        if event.control == FN_KEY:
+            # Fn is the layer key: it only switches layers. The device sends the same numbers for
+            # every control with or without it (captured 2026-11-16), so the layer is ours to track.
+            if isinstance(event, (Press, Release)):
+                self._fn = isinstance(event, Press)
+            return
         self._track_device_mode(event)  # the device changes mode even while Lightroom is away
         # Keys are keyboard input, not Lightroom calls: they work whether or not Lightroom is there.
+        # A held key remembers what it pressed, so its release ends it even if Fn changed meanwhile.
         if isinstance(event, Release):
             self._release_key(event.control)
             return
-        if isinstance(event, Press):
-            action = self.mapping.press_action(event.control)
+        fn = self._fn  # the layer is chosen when a press starts, and per turn message
+        if isinstance(event, Press) and event.control != CLR_BW:
+            action = self.mapping.press_action(event.control, fn=fn)
             if action["type"] in ("key", "shortcut"):
                 self._press_key(event.control, action)
                 return
@@ -81,9 +96,11 @@ class Dispatcher:
             return
         try:
             if isinstance(event, Turn):
-                await self._turn(event)
+                await self._turn(event, fn)
+            elif isinstance(event, Press) and event.control == CLR_BW:
+                await self._sync_bw()  # whatever clr/bw maps to, in either layer
             elif isinstance(event, Press):
-                await self._press(event)
+                await self._press(event, fn)
         except _ERRORS as e:
             log.warning("%s failed: %s", event, e)
 
@@ -128,12 +145,14 @@ class Dispatcher:
         self.keyboard.key_up(name)
 
     def release_all_keys(self) -> None:
-        """Let go of every key the Loupedeck is holding (unplug, shutdown): never leave a stuck key."""
+        """Let go of every key the Loupedeck is holding (unplug, shutdown): never leave a stuck key,
+        or a stuck Fn layer."""
+        self._fn = False
         for control in list(self._held):
             self._release_key(control)
 
-    async def _turn(self, event: Turn) -> None:
-        action = self.mapping.turn_action(event.control)
+    async def _turn(self, event: Turn, fn: bool = False) -> None:
+        action = self.mapping.turn_action(event.control, fn=fn)
         if action["type"] == "adjust":
             self.dials.add(action["param"], event.detents)
         elif action["type"] == "step":
@@ -155,23 +174,28 @@ class Dispatcher:
                 log.warning("%s: %s failed: %s", control, call["message"], e)
                 return
 
-    async def _press(self, event: Press) -> None:
-        action = self.mapping.press_action(event.control)
+    async def _press(self, event: Press, fn: bool = False) -> None:
+        action = self.mapping.press_action(event.control, fn=fn)
         kind = action["type"]
-        if event.control.startswith("bw_") and kind != "none":
-            # Spec: B&W-bank dials do nothing unless the photo is black & white — clicks included,
+        if kind == "reset_dial":
+            # A dial click resets whatever its turn adjusts, in the layer this press is in.
+            turn = self.mapping.turn_action(event.control, fn=fn)
+            if turn["type"] != "adjust":
+                return
+            action, kind = {"type": "call", "message": "resetToDefault", "args": [turn["param"]]}, "call"
+        if kind == "call" and action["message"] == "resetToDefault" and action["args"] \
+                and str(action["args"][0]).startswith("GrayMixer"):
+            # Spec: B&W mix sliders do nothing unless the photo is black & white — resets included,
             # or a click would quietly reset a B&W mix saved on a colour photo.
             if not bool((await self.session.call("isBlackAndWhiteOn"))[0]):
                 log.info("%s click ignored: the photo isn't black & white", event.control)
                 return
-        if kind == "call" and action["message"] == "toggleBlackAndWhite" and event.control == "clr_bw" \
-                and self._device_bw is not None:
-            # Make the photo match the device's new mode instead of toggling blindly, so the
-            # lights and the photo can't end up opposite each other.
-            photo_bw = bool((await self.session.call("isBlackAndWhiteOn"))[0])
-            if photo_bw != self._device_bw:
-                await self.session.call("toggleBlackAndWhite")
-        elif kind == "call":
+        if kind == "call" and action["message"] == "exportWithPrevious":
+            reply = await self.session.call("canExportWithPrevious")
+            if not (isinstance(reply, list) and reply and reply[0]):
+                log.info("Fn + Export: Lightroom has no previous export settings yet; nothing exported")
+                return
+        if kind == "call":
             await self.session.call(action["message"], *action["args"])
         elif kind == "preset":
             preset_id = self._presets.get(event.control)
@@ -179,6 +203,16 @@ class Dispatcher:
                 await self.session.call("applyPreset", preset_id)
             elif action.get("id") or action.get("name"):
                 log.warning("%s: its preset couldn't be found in Lightroom; nothing applied", event.control)
+
+    async def _sync_bw(self) -> None:
+        """Make the photo match the device's new colour/B&W mode instead of toggling blindly, so the
+        lights and the photo can't end up opposite each other. Unknown mode: a plain toggle."""
+        if self._device_bw is None:
+            await self.session.call("toggleBlackAndWhite")
+            return
+        photo_bw = bool((await self.session.call("isBlackAndWhiteOn"))[0])
+        if photo_bw != self._device_bw:
+            await self.session.call("toggleBlackAndWhite")
 
     def _open_settings(self) -> None:
         if self.settings_url is None:
