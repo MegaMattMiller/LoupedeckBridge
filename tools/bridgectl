@@ -1,5 +1,5 @@
 #!/bin/bash
-# Control the macOS LoupedeckBridge.app:  tools/bridgectl {build|start|stop|restart|status|logs|settings}
+# Control the macOS LoupedeckBridge.app:  tools/bridgectl {build|start|stop|restart|status|logs|settings|login on|off|status}
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
@@ -25,11 +25,11 @@ case "${1:-}" in
       exit 1
     fi ;;
   stop)
-    # SIGTERM → the launcher passes it on → the bridge releases any held keys and exits.
+    # SIGTERM → the app stops the bridge (it releases any held keys; forced after 5 s) and quits.
     if ! running; then echo "not running"; exit 0; fi
     pkill -TERM -f "$LAUNCHER"
-    for _ in $(seq 1 50); do running || { echo "stopped"; exit 0; }; sleep 0.1; done
-    echo "still running after 5 s" >&2; exit 1 ;;
+    for _ in $(seq 1 80); do running || { echo "stopped"; exit 0; }; sleep 0.1; done
+    echo "still running after 8 s" >&2; exit 1 ;;
   restart)
     "$0" stop && "$0" start ;;
   status)
@@ -38,6 +38,10 @@ case "${1:-}" in
     tail -n 30 -f "$LOG" ;;
   settings)
     open "http://127.0.0.1:7690/" ;;
+  login)
+    # Start at login, like the checkmark in the menu-bar menu (macOS Login Items).
+    [ -d "$APP" ] || { echo "Build it first: tools/bridgectl build" >&2; exit 1; }
+    "$APP/Contents/MacOS/LoupedeckBridge" --login "${2:-status}" ;;
   *)
-    echo "usage: tools/bridgectl {build|start|stop|restart|status|logs|settings}" >&2; exit 2 ;;
+    echo "usage: tools/bridgectl {build|start|stop|restart|status|logs|settings|login on|off|status}" >&2; exit 2 ;;
 esac

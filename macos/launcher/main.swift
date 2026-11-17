@@ -1,43 +1,32 @@
-// LoupedeckBridge.app launcher.
+// LoupedeckBridge.app: a menu-bar app that runs this repo's Python bridge as a child process.
 //
-// macOS grants the Accessibility (keyboard) permission to the *app* that started a process.
-// This tiny app starts the repo's Python bridge as a CHILD process (posix_spawn, not exec),
-// so the permission belongs to LoupedeckBridge rather than to Terminal or the Claude app.
-// The Python code is read from the repo at run time: editing it never needs a rebuild.
+// macOS grants the Accessibility (keyboard) permission to the *app* that started a process, so the bridge
+// runs as a child of this app (posix_spawn, not exec) rather than of Terminal or the Claude app. The
+// Python code is read from the repo at run time: editing it never needs a rebuild.
+//
+//   LoupedeckBridge [bridge arguments…]    the menu-bar app (milestone 5)
+//   LoupedeckBridge --login on|off|status  Start at login from the command line (tools/bridgectl login)
+//   LoupedeckBridge --check-permission     one-shot permission check: no menu-bar icon
 
-import Foundation
+import AppKit
 
-let info = Bundle.main.infoDictionary ?? [:]
-guard let repo = info["LBRepoPath"] as? String else {
-    fputs("LoupedeckBridge: LBRepoPath is missing from Info.plist; rebuild with tools/build_mac_app.sh\n", stderr)
+let arguments = Array(CommandLine.arguments.dropFirst())
+
+if arguments.first == "--login" {
+    exit(LoginItem.command(arguments.count > 1 ? arguments[1] : "status"))
+}
+
+guard let repo = (Bundle.main.infoDictionary ?? [:])["LBRepoPath"] as? String else {
+    BridgeProcess.log("LBRepoPath is missing from Info.plist; rebuild with tools/build_mac_app.sh", level: "ERROR")
     exit(2)
 }
-let python = repo + "/.venv/bin/python"
-let argv = [python, "-m", "bridge"] + CommandLine.arguments.dropFirst()
 
-FileManager.default.changeCurrentDirectoryPath(repo)
-var cArgs: [UnsafeMutablePointer<CChar>?] = argv.map { strdup($0) } + [nil]
-var child: pid_t = 0
-let rc = posix_spawn(&child, python, nil, nil, &cArgs, environ)
-guard rc == 0 else {
-    fputs("LoupedeckBridge: couldn't start \(python): \(String(cString: strerror(rc)))\n", stderr)
-    exit(1)
+if arguments.contains("--check-permission") {
+    exit(BridgeProcess.runOnce(repo: repo, arguments: arguments))
 }
 
-// Pass stop requests on to the bridge, so it can release held keys and close cleanly.
-var signalSources: [DispatchSourceSignal] = []
-for sig in [SIGTERM, SIGINT, SIGHUP] {
-    signal(sig, SIG_IGN)
-    let source = DispatchSource.makeSignalSource(signal: sig, queue: .main)
-    source.setEventHandler { kill(child, sig) }
-    source.resume()
-    signalSources.append(source)
-}
-
-DispatchQueue.global().async {
-    var status: Int32 = 0
-    while waitpid(child, &status, 0) == -1 && errno == EINTR {}
-    let signalled = status & 0x7f
-    exit(signalled == 0 ? (status >> 8) & 0xff : 128 + signalled)
-}
-dispatchMain()
+let app = NSApplication.shared
+app.setActivationPolicy(.accessory)        // menu-bar only: no Dock icon (LSUIElement too)
+let controller = AppController(repo: repo, arguments: arguments)   // installs signal handlers first
+app.delegate = controller
+app.run()

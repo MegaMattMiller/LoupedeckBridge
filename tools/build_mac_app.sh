@@ -1,11 +1,13 @@
 #!/bin/bash
-# Build build/LoupedeckBridge.app: a small launcher that runs this repo's bridge, so macOS
-# grants the keyboard (Accessibility) permission to LoupedeckBridge instead of your terminal.
-# Rebuilding may make macOS ask for the permission again (the app is signed locally).
+# Build build/LoupedeckBridge.app (or OUT_DIR/LoupedeckBridge.app): the menu-bar app that runs this repo's
+# bridge, so macOS grants the keyboard (Accessibility) permission to LoupedeckBridge instead of your terminal.
+# Rebuilding may make macOS ask for the permissions again (the app is signed locally).
+#   tools/build_mac_app.sh [OUT_DIR]
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-APP="$REPO/build/LoupedeckBridge.app"
+OUT="${1:-$REPO/build}"
+APP="$OUT/LoupedeckBridge.app"
 BUNDLE_ID="io.github.megamattmiller.loupedeckbridge"
 
 [ -x "$REPO/.venv/bin/python" ] || { echo "No .venv yet: python3 -m venv .venv && .venv/bin/pip install -r requirements.txt" >&2; exit 1; }
@@ -13,7 +15,7 @@ xml_escape() { sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' <<<"$1"; 
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
-swiftc -O "$REPO/macos/launcher/main.swift" -o "$APP/Contents/MacOS/LoupedeckBridge"
+swiftc -O "$REPO"/macos/launcher/*.swift -o "$APP/Contents/MacOS/LoupedeckBridge"   # not tests/
 
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
