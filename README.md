@@ -114,10 +114,43 @@ tools/bridgectl build    # builds build/LoupedeckBridge.app (needs Xcode's comma
 tools/bridgectl start
 ```
 
-On the first start, macOS asks twice. Allow both:
+On the first start, macOS asks three times. Allow all three:
 1. **Documents access**, because the bridge's code lives in this repo under `~/Documents`.
-2. **Accessibility:** click *Open System Settings* and turn on **LoupedeckBridge**. Check it any
+2. **Notifications**, for the alerts below.
+3. **Accessibility:** click *Open System Settings* and turn on **LoupedeckBridge**. Check it any
    time with `open -n build/LoupedeckBridge.app --args --check-permission` (the result goes to the log).
+
+**After rebuilding the app** (`tools/bridgectl build`), macOS treats it as a new app (it's signed locally),
+so permissions given to the old build may not carry over:
+- **Keyboard keys stop working,** and the menu says "Keyboard keys: need permission". In System Settings →
+  Privacy & Security → Accessibility, remove LoupedeckBridge with "−", add `build/LoupedeckBridge.app`
+  again with "+", and switch it on. The menu updates within seconds.
+- **No alerts,** and the log says "alerts are off". In System Settings → Notifications → LoupedeckBridge,
+  turn "Allow notifications" on, then `tools/bridgectl restart`.
+- Editing the Python code never needs a rebuild, only changes to `macos/launcher/` do.
+
+### The menu-bar icon
+While the bridge runs, LoupedeckBridge shows an icon in the menu bar: sliders when all is well, a warning
+triangle when the Loupedeck or Lightroom isn't connected, keyboard keys need permission, or the bridge
+has stopped. Its menu shows the Loupedeck, Lightroom, keyboard keys and the five buttons' mode, plus
+**Open settings…**, **Start at login** and **Quit LoupedeckBridge**.
+
+**Alerts** (macOS notifications):
+- **"Loupedeck disconnected"** when a Loupedeck that was working drops and is still gone after about
+  3 seconds. A quick replug, a Loupedeck that was never plugged in this session, and the first 15 seconds
+  after the Mac wakes don't alert. At most one a minute.
+- **"Loupedeck is back"** after a "disconnected" alert.
+- **"Keyboard keys need permission"**, once per run, if Accessibility is missing.
+- **"LoupedeckBridge stopped"** if the bridge crashes. The app restarts it after 5 seconds, at most 3 times
+  in 10 minutes. After that, the menu offers **Restart bridge** and **Open log**. If the bridge ever dies
+  abruptly, the app lets go of any key it was holding.
+- No alert when Lightroom quits; the icon shows it.
+
+**One limit:** a Loupedeck that goes quiet while still plugged in (it happened once on 2026-11-16) can't
+be detected, because the device sends nothing when idle. Replug its dongle if the controls stop responding.
+
+**Start at login** is off until you tick it in the menu, or run `tools/bridgectl login on`
+(`off` / `status` too). It appears in System Settings → General → Login Items.
 
 **What these permissions cover, plainly:**
 - Accessibility lets LoupedeckBridge send key presses, and watch and adjust real mouse and keyboard
@@ -130,8 +163,8 @@ On the first start, macOS asks twice. Allow both:
 - The permission belongs to the app, and the app runs whatever code is in this repo and its `.venv`.
   Treat changes to those like changes to any app you've given Accessibility.
 
-`tools/bridgectl stop | restart | status | logs` do what they say. `stop` releases any held keys first.
-Editing the Python code never needs a rebuild. Rebuilding the app may make macOS ask again.
+`tools/bridgectl stop | restart | status | logs` do what they say. `stop` (like Quit in the menu)
+releases any held keys first.
 Only one bridge runs at a time: a second one, e.g. from a terminal, refuses to start.
 
 Keys go to whichever app is in front, like a second keyboard.
@@ -147,7 +180,7 @@ Keys go to whichever app is in front, like a second keyboard.
 2. ✅ Keyboard keys and shortcuts on macOS: Shift/Ctrl/Cmd/Alt/Tab and arrows, Before/After, screen mode (sent to whichever app is in front)
 3. ✅ Settings page: search presets and assign them to P1–P8
 4. ✅ Settings page: remap any control, with an Fn layer
-5. Start at login, plus a status display
+5. ✅ Start at login, plus a menu-bar status icon and alerts
 6. Windows (macOS-tested code first, then a Windows test run)
 7. **GitHub Releases** once it's shippable: versioned downloads and a changelog
 

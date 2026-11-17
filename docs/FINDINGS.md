@@ -180,6 +180,37 @@ A throwaway, ad-hoc-signed app (bundle id `…loupedeckbridge.spike`) answered t
   application" (UNErrorDomain 1), without asking. The real app lives in `build/`, so alerts carry the
   LoupedeckBridge name as designed. Don't run the app from a temp folder.
 
+## Milestone 5 live check (menu-bar app, 2026-11-16)
+**Two bugs found on the first real run, both fixed with a test first:**
+- **The status pipe was dead** ("status reporting off: [Errno 9] Bad file descriptor"). The app's
+  posix_spawn file actions put the pipe's write end on fd 3, *then* closed the read end, which was also fd 3.
+  Now the read end is closed first (`status_pipe_reaches_the_app`).
+- **Every log line appeared twice.** The app routes the bridge's stderr into bridge.log, and the bridge also
+  logged to stderr. The console copy is now skipped when stderr is the log file.
+
+**Permissions after a rebuild:** each rebuild is signed ad hoc, so macOS treats it as a new app.
+- Accessibility had to be removed and re-added in System Settings.
+- Notifications were refused at once, with no prompt, until "Allow notifications" was turned back on for
+  LoupedeckBridge in System Settings → Notifications.
+- The first build after the change prompted for both, plus Documents access.
+- A fixed local signing identity would avoid this (a candidate for milestone 7's releases).
+
+**With the user, all passed:**
+1. Unplugging the dongle: "disconnected" after about 3 s and a warning icon; replugging: "is back".
+2. A quick replug: no alert.
+3. Lightroom quitting: a warning icon, no alert.
+4. --/Col and Fn + --/Col: the menu's "Five buttons" follows.
+5. Open settings… opens the page.
+6. Start at login appears in Login Items and can be unticked.
+7. The bridge killed with SIGKILL (exit 137): an alert, restarted after exactly 5 s, everything reconnected.
+8. Quit: the icon goes away, and the bridge stops cleanly.
+9. Starting with the Loupedeck unplugged: no alert, a warning icon; plugging it in: a normal icon, no alert.
+
+Also checked:
+- a second copy of the app quits quietly ("already running")
+- `--check-permission` reports and exits without an icon
+- granting Accessibility while it runs turns the menu's "Keyboard keys" to allowed within seconds
+
 ## API notes the handoff didn't capture
 - **How object handles come about:** `addAdjustmentChangeObserver(param?)` and `addHapticsObserver()` return a GUID/object. Later notifications arrive as extra responses for that same original `requestId` (this is the "one request, many responses" case). Call `close` on the handle when done.
 - **Tracking:** `startTracking(param)` turns itself off **2 s** after the last change, or as soon as a *different* parameter is adjusted. `stopTracking()` commits **one** history state. `setMultipleAdjustmentThreshold` defaults to **0.5 s** and has no effect if it's larger than the tracking delay.
