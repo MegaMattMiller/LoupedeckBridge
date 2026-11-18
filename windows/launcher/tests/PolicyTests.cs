@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
 
@@ -433,6 +434,54 @@ namespace LoupedeckBridge
                     if (!back.SequenceEqual(argv)) return CommandLine.Join(argv) + " → " + string.Join(" | ", back);
                 }
                 return null;
+            });
+
+            // ---- ending the bridge's process tree (live check: a venv's python.exe is a launcher with a child) ----
+            // cmd.exe stands in for the launcher, and the ping.exe it starts for the real Python.
+            Process StartTree()
+            {
+                var root = Process.Start(new ProcessStartInfo("cmd.exe", "/c ping -n 30 127.0.0.1 >nul")
+                                         { UseShellExecute = false, CreateNoWindow = true });
+                for (var i = 0; i < 50 && ProcessTree.Children(root.Id, root.StartTime, IsPing).Count == 0; i++)
+                    System.Threading.Thread.Sleep(100);
+                return root;
+            }
+            bool Gone(int pid)
+            {
+                try { using (var p = Process.GetProcessById(pid)) return p.WaitForExit(5000); }
+                catch (ArgumentException) { return true; }
+            }
+            bool IsPing(string name) => string.Equals(name, "ping.exe", StringComparison.OrdinalIgnoreCase);
+
+            Check("kill_ends_the_bridge_and_its_python", () =>
+            {
+                var root = StartTree();
+                var child = ProcessTree.Children(root.Id, root.StartTime, IsPing).SingleOrDefault();
+                if (child == 0) return "no child to test with";
+                ProcessTree.Kill(root, IsPing);
+                return Gone(root.Id) && Gone(child) ? null : $"still running: root {!Gone(root.Id)}, child {!Gone(child)}";
+            });
+
+            Check("kill_leaves_other_children_alone", () =>
+            {
+                // The bridge may start other programs, e.g. the browser for the settings page: never end those.
+                var root = StartTree();
+                var child = ProcessTree.Children(root.Id, root.StartTime, IsPing).SingleOrDefault();
+                ProcessTree.Kill(root, _ => false);
+                var survived = !Gone(child);
+                try { Process.GetProcessById(child).Kill(); } catch (Exception) { }
+                return Gone(root.Id) && survived ? null : "the other child was ended too (or the root wasn't)";
+            });
+
+            Check("orphaned_python_is_ended_after_the_launcher_exits", () =>
+            {
+                var root = StartTree();
+                var start = root.StartTime;
+                var child = ProcessTree.Children(root.Id, start, IsPing).SingleOrDefault();
+                root.Kill();                                    // only the launcher: its child is orphaned
+                root.WaitForExit(5000);
+                ProcessTree.EndOrphans(root.Id, start, IsPing);
+                return Gone(child) ? null : "the orphan is still running";
             });
 
             return failures == 0 ? 0 : 1;

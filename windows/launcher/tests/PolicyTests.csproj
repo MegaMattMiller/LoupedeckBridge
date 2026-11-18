@@ -15,6 +15,7 @@
     <Compile Include="PolicyTests.cs" />
     <Compile Include="..\Policies.cs" />
     <Compile Include="..\BuildInfo.cs" />
+    <Compile Include="..\ProcessTree.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.Web.Extensions" />

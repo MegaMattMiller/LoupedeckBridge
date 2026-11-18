@@ -21,6 +21,8 @@ namespace LoupedeckBridge
         public event Action<int> Exited;                      // on a worker thread, once
 
         Process process;
+        int pid;
+        DateTime started;
         AnonymousPipeServerStream statusPipe;
         AnonymousPipeServerStream controlPipe;
         Timer killTimer;
@@ -60,6 +62,8 @@ namespace LoupedeckBridge
             }
             // Only the bridge holds the other ends now: when it exits, the status pipe ends; when this app exits,
             // the control pipe does.
+            pid = process.Id;
+            started = process.StartTime;
             statusPipe.DisposeLocalCopyOfClientHandle();
             controlPipe.DisposeLocalCopyOfClientHandle();
             process.OutputDataReceived += (_, e) => { if (e.Data != null) Log.Append(e.Data + Environment.NewLine); };
@@ -96,6 +100,9 @@ namespace LoupedeckBridge
             if (Interlocked.Exchange(ref exitReported, 1) == 1) return;
             process.WaitForExit();                         // lets the output readers finish
             var code = process.ExitCode;
+            // A venv launcher that exited (or was ended) on its own may leave the real Python running: end it, so a
+            // stopped bridge never holds the Loupedeck or the single-instance lock (ProcessTree.cs).
+            ProcessTree.EndOrphans(pid, started, ProcessTree.IsPython);
             Running = false;
             killTimer?.Dispose();
             try { controlPipe.Dispose(); } catch (IOException) { }
@@ -121,7 +128,7 @@ namespace LoupedeckBridge
                 {
                     if (child.HasExited) return;
                     Log.Write("the bridge didn't stop within 5 s; forcing it", "WARNING");
-                    child.Kill();
+                    ProcessTree.Kill(child, ProcessTree.IsPython);   // a venv launcher and its real Python
                 }
                 catch (Exception e) when (e is InvalidOperationException || e is Win32Exception) { }
             }, null, 5000, Timeout.Infinite);

@@ -22,7 +22,9 @@ CHECKS = ["never_connected_never_alerts", "drop_alerts_after_debounce", "quick_r
           "quit_during_an_update_just_quits",
           # Windows
           "parse_reads_busy", "runtime_paths_bundled_and_repo", "bridge_arguments", "build_info_names",
-          "build_info_rejects_garbage", "problem_text_names_busy", "tooltips_fit", "command_line_quotes_paths"]
+          "build_info_rejects_garbage", "problem_text_names_busy", "tooltips_fit", "command_line_quotes_paths",
+          "kill_ends_the_bridge_and_its_python", "kill_leaves_other_children_alone",
+          "orphaned_python_is_ended_after_the_launcher_exits"]
 
 pytestmark = pytest.mark.skipif(not CAN_BUILD, reason="needs Windows and the .NET SDK")
 
