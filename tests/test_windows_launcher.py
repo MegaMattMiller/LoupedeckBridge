@@ -35,7 +35,10 @@ CHECKS = ["never_connected_never_alerts", "drop_alerts_after_debounce", "quick_r
           "notice_once_per_version", "notice_survives_a_relaunch", "found_update_survives_a_relaunch",
           "install_plan_order", "install_plan_refuses_damaged", "install_plan_refuses_bad_signature",
           "install_plan_refuses_not_a_release", "install_plan_refuses_no_version", "install_plan_refuses_not_newer",
-          "install_plan_accepts_valid", "zip_layout_refuses_unsafe_paths", "download_is_capped_and_hashed"]
+          "install_plan_accepts_valid", "zip_layout_refuses_unsafe_paths", "download_is_capped_and_hashed",
+          # swapping a new version in, and going back
+          "swap_moves_old_aside_and_copies_new", "swap_replaces_an_older_previous", "swap_failure_puts_the_old_back",
+          "go_back_swaps_previous_in", "go_back_needs_a_complete_previous"]
 
 pytestmark = pytest.mark.skipif(not CAN_BUILD or not CAN_SIGN, reason="needs Windows, the .NET SDK, bash and openssl")
 

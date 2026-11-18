@@ -40,12 +40,14 @@ def test_layout():
     assert info == {"runtime": "bundled", "version": bridge.__version__, "is_dev": False, "signer_sha256": pinned_signer()}
     exe = APP / "LoupedeckBridge.exe"
     assert exe.is_file()
+    # Settings → Apps → Uninstall runs this copy (tools/install.ps1 -Uninstall)
+    assert (APP / "install.ps1").read_bytes() == (REPO / "tools" / "install.ps1").read_bytes()
     for rel in ("app/bridge/__main__.py", "app/bridge/settings/static/index.html", "app/config/commands.json",
                 "app/config/default_mapping.json", "app/config/loupedeck_plus.json", "app/docs/lr_parameters_10.0.json"):
         assert (APP / rel).is_file(), rel
     meta = subprocess.run(["powershell.exe", "-NoProfile", "-Command",
                            f"$v = (Get-Item '{exe}').VersionInfo; $v.FileDescription; $v.FileVersion; $v.ProductVersion"],
-                          capture_output=True, text=True, env={k: v for k, v in os.environ.items() if k != "PSModulePath"})
+                          capture_output=True, text=True, env={k: v for k, v in os.environ.items() if k.upper() != "PSMODULEPATH"})
     description, file_version, product_version = meta.stdout.split("\n")[:3]
     assert description.strip() == "LoupedeckBridge"
     assert file_version.strip() == bridge.__version__ + ".0" and product_version.strip() == bridge.__version__

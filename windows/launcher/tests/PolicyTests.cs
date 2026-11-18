@@ -683,6 +683,90 @@ namespace LoupedeckBridge
                 catch (DownloadTooLargeException) { return null; }
             });
 
+            // ---- swapping a new version in (the new copy finishes the update after the old one exits) -------------
+            string Scratch()
+            {
+                var dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "lb-swap-" + Guid.NewGuid().ToString("N"), "Programs");
+                System.IO.Directory.CreateDirectory(dir);
+                return dir;
+            }
+            string Version_(string dir) => System.IO.File.ReadAllText(System.IO.Path.Combine(dir, "version.txt"));
+            void MakeApp(string dir, string version, bool complete = true)
+            {
+                System.IO.Directory.CreateDirectory(System.IO.Path.Combine(dir, "app"));
+                System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "version.txt"), version);
+                System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "app", "code.py"), "# v" + version);
+                if (!complete) return;
+                System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "LoupedeckBridge.exe"), "MZ");
+                System.IO.File.WriteAllText(System.IO.Path.Combine(dir, BuildInfo.FileName),
+                    "{\"runtime\": \"bundled\", \"version\": \"" + version + "\", \"is_dev\": false}");
+            }
+
+            Check("swap_moves_old_aside_and_copies_new", () =>
+            {
+                var root = Scratch();
+                var install = System.IO.Path.Combine(root, "LoupedeckBridge");
+                MakeApp(install, "0.6.0");
+                MakeApp(Swap.NewDir(install), "0.6.1");
+                var why = Swap.Run(install, Swap.NewDir(install), Swap.CopyTree);
+                if (why != null) return why;
+                return Version_(install) == "0.6.1" && Version_(Swap.PreviousDir(install)) == "0.6.0"
+                    ? null : $"installed {Version_(install)}, previous {Version_(Swap.PreviousDir(install))}";
+            });
+
+            Check("swap_replaces_an_older_previous", () =>
+            {
+                var root = Scratch();
+                var install = System.IO.Path.Combine(root, "LoupedeckBridge");
+                MakeApp(Swap.PreviousDir(install), "0.5.9");
+                MakeApp(install, "0.6.0");
+                MakeApp(Swap.NewDir(install), "0.6.1");
+                var why = Swap.Run(install, Swap.NewDir(install), Swap.CopyTree);
+                return why == null && Version_(Swap.PreviousDir(install)) == "0.6.0" ? null : why ?? "previous wasn't replaced";
+            });
+
+            Check("swap_failure_puts_the_old_back", () =>
+            {
+                // Review Focus 5: a copy that fails midway (a full disk, a locked file) puts the old version back.
+                var root = Scratch();
+                var install = System.IO.Path.Combine(root, "LoupedeckBridge");
+                MakeApp(install, "0.6.0");
+                MakeApp(Swap.NewDir(install), "0.6.1");
+                var why = Swap.Run(install, Swap.NewDir(install), (from, to) =>
+                {
+                    System.IO.Directory.CreateDirectory(to);
+                    System.IO.File.Copy(System.IO.Path.Combine(from, "version.txt"), System.IO.Path.Combine(to, "version.txt"));
+                    throw new System.IO.IOException("There is not enough space on the disk.");
+                });
+                if (why == null || !why.StartsWith("CopyNewIn")) return "result: " + why;
+                if (Version_(install) != "0.6.0" || System.IO.File.ReadAllText(System.IO.Path.Combine(install, "app", "code.py")) != "# v0.6.0")
+                    return "the old version isn't back intact";
+                return System.IO.Directory.Exists(Swap.PreviousDir(install)) ? "a .previous was left behind" : null;
+            });
+
+            Check("go_back_swaps_previous_in", () =>
+            {
+                var root = Scratch();
+                var install = System.IO.Path.Combine(root, "LoupedeckBridge");
+                MakeApp(install, "0.6.1");
+                MakeApp(Swap.PreviousDir(install), "0.6.0");
+                var why = Swap.GoBack(install, Swap.CopyTree) ?? Swap.Run(install, Swap.NewDir(install), Swap.CopyTree);
+                if (why != null) return why;
+                return Version_(install) == "0.6.0" && Version_(Swap.PreviousDir(install)) == "0.6.1"
+                    ? null : $"installed {Version_(install)}, previous {Version_(Swap.PreviousDir(install))}";
+            });
+
+            Check("go_back_needs_a_complete_previous", () =>
+            {
+                var root = Scratch();
+                var install = System.IO.Path.Combine(root, "LoupedeckBridge");
+                if (Swap.GoBackProblem(Swap.PreviousDir(install)) == null) return "accepted a missing previous";
+                MakeApp(Swap.PreviousDir(install), "0.6.0", complete: false);
+                if (Swap.GoBackProblem(Swap.PreviousDir(install)) == null) return "accepted one without its exe";
+                MakeApp(Swap.PreviousDir(install), "0.6.0");
+                return Swap.GoBackProblem(Swap.PreviousDir(install));
+            });
+
             return failures == 0 ? 0 : 1;
         }
     }

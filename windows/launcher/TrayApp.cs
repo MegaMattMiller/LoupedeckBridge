@@ -15,7 +15,10 @@ namespace LoupedeckBridge
         readonly BuildInfo info;
         readonly RuntimePaths paths;
         readonly string exe;
+        readonly string appDir;
         readonly string[] bridgeArguments;
+        readonly Updater updater;                        // release builds only
+        Action pendingSwap;                              // what an update does once the bridge has stopped
         readonly NotifyIcon icon;
         readonly ContextMenuStrip menu = new ContextMenuStrip();
         readonly Control ui = new Control();             // marshals bridge events onto this thread
@@ -31,11 +34,12 @@ namespace LoupedeckBridge
 
         double Now => clock.Elapsed.TotalSeconds;
 
-        public TrayApp(BuildInfo info, RuntimePaths paths, string exe, string[] bridgeArguments)
+        public TrayApp(BuildInfo info, RuntimePaths paths, string exe, string appDir, string[] bridgeArguments)
         {
             this.info = info;
             this.paths = paths;
             this.exe = exe;
+            this.appDir = appDir;
             this.bridgeArguments = bridgeArguments;
             ui.CreateControl();
             _ = ui.Handle;
@@ -50,6 +54,25 @@ namespace LoupedeckBridge
             quitEvent = new EventWaitHandle(false, EventResetMode.AutoReset, info.QuitEventName);
             quitWait = ThreadPool.RegisterWaitForSingleObject(quitEvent, (_, __) => OnUi(Quit), null, Timeout.Infinite, false);
             Log.Write($"{info.Name} {(info.IsDev ? "(repo)" : "v" + info.Version)} started; bridge: {paths}");
+            if (!info.IsDev && info.Version != null)
+            {
+                updater = new Updater(info, appDir)
+                {
+                    Notify = Notify,
+                    StopBridge = then => { pendingSwap = then; Perform(supervisor.StopForUpdate(bridge?.Running ?? false)); },
+                    AbandonUpdate = () => Perform(supervisor.UpdateAbandoned()),
+                    Exit = ExitApp,
+                    OnUi = OnUi,
+                };
+                Swap.CleanUp(appDir);                        // the .new folder the last update came from
+                var failed = Prefs.GetString("UpdateFailed");
+                if (failed != null)
+                {
+                    Prefs.Delete("UpdateFailed");
+                    Notify("The update didn't finish", failed + $". v{info.Version} is running.", ToolTipIcon.Warning);
+                }
+                updater.Start();
+            }
             Perform(supervisor.Start());
         }
 
@@ -85,7 +108,11 @@ namespace LoupedeckBridge
                         timer.Start();
                         break;
                     case SupervisorAction.Kinds.TerminateApp: ExitApp(); break;
-                    case SupervisorAction.Kinds.ReadyToSwap: break;     // updates (milestone 7, Task 9)
+                    case SupervisorAction.Kinds.ReadyToSwap:            // the bridge has stopped for an update
+                        var then = pendingSwap;
+                        pendingSwap = null;
+                        then?.Invoke();
+                        break;
                 }
             }
             UpdateIcon();
@@ -152,6 +179,9 @@ namespace LoupedeckBridge
                 menu.Items.Add(Info("The bridge has stopped", false));
                 menu.Items.Add(Action("Restart bridge", () => Perform(supervisor.ManualRestart())));
                 menu.Items.Add(Action("Open log", OpenLog));
+                // An update that keeps failing (the restart budget is used up) can be undone.
+                var previous = supervisor.State == BridgeSupervisor.States.Stopped ? updater?.PreviousVersion : null;
+                if (previous != null) menu.Items.Add(Action($"Go back to the previous version (v{previous})…", () => updater.GoBack()));
             }
             else if (current != null)
             {
@@ -173,6 +203,21 @@ namespace LoupedeckBridge
             var login = Action("Start at login", ToggleLogin);
             login.Checked = LoginItem.IsOn(info.Name);
             menu.Items.Add(login);
+            if (updater != null)
+            {
+                menu.Items.Add(new ToolStripSeparator());
+                if (updater.Phase == Updater.Phases.Installing)
+                    menu.Items.Add(Info($"Installing {updater.Target}: {Updater.StepLabel(updater.Step)}…", null));
+                else if (updater.Available != null)
+                    menu.Items.Add(Action($"Update available: v{updater.Available.Version} – Install…", () => updater.InstallAvailable()));
+                var check = Action(updater.Phase == Updater.Phases.Checking ? "Checking for updates…" : "Check for updates now",
+                                   () => updater.CheckNow());
+                check.Enabled = updater.Phase == Updater.Phases.Idle;
+                menu.Items.Add(check);
+                var automatic = Action("Check for updates automatically", () => updater.Automatic = !updater.Automatic);
+                automatic.Checked = updater.Automatic;
+                menu.Items.Add(automatic);
+            }
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(Action("Quit " + info.Name, Quit));
         }

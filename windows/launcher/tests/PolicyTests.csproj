@@ -18,6 +18,7 @@
     <Compile Include="..\ProcessTree.cs" />
     <Compile Include="..\Signature.cs" />
     <Compile Include="..\Download.cs" />
+    <Compile Include="..\Swap.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.Web.Extensions" />

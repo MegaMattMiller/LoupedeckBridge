@@ -99,6 +99,7 @@ $code = Join-Path $app 'app'
 New-Item -ItemType Directory -Force (Join-Path $code 'docs') | Out-Null
 Copy-Item -Recurse (Join-Path $repo 'bridge'), (Join-Path $repo 'config') $code
 Copy-Item (Join-Path $repo 'docs\lr_parameters_10.0.json') (Join-Path $code 'docs')
+Copy-Item (Join-Path $repo 'tools\install.ps1') $app        # Settings → Apps → Uninstall runs it (install.ps1 -Uninstall)
 
 # Strip what the app never uses, then precompile everything
 # (pip stays: CI runs the test suite with this Python, through a venv that shares its packages)
