@@ -57,6 +57,7 @@ $MaxBytes = [long](Setting 'LB_MAX_DOWNLOAD_BYTES' '209715200')   # 200 MB: a re
 $Exe = Join-Path $InstallDir 'LoupedeckBridge.exe'
 $Previous = "$InstallDir.previous"
 $New = "$InstallDir.new"
+$Older = "$InstallDir.older"                       # the older .previous, kept until the new version is in place
 $UserAgent = 'LoupedeckBridge-installer'
 
 function Say([string]$Message) { Write-Host "install.ps1: $Message" }
@@ -76,6 +77,33 @@ function Stop-LoupedeckBridge {
     return $quit.ExitCode -eq 0
 }
 
+# `--quit` returns once the app has let go of its single-instance lock, a moment before its process (and its bridge's
+# Python) have exited: wait for every process running from the install folder.
+function Wait-InstalledProcesses {
+    $prefix = $InstallDir.TrimEnd('\') + '\'
+    $ids = @(Get-CimInstance Win32_Process | Where-Object {
+        $_.ExecutablePath -and $_.ExecutablePath.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase) } |
+        ForEach-Object { $_.ProcessId })
+    if ($ids.Count) { Wait-Process -Id $ids -Timeout 15 -ErrorAction SilentlyContinue }
+}
+
+# Renames a folder in one step, trying for a few seconds (a program that has just exited, or an antivirus scanner, can
+# hold it for a moment). [IO.Directory]::Move, not Move-Item: when the rename fails, Move-Item moves what it can file by
+# file, and leaves the app split between two folders.
+function Move-Folder([string]$From, [string]$To) {
+    for ($attempt = 1; ; $attempt++) {
+        try { [IO.Directory]::Move($From, $To); return }
+        catch {
+            if ($attempt -ge 10) {
+                $e = $_.Exception
+                if ($e.InnerException) { $e = $e.InnerException }
+                throw $e
+            }
+            Start-Sleep -Milliseconds 300
+        }
+    }
+}
+
 function Start-LoupedeckBridge {
     if ($env:LB_INSTALL_NO_START -eq '1') { return }
     if (Test-Path $Exe) { Start-Process -FilePath $Exe | Out-Null }
@@ -85,10 +113,11 @@ function Start-LoupedeckBridge {
 if ($Uninstall) {
     Set-Location $env:TEMP                     # not inside the folder about to be removed
     if (-not (Stop-LoupedeckBridge)) { Fail "LoupedeckBridge won't quit (quit it from its tray icon, then try again)" }
+    Wait-InstalledProcesses
     Remove-ItemProperty -Path $RunKey -Name 'LoupedeckBridge' -ErrorAction SilentlyContinue
     Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $StartMenuDir 'LoupedeckBridge.lnk')
     Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $UninstallKey
-    foreach ($dir in $InstallDir, $Previous, $New) {
+    foreach ($dir in $InstallDir, $Previous, $New, $Older) {
         if (Test-Path $dir) {
             try { Remove-Item -Recurse -Force $dir }
             catch { Start-Sleep -Seconds 2; Remove-Item -Recurse -Force $dir }
@@ -210,34 +239,52 @@ try {
         Fail "v$wanted isn't newer than the installed v$installed (-AllowOlder installs it anyway)"
     }
 
-    # ---- the swap: everything is checked; now stop the running app and put the new version in place
+    # ---- the swap: everything is checked; now stop the running app and put the new version in place. The older
+    # .previous waits as .older until the new version is in place, so a failed swap leaves both versions as they were.
     New-Item -ItemType Directory -Force (Split-Path -Parent $InstallDir) | Out-Null
     if (Test-Path $New) { Remove-Item -Recurse -Force $New }
     Move-Item (Join-Path $unzipped 'LoupedeckBridge') $New
     if (-not (Stop-LoupedeckBridge)) { Remove-Item -Recurse -Force $New; Fail "LoupedeckBridge won't quit (quit it from its tray icon, then try again)" }
+    Wait-InstalledProcesses
     $hadOld = Test-Path $InstallDir
+    $hadPrevious = $hadOld -and (Test-Path $Previous)
     if ($hadOld) {
-        if (Test-Path $Previous) { Remove-Item -Recurse -Force $Previous }
-        try { Move-Item $InstallDir $Previous }
-        catch { Remove-Item -Recurse -Force $New; Start-LoupedeckBridge; Fail "couldn't move the old version aside ($($_.Exception.Message))" }
+        try {
+            if (Test-Path $Older) { Remove-Item -Recurse -Force $Older }            # left by an install cut short
+            if ($hadPrevious) { Move-Folder $Previous $Older }
+            Move-Folder $InstallDir $Previous
+        } catch {
+            $why = $_.Exception.Message
+            if ($hadPrevious -and (Test-Path $Older) -and -not (Test-Path $Previous)) {
+                try { Move-Folder $Older $Previous } catch { }
+            }
+            Remove-Item -Recurse -Force $New; Start-LoupedeckBridge; Fail "couldn't move the old version aside ($why)"
+        }
     }
     # For the tests only: hold one file of the new version open, so the step below fails (a stand-in for an antivirus
     # scanner or another program holding it), and the old version must be put back.
     $held = $null
     if ($env:LB_INSTALL_HOLD_FILE) { $held = [IO.File]::Open((Join-Path $New $env:LB_INSTALL_HOLD_FILE), 'Open', 'Read', 'Read') }
     try {
-        Move-Item $New $InstallDir
+        Move-Folder $New $InstallDir
     } catch {
         $why = $_.Exception.Message
         if ($held) { $held.Dispose() }
-        if (Test-Path $InstallDir) { Remove-Item -Recurse -Force $InstallDir }
-        if ($hadOld) { Move-Item $Previous $InstallDir }
+        try {
+            if (Test-Path $InstallDir) { Remove-Item -Recurse -Force $InstallDir }
+            if ($hadOld) { Move-Folder $Previous $InstallDir }
+            if ($hadPrevious) { Move-Folder $Older $Previous }
+        } catch {
+            Say "couldn't put the new version in place ($why), nor the previous one back ($($_.Exception.Message)): it is in $Previous"
+            exit 1
+        }
         Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $New
         Start-LoupedeckBridge
         Say "couldn't put the new version in place ($why); the previous version was put back and started again"
         exit 1
     }
     if ($held) { $held.Dispose() }
+    if ($hadPrevious) { Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $Older }
 
     # ---- the Start menu entry and Settings → Apps
     New-Item -ItemType Directory -Force $StartMenuDir | Out-Null

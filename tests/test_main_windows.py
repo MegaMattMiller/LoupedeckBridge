@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import site
 import socket
 import subprocess
 import sys
@@ -82,14 +83,14 @@ class Pipes:
         os.close(self.status_w)
 
 
-def start(env, port, pipes=None):
-    args = [sys.executable, "-m", "bridge", "--midi-port", "NoSuchDevice", "--lightroom-port", str(port),
+def start(env, port, pipes=None, cwd=REPO, python=sys.executable):
+    args = [python, "-m", "bridge", "--midi-port", "NoSuchDevice", "--lightroom-port", str(port),
             "--settings-port", "0"]
     kwargs = {}
     if pipes is not None:
         env = {**env, **pipes.env()}
         kwargs["startupinfo"] = subprocess.STARTUPINFO(lpAttributeList={"handle_list": pipes.handles})
-    p = subprocess.Popen(args, cwd=REPO, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    p = subprocess.Popen(args, cwd=cwd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                          close_fds=True, **kwargs)
     PROCS.append(p)
     if pipes is not None:
@@ -165,3 +166,26 @@ def test_second_instance_exits_3(tmp_path):
     assert first.wait(timeout=10) == 0
     os.close(pipes.control_w)
     os.close(pipes.status_r)
+
+
+@windows_only
+def test_bridge_steps_out_of_its_start_folder(tmp_path):
+    # The tray app starts the bridge in <install>\app, and an update renames the install folder: Windows won't rename
+    # a folder that is a process's current folder (the bridge's, or that of a browser it opens), so it steps out.
+    env, log, port = isolated_env(tmp_path)
+    start_dir = tmp_path / "app"
+    start_dir.mkdir()
+    # The venv's python.exe is a launcher that runs the real one as its child, and stays where it started; the release
+    # runs its python.exe directly, so this runs the real one too, with the venv's packages.
+    python = getattr(sys, "_base_executable", None) or str(Path(sys.base_prefix) / "python.exe")
+    path = os.pathsep.join([str(REPO), *site.getsitepackages()])
+    pipes = Pipes()
+    proc = start({**env, "PYTHONPATH": path}, port, pipes, cwd=start_dir, python=python)
+    wait_for_log(log, "waiting for a MIDI input")
+    try:
+        start_dir.rename(tmp_path / "app-moved")
+    finally:
+        os.write(pipes.control_w, b"stop\n")
+        assert proc.wait(timeout=10) == 0
+        os.close(pipes.control_w)
+        os.close(pipes.status_r)

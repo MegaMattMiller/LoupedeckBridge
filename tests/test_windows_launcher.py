@@ -5,7 +5,11 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
+import sys
+import time
+from pathlib import Path
 
 import pytest
 
@@ -41,7 +45,10 @@ CHECKS = ["never_connected_never_alerts", "drop_alerts_after_debounce", "quick_r
           "go_back_swaps_previous_in", "go_back_needs_a_complete_previous",
           # security review
           "release_parse_needs_github_downloads", "restore_refuses_other_hosts_and_names",
-          "finish_update_only_from_the_new_folder"]
+          "finish_update_only_from_the_new_folder",
+          # final review: the swap from inside the install folder, and the older .previous kept until it succeeds
+          "swap_from_inside_the_install_folder", "swap_failure_keeps_the_older_previous",
+          "swap_copy_failure_keeps_the_older_previous"]
 
 pytestmark = pytest.mark.skipif(not CAN_BUILD or not CAN_SIGN, reason="needs Windows, the .NET SDK, bash and openssl")
 
@@ -114,3 +121,35 @@ def test_check_signature_refuses_a_missing_signature(tray_exe, tmp_path):
     lone.write_bytes(b"x")
     result = subprocess.run([str(tray_exe), "--check-signature", str(lone)], capture_output=True, text=True, timeout=60)
     assert result.returncode == 1 and result.stdout.startswith("refused:"), result.stdout + result.stderr
+
+
+# ---- final review: the tray app steps out of the folder it was started in ----------------------------------------
+
+def test_exe_steps_out_of_its_start_folder(tray_exe, tmp_path):
+    # Started from the Start menu or by an update, the tray app's current folder is the install folder. Windows won't
+    # rename a folder that is a process's current folder, and the programs it opens (a browser, Notepad) would inherit
+    # it, so it steps out at once. Here as the finisher of an update, which waits for the old copy (a sleeper) to exit.
+    install = tmp_path / "LoupedeckBridge"
+    new = Path(str(install) + ".new")
+    shutil.copytree(tray_exe.parent, new)
+    start = tmp_path / "start"
+    start.mkdir()
+    sleeper = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+    finisher = subprocess.Popen([str(new / "LoupedeckBridge.exe"), "--finish-update", str(sleeper.pid), str(install)],
+                                cwd=start)
+    try:
+        time.sleep(1.5)                                   # well past its start-up
+        deadline = time.monotonic() + 5
+        while True:
+            try:
+                start.rename(tmp_path / "start-moved")
+                break
+            except PermissionError:
+                if time.monotonic() > deadline:
+                    raise AssertionError("the tray app still stands in the folder it was started in")
+                time.sleep(0.2)
+        assert finisher.poll() is None, "it should still be waiting for the old copy to exit"
+    finally:
+        for proc in (finisher, sleeper):
+            proc.kill()
+            proc.wait(timeout=10)

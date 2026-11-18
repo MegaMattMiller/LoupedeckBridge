@@ -335,3 +335,76 @@ def test_uninstall_keeps_user_settings(rig, tmp_path):
     assert rig.registry("DisplayName") is None
     assert settings.exists() and "loupedeck-lr-bridge" in output(result)
     assert any(line.endswith("--quit") for line in rig.logged())
+
+
+# ---- final review: the swap waits for a folder held a moment longer, and keeps the older .previous until it works ----
+
+HOLDER = """import pathlib, sys, time
+log, then = pathlib.Path(sys.argv[1]), float(sys.argv[2])
+deadline = time.time() + 170
+while time.time() < deadline and not (log.exists() and "--quit" in log.read_text(encoding="utf-8", errors="replace")):
+    time.sleep(0.05)
+time.sleep(then)
+"""
+
+
+def hold(rig, then: float) -> subprocess.Popen:
+    """A process standing in <install>\\app until `then` seconds after install.ps1 asks the app to quit: as the old
+    app does for a moment after its `--quit` returns, or a browser it opened would."""
+    return subprocess.Popen([sys.executable, "-c", HOLDER, str(rig.log), str(then)], cwd=rig.install / "app")
+
+
+def previous(rig) -> "str | None":
+    marker = rig.install.parent / "LoupedeckBridge.previous" / "app" / "version.txt"
+    return marker.read_text(encoding="utf-8") if marker.exists() else None
+
+
+def test_install_waits_for_a_folder_held_a_moment_longer(rig):
+    rig.release("0.6.0")
+    assert rig.run().returncode == 0
+    rig.release("0.6.1")
+    holder = hold(rig, then=1.0)
+    try:
+        result = rig.run()
+    finally:
+        holder.kill()
+        holder.wait(timeout=10)
+    assert result.returncode == 0 and rig.installed() == "0.6.1", output(result)
+    assert previous(rig) == "0.6.0"
+
+
+def test_failed_move_keeps_the_older_previous(rig):
+    rig.release("0.6.0")
+    assert rig.run().returncode == 0
+    rig.release("0.6.1")
+    assert rig.run().returncode == 0
+    rig.release("0.6.2")
+    holder = hold(rig, then=170)                          # for the whole run
+    try:
+        result = rig.run()
+    finally:
+        holder.kill()
+        holder.wait(timeout=10)
+    assert result.returncode == 1 and "couldn't move the old version aside" in output(result), output(result)
+    assert rig.installed() == "0.6.1" and previous(rig) == "0.6.0"
+
+
+def test_failed_copy_keeps_the_older_previous(rig):
+    rig.release("0.6.0")
+    assert rig.run().returncode == 0
+    rig.release("0.6.1")
+    assert rig.run().returncode == 0
+    rig.release("0.6.2")
+    rig.env["LB_INSTALL_HOLD_FILE"] = "app/version.txt"
+    result = rig.run()
+    assert result.returncode == 1 and "put back" in output(result), output(result)
+    assert rig.installed() == "0.6.1" and previous(rig) == "0.6.0"
+
+
+def test_uninstall_removes_a_leftover_older_copy(rig):
+    rig.release("0.6.0")
+    assert rig.run().returncode == 0
+    leftover = rig.install.parent / "LoupedeckBridge.older"            # an install cut short mid-swap
+    (leftover / "app").mkdir(parents=True)
+    result = rig.run("-Uninstall")
+    assert result.returncode == 0 and not leftover.exists(), output(result)

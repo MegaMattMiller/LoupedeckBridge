@@ -1,9 +1,10 @@
 // Putting a new version in place, and going back (milestone 7). A running program can't be moved or deleted on
 // Windows (the Mac app moves itself to the Trash), so an update is finished by the *new* copy, started from
 // <install>.new after the old one has exited (`LoupedeckBridge.exe --finish-update`):
-//   1. the install folder is renamed to <install>.previous (replacing an older one)
+//   1. the install folder is renamed to <install>.previous (an older .previous waits as <install>.older meanwhile)
 //   2. the new copy copies itself into the install folder
-// If step 2 fails, the partial copy is removed and .previous is renamed back, so there's always a working version.
+// If either step fails, the partial copy is removed and .previous and .older are renamed back, so there's always a
+// working version and the version Go back returns to. Only then is .older deleted.
 // "Go back to the previous version" copies .previous into .new and hands over the same way. The install path never
 // changes, so Start at login and the Start menu entry keep working.
 
@@ -17,6 +18,12 @@ namespace LoupedeckBridge
     {
         public static string PreviousDir(string installDir) => installDir.TrimEnd('\\', '/') + ".previous";
         public static string NewDir(string installDir) => installDir.TrimEnd('\\', '/') + ".new";
+        public static string OlderDir(string installDir) => installDir.TrimEnd('\\', '/') + ".older";
+
+        /// The folder that holds every copy of the app (the install folder, .new, .previous, .older): where the app
+        /// stands. Windows won't rename a folder that is a process's current folder, and the programs a process starts
+        /// (a browser, Notepad) inherit its current folder (final review, milestone 7).
+        public static string OutsideFolder(string appDir) => Path.GetDirectoryName(Path.GetFullPath(appDir).TrimEnd('\\', '/'));
 
         /// Is `appDir` the .new folder of `installDir`? `--finish-update` only ever runs from there (security review:
         /// a wrong argument must never move or delete some other folder).
@@ -36,11 +43,14 @@ namespace LoupedeckBridge
         /// Swap `newDir` in; null when done, otherwise "<step>: <reason>" (with the old version back in place).
         public static string Run(string installDir, string newDir, Action<string, string> copyTree)
         {
+            Environment.CurrentDirectory = OutsideFolder(installDir);    // never stand in a folder about to be renamed
             var previous = PreviousDir(installDir);
+            var older = OlderDir(installDir);
+            var hadPrevious = Directory.Exists(previous);
             try
             {
-                if (Directory.Exists(previous)) Retry(() => Directory.Delete(previous, recursive: true));
-                Retry(() => Directory.Move(installDir, previous));
+                if (Directory.Exists(older)) Retry(() => Directory.Delete(older, recursive: true));   // a swap cut short
+                if (hadPrevious) Retry(() => Directory.Move(previous, older));
             }
             catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
             {
@@ -48,8 +58,23 @@ namespace LoupedeckBridge
             }
             try
             {
+                Retry(() => Directory.Move(installDir, previous));
+            }
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+            {
+                try
+                {
+                    if (hadPrevious) Retry(() => Directory.Move(older, previous));
+                }
+                catch (Exception back) when (back is IOException || back is UnauthorizedAccessException)
+                {
+                    return $"{InstallStep.MoveOldAside}: {e.Message} (the version before it is in {older}: {back.Message})";
+                }
+                return $"{InstallStep.MoveOldAside}: {e.Message}";
+            }
+            try
+            {
                 copyTree(newDir, installDir);
-                return null;
             }
             catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
             {
@@ -57,6 +82,7 @@ namespace LoupedeckBridge
                 {
                     if (Directory.Exists(installDir)) Retry(() => Directory.Delete(installDir, recursive: true));
                     Retry(() => Directory.Move(previous, installDir));
+                    if (hadPrevious) Retry(() => Directory.Move(older, previous));
                 }
                 catch (Exception back) when (back is IOException || back is UnauthorizedAccessException)
                 {
@@ -64,6 +90,12 @@ namespace LoupedeckBridge
                 }
                 return $"{InstallStep.CopyNewIn}: {e.Message}";
             }
+            if (hadPrevious)
+            {
+                try { Retry(() => Directory.Delete(older, recursive: true)); }
+                catch (Exception e) when (e is IOException || e is UnauthorizedAccessException) { }   // the next swap removes it
+            }
+            return null;
         }
 
         /// Prepare going back: copy .previous into .new, to be handed over like an update.

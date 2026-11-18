@@ -51,6 +51,12 @@ def main() -> None:
     args = ap.parse_args()
 
     plat = platform.current()
+    if sys.platform == "win32":
+        # The tray app starts this in <install>\app, and an update renames the install folder: Windows won't rename a
+        # folder that is a process's current folder (this one's, or a browser's it opens). sys.path already holds the
+        # app's folder as a full path, so stepping out changes nothing else.
+        plat.state_dir().mkdir(parents=True, exist_ok=True)
+        os.chdir(plat.state_dir())
     log_dir = plat.log_dir()
     log_dir.mkdir(parents=True, exist_ok=True)
     fmt = logging.Formatter("%(asctime)s %(levelname)-7s %(name)s: %(message)s")

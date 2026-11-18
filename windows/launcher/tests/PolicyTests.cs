@@ -744,6 +744,59 @@ namespace LoupedeckBridge
                 return System.IO.Directory.Exists(Swap.PreviousDir(install)) ? "a .previous was left behind" : null;
             });
 
+            // ---- final review (milestone 7): the swap from inside the install folder, and the older .previous kept ---
+            Check("swap_from_inside_the_install_folder", () =>
+            {
+                // A tray started by an update, or from the Start menu, stands in the install folder; Windows won't
+                // rename a folder that is a process's current folder, so the finisher's swap must step out first.
+                var root = Scratch();
+                var install = System.IO.Path.Combine(root, "LoupedeckBridge");
+                MakeApp(install, "0.6.0");
+                MakeApp(Swap.NewDir(install), "0.6.1");
+                var here = Environment.CurrentDirectory;
+                try
+                {
+                    Environment.CurrentDirectory = install;
+                    var why = Swap.Run(install, Swap.NewDir(install), Swap.CopyTree);
+                    if (why != null) return why;
+                    return Version_(install) == "0.6.1" ? null : "installed " + Version_(install);
+                }
+                finally { Environment.CurrentDirectory = here; }
+            });
+
+            Check("swap_failure_keeps_the_older_previous", () =>
+            {
+                // The old version can't be moved aside (a program holds a file in it): nothing changes, and the older
+                // .previous (the version Go back returns to) is still there.
+                var root = Scratch();
+                var install = System.IO.Path.Combine(root, "LoupedeckBridge");
+                MakeApp(Swap.PreviousDir(install), "0.5.9");
+                MakeApp(install, "0.6.0");
+                MakeApp(Swap.NewDir(install), "0.6.1");
+                string why;
+                using (System.IO.File.Open(System.IO.Path.Combine(install, "app", "code.py"), System.IO.FileMode.Open,
+                                           System.IO.FileAccess.Read, System.IO.FileShare.Read))
+                    why = Swap.Run(install, Swap.NewDir(install), Swap.CopyTree);
+                if (why == null || !why.StartsWith(InstallStep.MoveOldAside.ToString())) return "result: " + why;
+                if (Version_(install) != "0.6.0") return "installed " + Version_(install);
+                return System.IO.Directory.Exists(Swap.PreviousDir(install)) && Version_(Swap.PreviousDir(install)) == "0.5.9"
+                    ? null : "the older .previous is gone";
+            });
+
+            Check("swap_copy_failure_keeps_the_older_previous", () =>
+            {
+                var root = Scratch();
+                var install = System.IO.Path.Combine(root, "LoupedeckBridge");
+                MakeApp(Swap.PreviousDir(install), "0.5.9");
+                MakeApp(install, "0.6.0");
+                MakeApp(Swap.NewDir(install), "0.6.1");
+                var why = Swap.Run(install, Swap.NewDir(install), (from, to) => throw new System.IO.IOException("disk full"));
+                if (why == null || !why.StartsWith(InstallStep.CopyNewIn.ToString())) return "result: " + why;
+                if (Version_(install) != "0.6.0") return "installed " + Version_(install);
+                return System.IO.Directory.Exists(Swap.PreviousDir(install)) && Version_(Swap.PreviousDir(install)) == "0.5.9"
+                    ? null : "the older .previous is gone";
+            });
+
             Check("go_back_swaps_previous_in", () =>
             {
                 var root = Scratch();

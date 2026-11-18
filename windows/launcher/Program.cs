@@ -27,6 +27,9 @@ namespace LoupedeckBridge
         {
             var exe = Application.ExecutablePath;
             var appDir = Path.GetDirectoryName(exe);
+            // Started from the Start menu or by an update, this stands in the install folder: step out, so an update
+            // can rename it, and the programs this opens (a browser, Notepad) don't stand in it either.
+            Environment.CurrentDirectory = Swap.OutsideFolder(appDir);
             var info = BuildInfo.Load(Path.Combine(appDir, BuildInfo.FileName));
             if (info == null)
             {
