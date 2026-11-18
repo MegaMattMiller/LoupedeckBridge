@@ -21,7 +21,8 @@ CHECKS = ["never_connected_never_alerts", "drop_alerts_after_debounce", "quick_r
           "notice_once_per_version", "notice_survives_a_relaunch", "found_update_survives_a_relaunch",
           "install_plan_order", "install_plan_refuses_wrong_bundle",
           "install_plan_refuses_bad_signature", "install_plan_refuses_two_apps", "install_plan_refuses_not_newer",
-          "install_plan_accepts_valid", "bridge_python_runs_only_its_own_code", "update_stops_the_bridge_without_quitting",
+          "install_plan_accepts_valid", "download_is_capped_and_hashed", "unzip_problem_says_why",
+          "bridge_python_runs_only_its_own_code", "update_stops_the_bridge_without_quitting",
           "update_after_a_forced_stop_releases_keys", "update_when_stopped_swaps_at_once",
           "update_cancels_a_pending_restart", "failed_update_restarts_the_bridge", "second_update_request_is_ignored",
           "quit_during_an_update_just_quits", "signature_accepts_the_pinned_certificate",
@@ -36,7 +37,7 @@ pytestmark = pytest.mark.skipif(sys.platform != "darwin" or shutil.which("swiftc
 def results(tmp_path_factory):
     binary = tmp_path_factory.mktemp("policies") / "policy-tests"
     build = subprocess.run(["swiftc", "-parse-as-library", str(LAUNCHER / "Policies.swift"),
-                            str(LAUNCHER / "BridgeProcess.swift"), str(LAUNCHER / "Signature.swift"),
+                            str(LAUNCHER / "BridgeProcess.swift"), str(LAUNCHER / "Signature.swift"), str(LAUNCHER / "Download.swift"),
                             str(LAUNCHER / "tests" / "PolicyTests.swift"),
                             "-o", str(binary)],
                            capture_output=True, text=True)

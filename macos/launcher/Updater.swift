@@ -6,7 +6,6 @@
 // The only internet use in LoupedeckBridge: api.github.com and GitHub's release downloads.
 
 import AppKit
-import CryptoKit
 
 final class Updater {
     static let latestURL = URL(string: "https://api.github.com/repos/MegaMattMiller/LoupedeckBridge/releases/latest")!
@@ -186,19 +185,19 @@ final class Updater {
         let scratch = fm.temporaryDirectory.appendingPathComponent("LoupedeckBridge-update-\(UUID().uuidString)")
         do {
             try? fm.createDirectory(at: scratch, withIntermediateDirectories: true)
-            let zip = try get(release.zipURL, userAgent: userAgent)
-            let sums = try get(release.sha256URL, userAgent: userAgent)
-            let expected = String(decoding: sums, as: UTF8.self).split(whereSeparator: \.isWhitespace).first?.lowercased()
-            let actual = SHA256.hash(data: zip).map { String(format: "%02x", $0) }.joined()
-            guard expected == actual else { throw Failure(step: .download, reason: "its SHA-256 doesn't match") }
-            let zipFile = scratch.appendingPathComponent(ReleaseInfo.assetName(for: release.version))
-            do { try zip.write(to: zipFile) } catch { throw Failure(step: .download, reason: error.localizedDescription) }
+            let name = ReleaseInfo.assetName(for: release.version)
+            let zip = try fetch(release.zipURL, to: scratch.appendingPathComponent(name), limit: maxDownload,
+                                userAgent: userAgent)
+            let sums = try fetch(release.sha256URL, to: scratch.appendingPathComponent(name + ".sha256"), limit: 4096,
+                                 userAgent: userAgent)
+            let expected = (try? String(contentsOf: sums.file, encoding: .utf8))?
+                .split(whereSeparator: \.isWhitespace).first?.lowercased()
+            guard expected == zip.sha256 else { throw Failure(step: .download, reason: "its SHA-256 doesn't match") }
 
             progress(.unzip)
             let unzipped = scratch.appendingPathComponent("unzipped")
-            guard run("/usr/bin/ditto", "-x", "-k", zipFile.path, unzipped.path) == 0 else {
-                throw Failure(step: .unzip, reason: "it isn't a valid zip")
-            }
+            let (status, errors) = runCapturingErrors("/usr/bin/ditto", "-x", "-k", zip.file.path, unzipped.path)
+            guard status == 0 else { throw Failure(step: .unzip, reason: unzipProblem(errors)) }
 
             progress(.verify)
             let apps = ((try? fm.contentsOfDirectory(at: unzipped, includingPropertiesForKeys: nil)) ?? [])
@@ -295,24 +294,30 @@ final class Updater {
     }
 
     // ---- helpers ----------------------------------------------------------------
-    /// A blocking GET for the background queue: the body of a 200 answer, or a download failure.
-    private static func get(_ url: URL, userAgent: String) throws -> Data {
-        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 60)
-        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-        let done = DispatchSemaphore(value: 0)
-        var result: Result<Data, Failure> = .failure(Failure(step: .download, reason: "no answer"))
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-            if let data = data, status == 200 {
-                result = .success(data)
-            } else {
-                result = .failure(Failure(step: .download,
-                                          reason: error?.localizedDescription ?? "GitHub answered \(status)"))
-            }
-            done.signal()
-        }.resume()
-        done.wait()
-        return try result.get()
+    /// 200 MB: a release is about 30 MB, so a bigger download isn't one (Download.swift stops it).
+    private static let maxDownload: Int64 = 200 * 1_048_576
+
+    /// A capped download for the background queue (Download.swift), as a download-step failure.
+    private static func fetch(_ url: URL, to file: URL, limit: Int64, userAgent: String) throws -> Download.Done {
+        do {
+            return try Download.fetch(url, to: file, limit: limit, userAgent: userAgent)
+        } catch let failure as Download.Failure {
+            throw Failure(step: .download, reason: failure.reason)
+        }
+    }
+
+    /// Runs a tool and returns its exit status and what it wrote to stderr.
+    private static func runCapturingErrors(_ tool: String, _ args: String...) -> (Int32, String) {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: tool)
+        process.arguments = args
+        process.standardOutput = FileHandle.nullDevice
+        let errors = Pipe()
+        process.standardError = errors
+        guard (try? process.run()) != nil else { return (-1, "couldn't run \(tool)") }
+        let text = String(decoding: errors.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        process.waitUntilExit()
+        return (process.terminationStatus, text)
     }
 
     @discardableResult

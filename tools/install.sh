@@ -26,6 +26,7 @@ INSTALL_DIR="${LB_INSTALL_DIR:-/Applications}"
 BUNDLE_ID="io.github.megamattmiller.loupedeckbridge"
 APP="$INSTALL_DIR/LoupedeckBridge.app"
 EXE="$APP/Contents/MacOS/LoupedeckBridge"
+MAX_BYTES=209715200        # 200 MB: a release is about 30 MB, so anything bigger isn't one
 
 say() { echo "install.sh: $*"; }
 fail() { echo "install.sh: $*; nothing was changed." >&2; exit 1; }
@@ -73,14 +74,18 @@ name="LoupedeckBridge-v$want-macos-arm64.zip"
 
 # ---- download and check ----------------------------------------------------------
 say "downloading v$want"
-curl -fL --silent --show-error -o "$work/$name" "$DOWNLOADS/v$want/$name" || fail "the download failed"
-curl -fL --silent --show-error -o "$work/$name.sha256" "$DOWNLOADS/v$want/$name.sha256" || fail "the checksum download failed"
+curl -fL --silent --show-error --max-filesize "$MAX_BYTES" -o "$work/$name" "$DOWNLOADS/v$want/$name" \
+  || fail "the download failed"
+curl -fL --silent --show-error --max-filesize 4096 -o "$work/$name.sha256" "$DOWNLOADS/v$want/$name.sha256" \
+  || fail "the checksum download failed"
 expected="$(awk '{print $1; exit}' "$work/$name.sha256")"
 actual="$(shasum -a 256 "$work/$name" | awk '{print $1}')"
 [ -n "$expected" ] && [ "$expected" = "$actual" ] || fail "the download's SHA-256 doesn't match"
 
 mkdir "$work/unzipped"
-ditto -x -k "$work/$name" "$work/unzipped" 2>/dev/null || fail "the download isn't a valid zip"
+if ! unzip_errors="$(ditto -x -k "$work/$name" "$work/unzipped" 2>&1)"; then
+  fail "couldn't unzip it (${unzip_errors//$'\n'/ })"          # e.g. a full disk, or not a zip at all
+fi
 apps=("$work/unzipped"/*.app)
 [ "${#apps[@]}" -eq 1 ] && [ -d "${apps[0]}" ] || fail "the download should hold exactly one app"
 new="${apps[0]}"
@@ -89,7 +94,8 @@ new_version="$(plutil -extract LBVersion raw "$new/Contents/Info.plist" 2>/dev/n
 [ "$new_id" = "$BUNDLE_ID" ] || fail "it isn't the LoupedeckBridge release ($new_id)"
 [ "$new_version" = "$want" ] || fail "it says it's v$new_version, not v$want"
 
-codesign --verify --strict "$new" 2>/dev/null || fail "its signature isn't valid"
+codesign --verify --strict -R="identifier \"$BUNDLE_ID\"" "$new" 2>/dev/null \
+  || fail "its signature isn't valid for $BUNDLE_ID"
 codesign -d --extract-certificates="$work/cert" "$new" 2>/dev/null || fail "couldn't read its signing certificate"
 signer="$(shasum -a 256 "$work/cert0" 2>/dev/null | awk '{print $1}')" || true   # none: signed ad hoc
 [ "$signer" = "$PINNED" ] || fail "it isn't signed with the LoupedeckBridge release key"
@@ -102,22 +108,33 @@ if [ -d "$APP" ]; then
 fi
 
 # ---- replace ----------------------------------------------------------------------
+was_running=0
+# reopen the old app if this script stopped it (after a failure that left it in place)
+restart_old() { if [ "$was_running" = 1 ] && [ -d "$APP" ]; then open "$APP" || true; fi; }
 if pgrep -f "$EXE" >/dev/null; then
+  was_running=1
   say "stopping the running LoupedeckBridge"
   pkill -TERM -f "$EXE" || true
   for _ in $(seq 1 80); do pgrep -f "$EXE" >/dev/null || break; sleep 0.1; done
+  if pgrep -f "$EXE" >/dev/null; then
+    fail "LoupedeckBridge is still running after 8 s; quit it from its menu, then run this again"
+  fi
 fi
 trashed=""
 if [ -d "$APP" ]; then
   mkdir -p "$HOME/.Trash"
   trashed="$HOME/.Trash/LoupedeckBridge v$old_version $(date +%Y%m%d-%H%M%S).app"
-  mv "$APP" "$trashed" || fail "couldn't move the old app to the Trash"
+  if ! mv "$APP" "$trashed"; then
+    restart_old
+    fail "couldn't move the old app to the Trash"
+  fi
 fi
 mkdir -p "$INSTALL_DIR"
-if ! ditto "$new" "$APP"; then
+if ! copy_errors="$(ditto "$new" "$APP" 2>&1)"; then
   rm -rf "$APP"
   [ -n "$trashed" ] && mv "$trashed" "$APP"
-  fail "couldn't put the new app in place (the old one is back)"
+  restart_old
+  fail "couldn't put the new app in place (${copy_errors//$'\n'/ }); the old one is back"
 fi
 open "$APP"
 say "installed LoupedeckBridge v$new_version${trashed:+ (the previous version is in the Trash)}"

@@ -384,6 +384,39 @@ enum PolicyTests {
             return p == nil ? nil : p
         }
 
+        // ---- v0.5.1: downloads are capped and hashed as they arrive; unzip errors say why ----
+        check("download_is_capped_and_hashed") {
+            let dir = FileManager.default.temporaryDirectory.appendingPathComponent("lb-download-\(getpid())")
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: dir) }
+            let source = dir.appendingPathComponent("release.zip")
+            let body = Data((0..<3_000_000).map { UInt8(truncatingIfNeeded: $0 &* 31) })
+            guard (try? body.write(to: source)) != nil else { return "couldn't write the source" }
+            let expected = SHA256.hash(data: body).map { String(format: "%02x", $0) }.joined()
+            do {
+                let done = try Download.fetch(source, to: dir.appendingPathComponent("copy"), limit: 10_000_000,
+                                              userAgent: "test")
+                if done.bytes != 3_000_000 || done.sha256 != expected { return "bytes \(done.bytes), sha \(done.sha256)" }
+                if (try? Data(contentsOf: done.file)) != body { return "the file differs" }
+            } catch {
+                return "fetch failed: \(error)"
+            }
+            do {
+                _ = try Download.fetch(source, to: dir.appendingPathComponent("capped"), limit: 1_000_000, userAgent: "test")
+                return "a download over the limit was accepted"
+            } catch let failure as Download.Failure {
+                return failure.reason.contains("bigger than") ? nil : failure.reason
+            } catch {
+                return "\(error)"
+            }
+        }
+
+        check("unzip_problem_says_why") {
+            let full = unzipProblem("ditto: /tmp/x/LoupedeckBridge.app: No space left on device\n")
+            if !full.contains("No space left on device") { return full }
+            return unzipProblem("") == "it isn't a valid zip" ? nil : unzipProblem("")
+        }
+
         // ---- the updater stops the bridge without quitting (Task 4) ----------------
         check("update_stops_the_bridge_without_quitting") {
             var s = BridgeSupervisor()

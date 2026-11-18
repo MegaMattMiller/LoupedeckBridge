@@ -350,3 +350,10 @@ func installProblem(bundleID: String, version: Version?, current: Version, signa
     if version <= current && !allowOlder { return "it isn't newer than the installed v\(current)" }
     return nil
 }
+
+/// Why unzipping a download failed, in plain words, from ditto's error output (e.g. a full disk).
+func unzipProblem(_ errors: String) -> String {
+    let detail = errors.split(whereSeparator: \.isNewline)
+        .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }.joined(separator: " ")
+    return detail.isEmpty ? "it isn't a valid zip" : "couldn't unzip it (\(detail))"
+}

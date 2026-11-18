@@ -15,6 +15,7 @@ PINNED = hashlib.sha256(CERT).hexdigest()
 FAKES = {
     # curl -fL -o OUT URL (or -fsSL URL for the API): serves files from $FAKE_SERVER by URL basename.
     "curl": r'''#!/bin/bash
+echo "curl $*" >> "$FAKE_LOG"
 [ -n "${FAKE_CURL_FAIL:-}" ] && exit 22
 out=""; url=""
 while [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2;; -*) shift;; *) url="$1"; shift;; esac; done
@@ -25,6 +26,7 @@ if [ -n "$out" ]; then cp "$FAKE_SERVER/$name" "$out"; else cat "$FAKE_SERVER/$n
     # codesign --verify … APP: exit $FAKE_VERIFY; codesign -d --extract-certificates=PREFIX APP: writes PREFIX0
     # (nothing with FAKE_NO_CERT: an ad hoc signature has no certificate)
     "codesign": r'''#!/bin/bash
+echo "codesign $*" >> "$FAKE_LOG"
 for a in "$@"; do case "$a" in
   --verify) exit "${FAKE_VERIFY:-0}";;
   --extract-certificates=*) [ -n "${FAKE_NO_CERT:-}" ] || printf '%s' "$FAKE_CERT" > "${a#--extract-certificates=}0";;
@@ -32,8 +34,18 @@ esac; done
 exit 0
 ''',
     "open": '#!/bin/bash\necho "open $*" >> "$FAKE_LOG"\n',
-    "pgrep": "#!/bin/bash\nexit 1\n",
-    "pkill": "#!/bin/bash\nexit 0\n",
+    # a running app is the file $FAKE_RUNNING; pkill makes it quit, unless FAKE_STUCK
+    "pgrep": '#!/bin/bash\n[ -f "${FAKE_RUNNING:-/nonexistent}" ]\n',
+    "pkill": '#!/bin/bash\necho "pkill $*" >> "$FAKE_LOG"\n[ -n "${FAKE_STUCK:-}" ] || rm -f "${FAKE_RUNNING:-/nonexistent}"\n',
+    # the real ditto, except: FAKE_DITTO_FULL fails unzipping, FAKE_DITTO_COPY_FAIL fails the copy into place
+    "ditto": r'''#!/bin/bash
+if [ "$1" = "-x" ]; then
+  [ -n "${FAKE_DITTO_FULL:-}" ] && { echo "ditto: Couldn't write: No space left on device" >&2; exit 1; }
+else
+  [ -n "${FAKE_DITTO_COPY_FAIL:-}" ] && { echo "ditto: Couldn't copy: No space left on device" >&2; exit 1; }
+fi
+exec /usr/bin/ditto "$@"
+''',
     "sleep": "#!/bin/bash\nexit 0\n",
 }
 
@@ -203,3 +215,66 @@ def test_install_says_when_the_key_is_overridden(tmp_path):
     result = install(env)
     assert result.returncode == 0 and PINNED in result.stdout
     assert "not the built-in key (LB_PINNED_SIGNER_SHA256)" in result.stdout
+
+
+# ---- v0.5.1: the review's deferred installer fixes -------------------------------------------------------
+
+def test_install_checks_the_signing_identifier(tmp_path):
+    env, server, apps, _ = rig(tmp_path)
+    publish(server, tmp_path, "0.5.0")
+    assert install(env).returncode == 0
+    log = Path(env["FAKE_LOG"]).read_text()
+    assert 'codesign --verify --strict -R=identifier "io.github.megamattmiller.loupedeckbridge"' in log, log
+
+
+def test_unzip_failure_says_why(tmp_path):
+    # A full disk was reported as "it isn't a valid zip".
+    env, server, apps, _ = rig(tmp_path)
+    make_app(apps, "0.4.0")
+    publish(server, tmp_path, "0.5.0")
+    result = install({**env, "FAKE_DITTO_FULL": "1"})
+    assert result.returncode == 1 and "No space left on device" in result.stderr, result.stderr
+    assert installed_version(apps) == "0.4.0"
+
+
+def test_running_app_is_stopped_before_the_swap(tmp_path):
+    env, server, apps, _ = rig(tmp_path)
+    make_app(apps, "0.4.0")
+    publish(server, tmp_path, "0.5.0")
+    running = tmp_path / "running"
+    running.touch()
+    assert install({**env, "FAKE_RUNNING": str(running)}).returncode == 0
+    assert not running.exists() and installed_version(apps) == "0.5.0"
+
+
+def test_app_that_wont_quit_is_left_alone(tmp_path):
+    # It carried on, and its `open` then just brought the old (trashed) copy to the front.
+    env, server, apps, home = rig(tmp_path)
+    make_app(apps, "0.4.0")
+    publish(server, tmp_path, "0.5.0")
+    running = tmp_path / "running"
+    running.touch()
+    result = install({**env, "FAKE_RUNNING": str(running), "FAKE_STUCK": "1"})
+    assert result.returncode == 1 and "still running" in result.stderr, result.stderr
+    assert installed_version(apps) == "0.4.0" and not list((home / ".Trash").iterdir())
+
+
+def test_failed_copy_puts_back_and_restarts_the_old_app(tmp_path):
+    env, server, apps, home = rig(tmp_path)
+    make_app(apps, "0.4.0")
+    publish(server, tmp_path, "0.5.0")
+    running = tmp_path / "running"
+    running.touch()
+    result = install({**env, "FAKE_RUNNING": str(running), "FAKE_DITTO_COPY_FAIL": "1"})
+    assert result.returncode == 1 and "No space left on device" in result.stderr, result.stderr
+    assert installed_version(apps) == "0.4.0" and not list((home / ".Trash").iterdir())
+    assert f"open {apps}/LoupedeckBridge.app" in Path(env["FAKE_LOG"]).read_text(), "the old app wasn't restarted"
+
+
+def test_downloads_are_size_capped(tmp_path):
+    env, server, apps, _ = rig(tmp_path)
+    publish(server, tmp_path, "0.5.0")
+    assert install(env).returncode == 0
+    zip_fetch = [l for l in Path(env["FAKE_LOG"]).read_text().splitlines()
+                 if l.startswith("curl") and l.endswith("macos-arm64.zip")]
+    assert zip_fetch and "--max-filesize" in zip_fetch[0], zip_fetch
