@@ -16,8 +16,11 @@
     <Compile Include="..\Policies.cs" />
     <Compile Include="..\BuildInfo.cs" />
     <Compile Include="..\ProcessTree.cs" />
+    <Compile Include="..\Signature.cs" />
+    <Compile Include="..\Download.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.Security" />
   </ItemGroup>
 </Project>

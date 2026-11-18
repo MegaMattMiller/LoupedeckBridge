@@ -30,6 +30,7 @@ namespace LoupedeckBridge
             }
             if (args.Length > 0 && args[0] == "--login") return LoginItem.Command(info.Name, exe, args.Length > 1 ? args[1] : "status");
             if (args.Length > 0 && args[0] == "--quit") return QuitRunningCopy(info);
+            if (args.Length > 0 && args[0] == "--check-signature") return CheckSignature(info, args);
 
             var paths = RuntimePaths.Resolve(info, appDir);
             if (paths == null)
@@ -46,6 +47,29 @@ namespace LoupedeckBridge
                 GC.KeepAlive(mutex);
             }
             return 0;
+        }
+
+        /// `--check-signature FILE [--pinned SHA256]`: would the updater accept FILE (signed, in FILE.p7s, with this
+        /// build's pinned release key, or the one given)? Exit 0 yes, 1 no: the release workflow's and CI's last check.
+        static int CheckSignature(BuildInfo info, string[] args)
+        {
+            if (args.Length != 2 && !(args.Length == 4 && args[2] == "--pinned"))
+            {
+                Console.Error.WriteLine("usage: LoupedeckBridge.exe --check-signature FILE [--pinned SHA256]");
+                return 2;
+            }
+            string problem;
+            try
+            {
+                problem = Signature.Problem(File.ReadAllBytes(args[1]), File.ReadAllBytes(args[1] + ".p7s"),
+                                            args.Length == 4 ? args[3] : info.SignerSha256);
+            }
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+            {
+                problem = "couldn't read it or its signature: " + e.Message;
+            }
+            Console.WriteLine(problem == null ? "ok: signed with the pinned LoupedeckBridge release key" : "refused: " + problem);
+            return problem == null ? 0 : 1;
         }
 
         static int QuitRunningCopy(BuildInfo info)

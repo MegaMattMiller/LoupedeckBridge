@@ -430,6 +430,142 @@ namespace LoupedeckBridge
         public static bool operator >=(Version a, Version b) => !(a < b);
     }
 
+    // ---- updates (the Mac's Policies.swift, for the Windows downloads) ----------------------------------------
+
+    /// The newest release, from GitHub's "latest release" JSON. Only a full release (not a draft or pre-release) with
+    /// all three Windows downloads counts: LoupedeckBridge-v<ver>-windows-x64.zip, its .sha256 and its .p7s.
+    public sealed class ReleaseInfo
+    {
+        public Version Version { get; }
+        public Uri Zip { get; }
+        public Uri Sha256 { get; }
+        public Uri Signature { get; }
+
+        ReleaseInfo(Version version, Uri zip, Uri sha256, Uri signature)
+        {
+            Version = version; Zip = zip; Sha256 = sha256; Signature = signature;
+        }
+
+        public static string AssetName(Version version) => $"LoupedeckBridge-v{version}-windows-x64.zip";
+
+        public static ReleaseInfo Parse(string json)
+        {
+            var f = Json.Object(json);
+            if (f == null || !Json.Required(f, "tag_name", out string tag) || !Json.Optional(f, "draft", out bool draft)
+                || !Json.Optional(f, "prerelease", out bool prerelease) || draft || prerelease
+                || !Json.Required(f, "assets", out object[] assets)) return null;
+            var version = Version.Parse(tag);
+            if (version == null) return null;
+            var urls = new Dictionary<string, Uri>();
+            foreach (var asset in assets.OfType<Dictionary<string, object>>())
+            {
+                if (Json.Required(asset, "name", out string name) && Json.Required(asset, "browser_download_url", out string link)
+                    && Uri.TryCreate(link, UriKind.Absolute, out var url) && url.Scheme == Uri.UriSchemeHttps)
+                    urls[name] = url;
+            }
+            var zip = AssetName(version);
+            if (!urls.TryGetValue(zip, out var zipUrl) || !urls.TryGetValue(zip + ".sha256", out var shaUrl)
+                || !urls.TryGetValue(zip + ".p7s", out var sigUrl)) return null;
+            return new ReleaseInfo(version, zipUrl, shaUrl, sigUrl);
+        }
+
+        /// For the app's saved preferences, so a found update survives a relaunch.
+        public string Saved() => new JavaScriptSerializer().Serialize(new Dictionary<string, string>
+        {
+            ["version"] = Version.ToString(), ["zip"] = Zip.ToString(), ["sha256"] = Sha256.ToString(),
+            ["signature"] = Signature.ToString(),
+        });
+
+        /// A saved release, if it's still newer than the running version (null once installed, or if unreadable).
+        public static ReleaseInfo Restore(string saved, Version newerThan)
+        {
+            var f = Json.Object(saved);
+            if (f == null || !Json.Required(f, "version", out string v) || !Json.Required(f, "zip", out string zip)
+                || !Json.Required(f, "sha256", out string sha) || !Json.Required(f, "signature", out string sig)) return null;
+            var version = Version.Parse(v);
+            if (version == null || !(version > newerThan)) return null;
+            Uri Https(string text) => Uri.TryCreate(text, UriKind.Absolute, out var u) && u.Scheme == Uri.UriSchemeHttps ? u : null;
+            var (zipUrl, shaUrl, sigUrl) = (Https(zip), Https(sha), Https(sig));
+            return zipUrl == null || shaUrl == null || sigUrl == null ? null : new ReleaseInfo(version, zipUrl, shaUrl, sigUrl);
+        }
+    }
+
+    /// When to ask GitHub: never for dev builds or when turned off; not in the first 30 s after launch; then at most
+    /// once a day.
+    public sealed class UpdateSchedule
+    {
+        public TimeSpan Interval = TimeSpan.FromHours(24);
+        public TimeSpan FirstDelay = TimeSpan.FromSeconds(30);
+
+        public bool ShouldCheck(DateTime nowUtc, DateTime? lastCheckUtc, bool enabled, bool isDev, TimeSpan sinceLaunch)
+        {
+            if (isDev || !enabled || sinceLaunch < FirstDelay) return false;
+            return lastCheckUtc == null || nowUtc - lastCheckUtc.Value >= Interval;
+        }
+    }
+
+    /// One alert per newer version (the menu item stays as long as it's available). LastAnnounced is saved, so a
+    /// relaunch doesn't alert again for the same version.
+    public sealed class UpdateNotice
+    {
+        public Version LastAnnounced { get; private set; }
+
+        public UpdateNotice(Version lastAnnounced = null) { LastAnnounced = lastAnnounced; }
+
+        public bool Announce(Version version, Version current)
+        {
+            if (!(version > current)) return false;
+            if (LastAnnounced != null && version <= LastAnnounced) return false;
+            LastAnnounced = version;
+            return true;
+        }
+    }
+
+    /// The install steps, in order. Everything is checked (Verify) before anything is unpacked, stopped or moved. A
+    /// running program can't be moved on Windows, so the new copy finishes the swap after this one exits (HandOver).
+    public enum InstallStep { Download, Verify, Unzip, StopBridge, HandOver, MoveOldAside, CopyNewIn, LaunchNew }
+
+    public static class Updates
+    {
+        public static readonly InstallStep[] InstallOrder =
+        {
+            InstallStep.Download, InstallStep.Verify, InstallStep.Unzip, InstallStep.StopBridge, InstallStep.HandOver,
+            InstallStep.MoveOldAside, InstallStep.CopyNewIn, InstallStep.LaunchNew,
+        };
+
+        public const string Folder = "LoupedeckBridge";
+
+        /// Why a release zip's entries aren't safe to unpack, or null. Everything must be inside LoupedeckBridge/, no
+        /// entry may climb out (..), name a drive or a stream (:), or start at the root; the exe and its build info
+        /// must be there. (Backslashes count as separators, as Windows would treat them.)
+        public static string ZipLayoutProblem(IEnumerable<string> entryNames)
+        {
+            var names = entryNames.Select(n => n.Replace('\\', '/')).ToList();
+            if (names.Count == 0) return "the download is empty";
+            foreach (var name in names)
+            {
+                if (name.StartsWith("/") || name.Contains(":")) return $"it holds an unsafe path ({name})";
+                if (name.Split('/').Any(part => part == "..")) return $"it holds an unsafe path ({name})";
+                if (!name.StartsWith(Folder + "/")) return $"it should hold only a {Folder} folder (it holds {name})";
+            }
+            if (!names.Contains(Folder + "/LoupedeckBridge.exe")) return "it has no LoupedeckBridge.exe";
+            if (!names.Contains(Folder + "/" + BuildInfo.FileName)) return $"it has no {BuildInfo.FileName}";
+            return null;
+        }
+
+        /// The first reason not to install a downloaded release, in plain words, or null if it may be installed.
+        /// `found` is the build info inside the download.
+        public static string InstallProblem(BuildInfo found, Version current, bool shaOK, bool signatureOK, bool allowOlder)
+        {
+            if (!shaOK) return "the download is damaged (its SHA-256 doesn't match)";
+            if (!signatureOK) return "it isn't signed with your LoupedeckBridge release key";
+            if (found == null || found.Runtime != "bundled" || found.IsDev) return "it isn't a LoupedeckBridge release";
+            if (found.Version == null) return "it has no readable version";
+            if (found.Version <= current && !allowOlder) return $"it isn't newer than the installed v{current}";
+            return null;
+        }
+    }
+
     /// The tray icon's tooltip.
     public static class TrayText
     {

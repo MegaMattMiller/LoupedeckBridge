@@ -484,6 +484,205 @@ namespace LoupedeckBridge
                 return Gone(child) ? null : "the orphan is still running";
             });
 
+            // ---- the signature (fixtures made by tests/test_windows_launcher.py with openssl and
+            //      tools/sign_windows_zip.sh: content.bin signed with throwaway identity A, other.p7s with B) ------
+            var fixtures = args.Length > 0 ? args[0] : null;
+            byte[] Fixture(string name) => System.IO.File.ReadAllBytes(System.IO.Path.Combine(fixtures, name));
+            string PinnedA() => System.IO.File.ReadAllText(System.IO.Path.Combine(fixtures, "a.sha256")).Trim();
+
+            Check("signature_accepts_the_pinned_certificate", () =>
+            {
+                if (fixtures == null) return "no fixtures folder given";
+                var why = Signature.Problem(Fixture("content.bin"), Fixture("content.bin.p7s"), PinnedA());
+                if (why != null) return why;
+                return Signature.Problem(Fixture("content.bin"), Fixture("content.bin.p7s"), PinnedA().ToUpperInvariant());
+            });
+
+            Check("signature_refuses_another_certificate", () =>
+            {
+                // Review Focus 4: a release signed with someone else's key.
+                if (fixtures == null) return "no fixtures folder given";
+                var why = Signature.Problem(Fixture("content.bin"), Fixture("other.p7s"), PinnedA());
+                return why == "it's signed with another key" ? null : "got: " + why;
+            });
+
+            Check("signature_refuses_a_changed_byte", () =>
+            {
+                if (fixtures == null) return "no fixtures folder given";
+                var changed = Fixture("content.bin");
+                changed[changed.Length / 2] ^= 1;
+                var why = Signature.Problem(changed, Fixture("content.bin.p7s"), PinnedA());
+                return why == "the signature doesn't match the download" ? null : "got: " + why;
+            });
+
+            Check("signature_needs_a_pinned_key", () =>
+            {
+                if (fixtures == null) return "no fixtures folder given";
+                foreach (var pinned in new[] { "", null, "abc", new string('g', 64) })
+                {
+                    var why = Signature.Problem(Fixture("content.bin"), Fixture("content.bin.p7s"), pinned);
+                    if (why != "no release key is pinned in this build") return $"pinned '{pinned}': {why}";
+                }
+                return null;
+            });
+
+            Check("signature_refuses_garbage", () =>
+            {
+                if (fixtures == null) return "no fixtures folder given";
+                foreach (var bad in new[] { new byte[0], new byte[] { 1, 2, 3 }, Fixture("content.bin") })
+                {
+                    var why = Signature.Problem(Fixture("content.bin"), bad, PinnedA());
+                    if (why != "the signature is unreadable") return "got: " + why;
+                }
+                return null;
+            });
+
+            // ---- releases and updates -----------------------------------------------------------------------
+            string Asset(string name) =>
+                $"{{\"name\": \"{name}\", \"browser_download_url\": \"https://github.com/o/r/releases/download/v0.6.0/{name}\"}}";
+            var windowsZip = "LoupedeckBridge-v0.6.0-windows-x64.zip";
+            var sampleRelease = "{\"tag_name\": \"v0.6.0\", \"draft\": false, \"prerelease\": false, \"assets\": ["
+                + string.Join(", ", Asset("LoupedeckBridge-v0.6.0-macos-arm64.zip"), Asset("LoupedeckBridge-v0.6.0-macos-arm64.zip.sha256"),
+                              Asset(windowsZip), Asset(windowsZip + ".sha256"), Asset(windowsZip + ".p7s")) + "]}";
+
+            Check("release_parse_accepts_a_real_shape", () =>
+            {
+                var r = ReleaseInfo.Parse(sampleRelease);
+                if (r == null) return "refused the sample";
+                var base_ = "https://github.com/o/r/releases/download/v0.6.0/" + windowsZip;
+                if (r.Version.ToString() != "0.6.0" || r.Zip.ToString() != base_ || r.Sha256.ToString() != base_ + ".sha256"
+                    || r.Signature.ToString() != base_ + ".p7s") return $"{r.Version} {r.Zip} {r.Sha256} {r.Signature}";
+                return ReleaseInfo.AssetName(Version.Parse("1.2.3")) == "LoupedeckBridge-v1.2.3-windows-x64.zip" ? null : "asset name";
+            });
+
+            Check("release_parse_rejects_garbage", () =>
+            {
+                var macOnly = "{\"tag_name\": \"v0.6.0\", \"draft\": false, \"prerelease\": false, \"assets\": ["
+                    + Asset("LoupedeckBridge-v0.6.0-macos-arm64.zip") + ", " + Asset("LoupedeckBridge-v0.6.0-macos-arm64.zip.sha256") + "]}";
+                var bad = new[]
+                {
+                    "", "{}", "{\"message\":\"API rate limit exceeded\"}", "not json", macOnly,
+                    sampleRelease.Replace(".zip.p7s\"", ".zip.sig\""),
+                    sampleRelease.Replace("\"draft\": false", "\"draft\": true"),
+                    sampleRelease.Replace("\"prerelease\": false", "\"prerelease\": true"),
+                    sampleRelease.Replace("\"v0.6.0\", \"draft", "\"latest\", \"draft"),
+                    sampleRelease.Replace("https://github.com/o/r/releases/download/v0.6.0/" + windowsZip + "\"",
+                                          "http://github.com/o/r/releases/download/v0.6.0/" + windowsZip + "\""),
+                };
+                for (var i = 0; i < bad.Length; i++) if (ReleaseInfo.Parse(bad[i]) != null) return "accepted case " + i;
+                return null;
+            });
+
+            Check("check_schedule", () =>
+            {
+                var s = new UpdateSchedule();
+                var now = new DateTime(2026, 11, 17, 12, 0, 0, DateTimeKind.Utc);
+                bool Due(DateTime? last, bool enabled = true, bool dev = false, double since = 60) =>
+                    s.ShouldCheck(now, last, enabled, dev, TimeSpan.FromSeconds(since));
+                if (Due(null, dev: true) || Due(null, enabled: false) || Due(null, since: 10)) return "checked when it shouldn't";
+                if (!Due(null)) return "no first check";
+                if (!Due(now.AddHours(-24))) return "no check after 24 h";
+                return Due(now.AddHours(-23)) ? "checked after 23 h" : null;
+            });
+
+            Check("notice_once_per_version", () =>
+            {
+                var n = new UpdateNotice();
+                var current = Version.Parse("0.5.0");
+                var answers = new[] { "0.6.0", "0.6.0", "0.6.1", "0.5.0" }.Select(v => n.Announce(Version.Parse(v), current)).ToArray();
+                return answers.SequenceEqual(new[] { true, false, true, false }) ? null : string.Join(",", answers);
+            });
+
+            Check("notice_survives_a_relaunch", () =>
+            {
+                var n = new UpdateNotice(Version.Parse("0.6.0"));      // saved by the previous run
+                var current = Version.Parse("0.5.0");
+                if (n.Announce(Version.Parse("0.6.0"), current)) return "alerted again after a relaunch";
+                return n.Announce(Version.Parse("0.6.1"), current) ? null : "no alert for a newer one";
+            });
+
+            Check("found_update_survives_a_relaunch", () =>
+            {
+                var r = ReleaseInfo.Parse(sampleRelease);
+                var restored = ReleaseInfo.Restore(r.Saved(), Version.Parse("0.5.1"));
+                if (restored == null || restored.Version != r.Version || restored.Signature != r.Signature) return "not restored";
+                if (ReleaseInfo.Restore(r.Saved(), Version.Parse("0.6.0")) != null) return "kept once installed";
+                return ReleaseInfo.Restore("garbage", Version.Parse("0.5.1")) == null ? null : "restored garbage";
+            });
+
+            Check("install_plan_order", () =>
+            {
+                var order = Updates.InstallOrder.ToList();
+                var verify = order.IndexOf(InstallStep.Verify);
+                return verify >= 0 && verify < order.IndexOf(InstallStep.StopBridge) && verify < order.IndexOf(InstallStep.MoveOldAside)
+                       && verify < order.IndexOf(InstallStep.Unzip) ? null : string.Join(",", order);
+            });
+
+            var current_ = Version.Parse("0.6.0");
+            BuildInfo Found(string json) => BuildInfo.Parse(json);
+            var newer = Found("{\"runtime\": \"bundled\", \"version\": \"0.6.1\", \"is_dev\": false}");
+            Check("install_plan_refuses_damaged", () =>
+                Updates.InstallProblem(newer, current_, shaOK: false, signatureOK: true, allowOlder: false)
+                    == "the download is damaged (its SHA-256 doesn't match)" ? null : "wrong reason");
+            Check("install_plan_refuses_bad_signature", () =>
+                Updates.InstallProblem(newer, current_, shaOK: true, signatureOK: false, allowOlder: false)
+                    == "it isn't signed with your LoupedeckBridge release key" ? null : "wrong reason");
+            Check("install_plan_refuses_not_a_release", () =>
+            {
+                foreach (var json in new[] { "{\"runtime\": \"repo\", \"repo\": \"C:\\\\r\", \"version\": \"0.6.1\", \"is_dev\": true}",
+                                             "{\"runtime\": \"bundled\", \"version\": \"0.6.1\", \"is_dev\": true}", null })
+                {
+                    var why = Updates.InstallProblem(json == null ? null : Found(json), current_, true, true, false);
+                    if (why != "it isn't a LoupedeckBridge release") return json + ": " + why;
+                }
+                return null;
+            });
+            Check("install_plan_refuses_no_version", () =>
+                Updates.InstallProblem(Found("{\"runtime\": \"bundled\", \"version\": \"new\"}"), current_, true, true, false)
+                    == "it has no readable version" ? null : "wrong reason");
+            Check("install_plan_refuses_not_newer", () =>
+            {
+                var same = Found("{\"runtime\": \"bundled\", \"version\": \"0.6.0\"}");
+                if (Updates.InstallProblem(same, current_, true, true, false) != "it isn't newer than the installed v0.6.0")
+                    return "same version: " + Updates.InstallProblem(same, current_, true, true, false);
+                return Updates.InstallProblem(same, current_, true, true, allowOlder: true) == null ? null : "-AllowOlder";
+            });
+            Check("install_plan_accepts_valid", () =>
+                Updates.InstallProblem(newer, current_, true, true, false) is string why ? why : null);
+
+            Check("zip_layout_refuses_unsafe_paths", () =>
+            {
+                // Review Focus 4: nothing may land outside the folder it's unpacked into.
+                var good = new[] { "LoupedeckBridge/", "LoupedeckBridge/LoupedeckBridge.exe", "LoupedeckBridge/LoupedeckBridge.json",
+                                   "LoupedeckBridge/app/bridge/__init__.py" };
+                var goodWhy = Updates.ZipLayoutProblem(good);
+                if (goodWhy != null) return "refused a good one: " + goodWhy;
+                var bad = new[]
+                {
+                    good.Concat(new[] { "LoupedeckBridge/../evil.txt" }), good.Concat(new[] { @"LoupedeckBridge\..\evil.txt" }),
+                    good.Concat(new[] { "C:/evil.txt" }), good.Concat(new[] { "/evil.txt" }), good.Concat(new[] { @"\evil.txt" }),
+                    good.Concat(new[] { "Other/x" }), good.Concat(new[] { "LoupedeckBridge/app/x.txt:stream" }),
+                    good.Where(n => !n.EndsWith(".exe")), good.Where(n => !n.EndsWith(".json")), new string[0],
+                };
+                for (var i = 0; i < bad.Length; i++) if (Updates.ZipLayoutProblem(bad[i]) == null) return "accepted case " + i;
+                return null;
+            });
+
+            Check("download_is_capped_and_hashed", () =>
+            {
+                var data = Enumerable.Range(0, 1024).Select(i => (byte)i).ToArray();
+                var sink = new System.IO.MemoryStream();
+                var hash = Download.CopyCapped(new System.IO.MemoryStream(data), sink, limit: 1024);
+                var want = BitConverter.ToString(System.Security.Cryptography.SHA256.Create().ComputeHash(data)).Replace("-", "").ToLowerInvariant();
+                if (hash != want || sink.Length != 1024) return "hash or length";
+                try
+                {
+                    Download.CopyCapped(new System.IO.MemoryStream(data), new System.IO.MemoryStream(), limit: 1023);
+                    return "a download past the limit was accepted";
+                }
+                catch (DownloadTooLargeException) { return null; }
+            });
+
             return failures == 0 ? 0 : 1;
         }
     }
