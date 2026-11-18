@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- LoupedeckBridge.exe, the Windows tray app (milestone 7), on the .NET Framework 4.8 built into Windows 10 and 11.
+       No NuGet packages: it builds against the 4.8 reference assemblies (Visual Studio's or the Developer Pack's).
+       tools/build_windows_app.ps1 sets Version and AssemblyTitle ("LoupedeckBridge" or "LoupedeckBridge Dev"). -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <RootNamespace>LoupedeckBridge</RootNamespace>
+    <AssemblyName>LoupedeckBridge</AssemblyName>
+    <Product>LoupedeckBridge</Product>
+    <AssemblyTitle>LoupedeckBridge</AssemblyTitle>
+    <Description>Loupedeck+ to Adobe Lightroom bridge</Description>
+    <Version>0.0.0</Version>
+    <Deterministic>true</Deterministic>
+    <DebugType>none</DebugType>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="tests\**" />
+    <None Remove="tests\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Security" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Web.Extensions" />
+  </ItemGroup>
+</Project>

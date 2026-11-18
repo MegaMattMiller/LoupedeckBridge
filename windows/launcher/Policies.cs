@@ -1,0 +1,423 @@
+// The tray app's rules, kept free of WinForms so tests/PolicyTests.cs can check them directly. Ported from
+// macos/launcher/Policies.swift (milestone 7), with the same numbers:
+// - which status lines the bridge sends (bridge/status.py), and what the tooltip says
+// - when to alert (AlertPolicy), and when to restart a bridge that stopped (RestartPolicy, BridgeSupervisor)
+// - which Python to run (RuntimePaths, BridgeCommand), and release versions (Version)
+// Time is seconds as a plain double (the app passes a monotonic clock).
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
+using System.Web.Script.Serialization;
+
+namespace LoupedeckBridge
+{
+    /// Reading JSON with the .NET Framework's own parser (no packages).
+    public static class Json
+    {
+        /// The JSON object in `text`, or null for anything else.
+        public static Dictionary<string, object> Object(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return null;
+            try { return new JavaScriptSerializer().DeserializeObject(text) as Dictionary<string, object>; }
+            catch (Exception e) when (e is ArgumentException || e is InvalidOperationException) { return null; }
+        }
+
+        /// A field that may be missing or null (value = default); false only if it's there with another type.
+        public static bool Optional<T>(Dictionary<string, object> fields, string key, out T value)
+        {
+            value = default;
+            if (!fields.TryGetValue(key, out var raw) || raw == null) return true;
+            if (!(raw is T typed)) return false;
+            value = typed;
+            return true;
+        }
+
+        /// A field that must be there, with this type.
+        public static bool Required<T>(Dictionary<string, object> fields, string key, out T value)
+        {
+            value = default;
+            if (!fields.TryGetValue(key, out var raw) || !(raw is T typed)) return false;
+            value = typed;
+            return true;
+        }
+    }
+
+    /// One status line from the bridge.
+    public sealed class BridgeStatus : IEquatable<BridgeStatus>
+    {
+        public bool Loupedeck { get; }
+        public bool Lightroom { get; }
+        public string Keys { get; }            // "allowed", "missing" or "unavailable"
+        public string FiveMode { get; }        // "ratings", "colours" or "keys"
+        public string SettingsUrl { get; }     // null when the settings page is off
+        public bool LoupedeckBusy { get; }     // another program has the Loupedeck open (milestone 7)
+
+        public BridgeStatus(bool loupedeck, bool lightroom, string keys, string fiveMode, string settingsUrl,
+                            bool loupedeckBusy)
+        {
+            Loupedeck = loupedeck; Lightroom = lightroom; Keys = keys; FiveMode = fiveMode; SettingsUrl = settingsUrl;
+            LoupedeckBusy = loupedeckBusy;
+        }
+
+        /// The status in one line of the bridge's output, or null for anything else.
+        public static BridgeStatus Parse(string line)
+        {
+            var f = Json.Object(line);
+            if (f == null) return null;
+            if (!Json.Required(f, "loupedeck", out bool loupedeck) || !Json.Required(f, "lightroom", out bool lightroom)
+                || !Json.Required(f, "keys", out string keys) || !Json.Required(f, "five_mode", out string fiveMode)
+                || !Json.Optional(f, "settings_url", out string url) || !Json.Optional(f, "loupedeck_busy", out bool busy))
+                return null;
+            return new BridgeStatus(loupedeck, lightroom, keys, fiveMode, url, busy);
+        }
+
+        public bool Equals(BridgeStatus other) =>
+            other != null && Loupedeck == other.Loupedeck && Lightroom == other.Lightroom && Keys == other.Keys
+            && FiveMode == other.FiveMode && SettingsUrl == other.SettingsUrl && LoupedeckBusy == other.LoupedeckBusy;
+        public override bool Equals(object obj) => Equals(obj as BridgeStatus);
+        public override int GetHashCode() => (Keys ?? "").GetHashCode() ^ (FiveMode ?? "").GetHashCode();
+        public override string ToString() =>
+            $"loupedeck={Loupedeck} busy={LoupedeckBusy} lightroom={Lightroom} keys={Keys} five={FiveMode} url={SettingsUrl}";
+    }
+
+    public sealed class Alert : IEquatable<Alert>
+    {
+        public enum Kinds { Disconnected, Back, BridgeStopped }
+        public Kinds Kind { get; }
+        public bool WillRestart { get; }       // BridgeStopped only
+
+        Alert(Kinds kind, bool willRestart) { Kind = kind; WillRestart = willRestart; }
+
+        public static readonly Alert Disconnected = new Alert(Kinds.Disconnected, false);
+        public static readonly Alert Back = new Alert(Kinds.Back, false);
+        public static Alert Stopped(bool willRestart) => new Alert(Kinds.BridgeStopped, willRestart);
+
+        public bool Equals(Alert other) => other != null && Kind == other.Kind && WillRestart == other.WillRestart;
+        public override bool Equals(object obj) => Equals(obj as Alert);
+        public override int GetHashCode() => (int)Kind * 2 + (WillRestart ? 1 : 0);
+        public override string ToString() => Kind == Kinds.BridgeStopped ? $"BridgeStopped(willRestart: {WillRestart})" : Kind.ToString();
+    }
+
+    /// When to alert about the Loupedeck (the design's rules):
+    /// - "disconnected" only for a Loupedeck that was connected during this run (armed by the first connect), still
+    ///   gone after `Debounce` seconds, not within `WakeGrace` of a wake, at most once per `MinInterval` (a held-back
+    ///   alert fires later if it's still gone);
+    /// - "back" only after a "disconnected" was shown.
+    /// Windows needs no keyboard permission, so there's no "keys missing" alert.
+    public sealed class AlertPolicy
+    {
+        public double Debounce = 3.0;
+        public double WakeGrace = 15.0;
+        public double MinInterval = 60.0;
+
+        bool armed;                            // a Loupedeck has connected during this run
+        bool connected;
+        double? goneSince;                     // a drop waiting to become an alert
+        bool shownDisconnect;                  // so "back" follows only a shown "disconnected"
+        double lastDisconnect = double.NegativeInfinity;
+        double wakeUntil = double.NegativeInfinity;
+
+        public List<Alert> Status(BridgeStatus s, double now)
+        {
+            var output = new List<Alert>();
+            if (s.Loupedeck)
+            {
+                armed = true;
+                goneSince = null;
+                if (shownDisconnect)
+                {
+                    shownDisconnect = false;
+                    output.Add(Alert.Back);
+                }
+            }
+            else if (connected && armed && goneSince == null)
+            {
+                goneSince = now;
+            }
+            connected = s.Loupedeck;
+            return output;
+        }
+
+        /// Called about once a second: sends a pending "disconnected" once the rules allow it.
+        public List<Alert> Tick(double now)
+        {
+            if (goneSince == null || connected || now - goneSince.Value < Debounce || now < wakeUntil
+                || now - lastDisconnect < MinInterval) return new List<Alert>();
+            goneSince = null;
+            shownDisconnect = true;
+            lastDisconnect = now;
+            return new List<Alert> { Alert.Disconnected };
+        }
+
+        /// USB devices re-enumerate on wake: hold disconnect alerts for a while.
+        public void DidWake(double now) => wakeUntil = now + WakeGrace;
+
+        /// The bridge exited: what it last said about the Loupedeck no longer counts. Its shutdown isn't an unplug,
+        /// so a pending "disconnected" is dropped.
+        public void BridgeStopped()
+        {
+            armed = false;
+            connected = false;
+            goneSince = null;
+        }
+
+        /// A new bridge run: nothing is known about the Loupedeck until it connects again.
+        public void BridgeRestarted() => BridgeStopped();
+    }
+
+    /// When to restart a bridge that stopped by itself: after `Delay` seconds, at most `MaxRestarts` times in
+    /// `Window` seconds. A clean exit (0) or "already running" (3) is never a crash.
+    public sealed class RestartPolicy
+    {
+        public const int AlreadyRunning = 3;   // bridge/__main__.py EXIT_ALREADY_RUNNING
+        public double Delay = 5.0;
+        public double Window = 600.0;
+        public int MaxRestarts = 3;
+        readonly List<double> restarts = new List<double>();
+
+        public bool ShouldRestart(int exitCode, double now)
+        {
+            if (exitCode == 0 || exitCode == AlreadyRunning) return false;
+            restarts.RemoveAll(t => now - t >= Window);
+            if (restarts.Count >= MaxRestarts) return false;
+            restarts.Add(now);
+            return true;
+        }
+    }
+
+    /// What the app does when the bridge starts, exits or restarts, or the user quits.
+    public sealed class SupervisorAction : IEquatable<SupervisorAction>
+    {
+        public enum Kinds { Spawn, StopBridge, ReleaseKeys, Alert, ScheduleRestart, TerminateApp, ReadyToSwap }
+        public Kinds Kind { get; }
+        public Alert AlertToShow { get; }      // Alert only
+        public int Token { get; }              // ScheduleRestart only: only the newest scheduled restart may fire
+        public double After { get; }           // ScheduleRestart only, seconds
+
+        SupervisorAction(Kinds kind, Alert alert = null, int token = 0, double after = 0)
+        {
+            Kind = kind; AlertToShow = alert; Token = token; After = after;
+        }
+
+        public static readonly SupervisorAction Spawn = new SupervisorAction(Kinds.Spawn);
+        public static readonly SupervisorAction StopBridge = new SupervisorAction(Kinds.StopBridge);     // "stop", then kill after 5 s
+        public static readonly SupervisorAction ReleaseKeys = new SupervisorAction(Kinds.ReleaseKeys);   // it ended without its own clean-up
+        public static readonly SupervisorAction TerminateApp = new SupervisorAction(Kinds.TerminateApp);
+        public static readonly SupervisorAction ReadyToSwap = new SupervisorAction(Kinds.ReadyToSwap);   // an update may now proceed
+        public static SupervisorAction Alert(Alert alert) => new SupervisorAction(Kinds.Alert, alert: alert);
+        public static SupervisorAction ScheduleRestart(int token, double after) =>
+            new SupervisorAction(Kinds.ScheduleRestart, token: token, after: after);
+
+        public bool Equals(SupervisorAction other) =>
+            other != null && Kind == other.Kind && Token == other.Token && After == other.After
+            && Equals(AlertToShow, other.AlertToShow);
+        public override bool Equals(object obj) => Equals(obj as SupervisorAction);
+        public override int GetHashCode() => (int)Kind ^ Token;
+        public override string ToString() => Kind == Kinds.Alert ? $"Alert({AlertToShow})"
+            : Kind == Kinds.ScheduleRestart ? $"ScheduleRestart({Token}, {After})" : Kind.ToString();
+    }
+
+    /// The decisions only, so they're testable without WinForms; the app (TrayApp.cs) carries out the actions.
+    /// Keys are let go after a forced stop, status lines from a bridge on its way out are ignored, and a restart
+    /// (automatic or from the menu) can never start a second bridge.
+    public sealed class BridgeSupervisor
+    {
+        public enum States { Idle, Running, WaitingToRestart, Stopped, Updating, Quitting }
+        public States State { get; private set; } = States.Idle;
+        RestartPolicy restarts = new RestartPolicy();
+        int token;
+
+        /// Status lines count only while the bridge runs, not once it's exiting, stopped or quitting.
+        public bool AcceptsStatus => State == States.Running;
+        /// The menu shows "stopped" (and offers Restart) in these states.
+        public bool IsStopped => State == States.Stopped || State == States.WaitingToRestart;
+        public double RestartDelay => restarts.Delay;
+
+        public List<SupervisorAction> Start()
+        {
+            State = States.Running;
+            return new List<SupervisorAction> { SupervisorAction.Spawn };
+        }
+
+        public List<SupervisorAction> SpawnFailed()
+        {
+            State = States.Stopped;
+            return new List<SupervisorAction> { SupervisorAction.Alert(Alert.Stopped(willRestart: false)) };
+        }
+
+        public List<SupervisorAction> Exited(int code, double now)
+        {
+            var hard = code != 0 && code != RestartPolicy.AlreadyRunning;   // no clean-up of its own
+            var output = new List<SupervisorAction>();
+            if (hard) output.Add(SupervisorAction.ReleaseKeys);
+            if (State == States.Quitting)
+            {
+                output.Add(SupervisorAction.TerminateApp);
+                return output;
+            }
+            if (State == States.Updating)
+            {
+                output.Add(SupervisorAction.ReadyToSwap);
+                return output;
+            }
+            if (code == RestartPolicy.AlreadyRunning)
+            {
+                State = States.Stopped;
+                return new List<SupervisorAction> { SupervisorAction.TerminateApp };   // another LoupedeckBridge runs
+            }
+            var restart = restarts.ShouldRestart(code, now);
+            if (hard) output.Add(SupervisorAction.Alert(Alert.Stopped(willRestart: restart)));
+            if (restart)
+            {
+                token += 1;
+                State = States.WaitingToRestart;
+                output.Add(SupervisorAction.ScheduleRestart(token, restarts.Delay));
+            }
+            else
+            {
+                State = States.Stopped;        // exit 0: a deliberate stop; or the budget is used up
+            }
+            return output;
+        }
+
+        public List<SupervisorAction> RestartTimerFired(int fired)
+        {
+            if (State != States.WaitingToRestart || fired != token) return new List<SupervisorAction>();
+            State = States.Running;
+            return new List<SupervisorAction> { SupervisorAction.Spawn };
+        }
+
+        /// "Restart bridge" in the menu: only when it's stopped (a stale menu click does nothing).
+        public List<SupervisorAction> ManualRestart()
+        {
+            if (!IsStopped) return new List<SupervisorAction>();
+            token += 1;                        // cancels a pending automatic restart
+            restarts = new RestartPolicy();    // a fresh budget after a deliberate restart
+            State = States.Running;
+            return new List<SupervisorAction> { SupervisorAction.Spawn };
+        }
+
+        /// An update is about to replace the app: stop the bridge like Quit does, but keep the app running so it can
+        /// hand over (or bring the bridge back if the update fails). A pending automatic restart is cancelled.
+        public List<SupervisorAction> StopForUpdate(bool bridgeRunning)
+        {
+            if (State == States.Updating || State == States.Quitting) return new List<SupervisorAction>();
+            token += 1;
+            State = States.Updating;
+            return new List<SupervisorAction> { bridgeRunning ? SupervisorAction.StopBridge : SupervisorAction.ReadyToSwap };
+        }
+
+        /// The update failed after the bridge was stopped: start it again, with a fresh restart budget.
+        public List<SupervisorAction> UpdateAbandoned()
+        {
+            if (State != States.Updating) return new List<SupervisorAction>();
+            restarts = new RestartPolicy();
+            State = States.Running;
+            return new List<SupervisorAction> { SupervisorAction.Spawn };
+        }
+
+        public List<SupervisorAction> Quit(bool bridgeRunning)
+        {
+            if (State == States.Quitting) return new List<SupervisorAction>();
+            State = States.Quitting;
+            return new List<SupervisorAction> { bridgeRunning ? SupervisorAction.StopBridge : SupervisorAction.TerminateApp };
+        }
+    }
+
+    /// Which Python to run, and where, from the build info:
+    /// - "bundled" (releases): the Python and code in the app's folder
+    /// - "repo" (the dev build): the checkout's .venv and code
+    public sealed class RuntimePaths
+    {
+        public string Python { get; }
+        public string Workdir { get; }
+
+        RuntimePaths(string python, string workdir) { Python = python; Workdir = workdir; }
+
+        public static RuntimePaths Resolve(BuildInfo info, string appDir)
+        {
+            switch (info?.Runtime)
+            {
+                case "bundled":
+                    return new RuntimePaths(System.IO.Path.Combine(appDir, "python", "python.exe"),
+                                            System.IO.Path.Combine(appDir, "app"));
+                case "repo":
+                    if (string.IsNullOrEmpty(info.Repo)) return null;
+                    return new RuntimePaths(System.IO.Path.Combine(info.Repo, ".venv", "Scripts", "python.exe"), info.Repo);
+                default:
+                    return null;
+            }
+        }
+
+        public override string ToString() => Python + " in " + Workdir;
+    }
+
+    public static class BridgeCommand
+    {
+        /// The bridge's Python arguments. -E: ignore PYTHON* variables; -s: ignore the user's own site-packages;
+        /// -B: never write __pycache__ (a release comes precompiled); -X utf8: UTF-8 for files and pipes.
+        public static List<string> Arguments(IEnumerable<string> extra) =>
+            new List<string> { "-E", "-s", "-B", "-X", "utf8", "-m", "bridge" }.Concat(extra ?? Enumerable.Empty<string>()).ToList();
+    }
+
+    /// A release version: three numbers, compared numerically ("0.10.0" > "0.9.9"). A leading "v" is allowed.
+    public sealed class Version : IComparable<Version>, IEquatable<Version>
+    {
+        static readonly Regex Shape = new Regex(@"^v?([0-9]+)\.([0-9]+)\.([0-9]+)$", RegexOptions.CultureInvariant);
+        readonly int[] parts;
+
+        Version(int[] parts) { this.parts = parts; }
+
+        public static Version Parse(string text)
+        {
+            if (text == null) return null;
+            var m = Shape.Match(text);
+            if (!m.Success) return null;
+            var parts = new int[3];
+            for (var i = 0; i < 3; i++)
+                if (!int.TryParse(m.Groups[i + 1].Value, System.Globalization.NumberStyles.None,
+                                  System.Globalization.CultureInfo.InvariantCulture, out parts[i])) return null;
+            return new Version(parts);
+        }
+
+        public int CompareTo(Version other)
+        {
+            if (other is null) return 1;
+            for (var i = 0; i < 3; i++)
+                if (parts[i] != other.parts[i]) return parts[i].CompareTo(other.parts[i]);
+            return 0;
+        }
+
+        public bool Equals(Version other) => !(other is null) && CompareTo(other) == 0;
+        public override bool Equals(object obj) => Equals(obj as Version);
+        public override int GetHashCode() => parts[0] * 1_000_000 + parts[1] * 1_000 + parts[2];
+        public override string ToString() => string.Join(".", parts);
+
+        public static bool operator ==(Version a, Version b) => a is null ? b is null : a.Equals(b);
+        public static bool operator !=(Version a, Version b) => !(a == b);
+        public static bool operator <(Version a, Version b) => !(a is null) && a.CompareTo(b) < 0;
+        public static bool operator >(Version a, Version b) => !(a is null) && a.CompareTo(b) > 0;
+        public static bool operator <=(Version a, Version b) => !(a > b);
+        public static bool operator >=(Version a, Version b) => !(a < b);
+    }
+
+    /// The tray icon's tooltip.
+    public static class TrayText
+    {
+        public static string Problem(BridgeSupervisor.States state, bool isStopped, BridgeStatus status)
+        {
+            if (state == BridgeSupervisor.States.Updating) return "updating…";
+            if (isStopped) return "the bridge has stopped";
+            if (status == null) return "starting…";
+            if (status.LoupedeckBusy) return "the Loupedeck is in use by another program";
+            if (!status.Loupedeck) return "the Loupedeck isn't connected";
+            if (!status.Lightroom) return "Lightroom isn't connected";
+            return "all good";
+        }
+
+        /// NotifyIcon.Text takes at most 63 characters on .NET Framework.
+        public static string Tooltip(string name, string problem) => name + ": " + problem;
+    }
+}

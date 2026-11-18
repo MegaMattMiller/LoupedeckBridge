@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The tray app's rules, checked without WinForms (tests/test_windows_launcher.py builds and runs this). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <RootNamespace>LoupedeckBridge</RootNamespace>
+    <AssemblyName>PolicyTests</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="PolicyTests.cs" />
+    <Compile Include="..\Policies.cs" />
+    <Compile Include="..\BuildInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="System.Web.Extensions" />
+  </ItemGroup>
+</Project>
