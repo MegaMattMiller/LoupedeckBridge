@@ -30,7 +30,7 @@ def rig(tmp_path):
     for app in (release, dev):
         (app / "Contents" / "MacOS").mkdir(parents=True)
     env = {**os.environ, "PATH": f"{bin_dir}:/usr/bin:/bin", "HOME": str(tmp_path / "home"),
-           "LB_RELEASE_APP": str(release), "LB_DEV_APP": str(dev),
+           "LB_BRIDGECTL_RELEASE_APP": str(release), "LB_BRIDGECTL_DEV_APP": str(dev),
            "FAKE_LOG": str(tmp_path / "log"), "FAKE_RUNNING": str(tmp_path / "running")}
     (tmp_path / "running").write_text("")
     return env, release, dev

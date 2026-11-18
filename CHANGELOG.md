@@ -3,6 +3,20 @@
 Each release's section here becomes its GitHub release notes (`tools/check_release.py`). Versions are
 `bridge/__init__.py`'s `__version__`.
 
+## v0.5.1 — 2026-11-17
+
+Safer installs and releases (from the review of v0.5.0), and the first update installed from the menu.
+
+- **Updates:** downloads are streamed to disk, hashed as they arrive, and stopped past 200 MB. A failed unzip
+  says why (e.g. a full disk). A found update stays in the menu, and its one alert isn't repeated, after the
+  app restarts.
+- **`install.sh`:** checks the signing identifier the way the app does, and says why an unzip fails. If it put
+  the old app back after a failure, it starts it again, and it stops if the running app won't quit.
+- **Releases:** the signing job signs the commit the build job built, after checking the tag hasn't moved,
+  and "Run workflow" must be started from the version's tag. CI also proves that a changed byte and another
+  key are both refused.
+- `tools/bridgectl`'s app-path overrides are now `LB_BRIDGECTL_RELEASE_APP` and `LB_BRIDGECTL_DEV_APP`.
+
 ## v0.5.0 — 2026-11-17
 
 The first release: everything from milestones 1–6, for Apple Silicon Macs (macOS 14 or later).

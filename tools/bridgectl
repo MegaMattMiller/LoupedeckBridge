@@ -9,8 +9,8 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-RELEASE_APP="${LB_RELEASE_APP:-/Applications/LoupedeckBridge.app}"
-DEV_APP="${LB_DEV_APP:-$REPO/build/LoupedeckBridge Dev.app}"
+RELEASE_APP="${LB_BRIDGECTL_RELEASE_APP:-/Applications/LoupedeckBridge.app}"
+DEV_APP="${LB_BRIDGECTL_DEV_APP:-$REPO/build/LoupedeckBridge Dev.app}"
 LOG="$HOME/Library/Logs/loupedeck-lr-bridge/bridge.log"
 STATE="$HOME/Library/Application Support/loupedeck-lr-bridge"
 PAUSED="$STATE/release-paused"     # set by `start --dev` while it has paused the release

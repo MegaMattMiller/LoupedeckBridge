@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import http.client
 import json
+import re
 import logging
 import socket
 
@@ -619,4 +620,4 @@ def test_page_shows_version(tmp_path):
         async with Rig(tmp_path) as rig:
             return await rig.http_get("/")
     status, _, body = asyncio.run(main())
-    assert status == 200 and f"v{bridge.__version__}" in body and bridge.__version__ == "0.5.0"
+    assert status == 200 and f"v{bridge.__version__}" in body and re.fullmatch(r"\d+\.\d+\.\d+", bridge.__version__)
