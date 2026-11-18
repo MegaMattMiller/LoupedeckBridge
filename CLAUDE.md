@@ -60,6 +60,8 @@ pwsh -File tools\bridgectl.ps1 build                                   # the dev
 pwsh -File tools\bridgectl.ps1 start -Dev                              # pauses the installed release
 ```
 The installed release is `%LOCALAPPDATA%\Programs\LoupedeckBridge\`; `bridgectl.ps1 start|stop|status` act on it.
+Its log (the tray app's and the bridge's): `%LOCALAPPDATA%\loupedeck-lr-bridge\logs\bridge.log`. The full suite takes
+about 4 minutes here, mostly `tests/test_install_ps1.py`: run it in the background.
 
 ## Known traps
 - **Controls dead but the bridge looks healthy:** the Loupedeck's USB dongle can drop silently. Check the log
@@ -69,6 +71,8 @@ The installed release is `%LOCALAPPDATA%\Programs\LoupedeckBridge\`; `bridgectl.
 - While a Lightroom Allow dialog is open, Lightroom answers no client.
 - GitHub's "latest release" must always include the Mac download (`LoupedeckBridge-v<ver>-macos-arm64.zip`), or
   the Mac apps' update check quietly finds nothing (release.yml's publish job refuses without all five files).
+- A release run's Sign job shows "queued" while it waits for the user's approval. After a flaky failure,
+  `gh run rerun <id> --failed` (ask first) reruns only the failed jobs.
 - **Windows:**
   - Name UTF-8 in every text read and write (the default is cp1252); `tests/test_text_io.py` checks.
   - Windows won't rename a folder that a process stands in (its current folder): the tray app and the bridge step
@@ -78,3 +82,7 @@ The installed release is `%LOCALAPPDATA%\Programs\LoupedeckBridge\`; `bridgectl.
   - A venv's `python.exe` is a launcher with the real Python as its child (two processes); releases have one.
   - Windows PowerShell 5.1 started from PowerShell 7 inherits its `PSModulePath` and can't load its own modules.
   - `build\LoupedeckBridge Dev\` may predate the C# code: rebuild it (`bridgectl.ps1 build`) before checking with it.
+  - The tests run beside the real install: every `install.ps1` `LB_*` setting must point somewhere temporary in
+    them (`test_rig_keeps_every_install_ps1_place_away_from_this_pc`). One left out once wiped the real update prefs.
+  - Checking Start at login takes a sign-out, which also ends the Claude session: record progress first; the user
+    resumes with `claude --continue`.
