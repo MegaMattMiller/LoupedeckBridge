@@ -391,6 +391,8 @@ Checked on the user's Windows PC: Windows 11 (10.0.26200), x64.
   `install.ps1` test on GitHub's runner, where the started app's log line came after the script had exited (the
   test now waits for it). A rerun of the failed jobs published it, with all five files.
 - **v0.6.2** (the review's smaller fixes) published on its first attempt.
+- **The Mac still finds its download** in a release that carries Windows' too: on the Mac, "Check for updates now"
+  found v0.6.2 and installed it (the user, 2026-11-18).
 
 **v0.6.1 installed the friends' way on this PC** (the README's `irm` and `powershell -ExecutionPolicy Bypass` lines):
 - None of the 2446 installed files has a `Zone.Identifier` ("downloaded from the internet") mark, so there's no
