@@ -273,8 +273,19 @@ signed after the user's approval, and published (a 28.7 MB zip). Installed on th
 - Before installing, the old ad hoc `build/LoupedeckBridge.app` (the same bundle id) had its Start at login
   turned off and went to the Trash; the dev app is rebuilt later as "LoupedeckBridge Dev".
 
-**Still to verify, with the user:** the menu update to v0.5.1, keeping the permissions, with the old app in
-the Trash.
+**The first menu update, v0.5.0 → v0.5.1 (2026-11-17):** v0.5.1 (the review's deferred fixes) was released
+the same way, then installed from v0.5.0's menu: "Check for updates now" found it, Install downloaded and
+checked it in about 3 s, the bridge stopped cleanly, v0.5.0 moved itself to the Trash, and v0.5.1 started in
+its place.
+- **Moving the running app to the Trash and starting the new copy works from inside the app**, with no
+  "prevented from modifying apps" prompt (the self-signed key has no Team ID).
+- **Accessibility and notifications survived the update:** keyboard keys work in v0.5.1 with no new grant,
+  because both versions are signed with the same key at the same path.
+- The new bridge had the Loupedeck and Lightroom connected within half a second, with no Allow dialog.
+- The saved "update available" entry was cleared on the new version's first start, and the Trash copy is
+  recorded for "Go back to the previous version".
+
+All five of the design's "To verify first" items are confirmed.
 
 ## API notes the handoff didn't capture
 - **How object handles come about:** `addAdjustmentChangeObserver(param?)` and `addHapticsObserver()` return a GUID/object. Later notifications arrive as extra responses for that same original `requestId` (this is the "one request, many responses" case). Call `close` on the handle when done.
