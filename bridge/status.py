@@ -1,9 +1,11 @@
 """Status lines for LoupedeckBridge.app's menu-bar icon (milestone 5).
 
-The app starts the bridge with a pipe as file descriptor LB_STATUS_FD. The bridge writes its whole state as
-one JSON line at start and after every change:
+The app starts the bridge with a pipe as file descriptor LB_STATUS_FD (macOS), or as the inheritable handle in
+LB_STATUS_HANDLE (the Windows tray app, milestone 7). The bridge writes its whole state as one JSON line at start
+and after every change:
     {"loupedeck": bool, "lightroom": bool, "keys": "allowed"|"missing"|"unavailable",
-     "five_mode": "ratings"|"colours"|"keys", "settings_url": str|null}
+     "five_mode": "ratings"|"colours"|"keys", "settings_url": str|null, "loupedeck_busy": bool}
+"loupedeck_busy": another program has the Loupedeck open (Windows opens a MIDI input for one program at a time).
 Run without the app (`python -m bridge`), there's no pipe and nothing is written. A write that fails
 (the app is gone) turns reporting off; it never stops the bridge.
 """
@@ -13,11 +15,13 @@ import asyncio
 import json
 import logging
 import os
+import sys
 from typing import Callable, Mapping, Optional
 
 log = logging.getLogger("status")
 
 STATUS_FD_ENV = "LB_STATUS_FD"
+STATUS_HANDLE_ENV = "LB_STATUS_HANDLE"
 
 
 class StatusReporter:
@@ -25,13 +29,19 @@ class StatusReporter:
         self._write, self._keyboard = write, keyboard
         self._file = None  # set by from_env, closed by close()
         self.state = {"loupedeck": False, "lightroom": False, "keys": self._keys(), "five_mode": "ratings",
-                      "settings_url": None}
+                      "settings_url": None, "loupedeck_busy": False}
 
     @classmethod
     def from_env(cls, environ: Mapping[str, str] = os.environ, keyboard=None) -> "StatusReporter":
-        """Write to the fd the app passed in LB_STATUS_FD; without one, report nothing."""
+        """Write to the pipe the app passed (LB_STATUS_HANDLE on Windows, LB_STATUS_FD on macOS); without one,
+        report nothing."""
         try:
-            f = os.fdopen(int(environ[STATUS_FD_ENV]), "w", buffering=1, encoding="utf-8")
+            if sys.platform == "win32" and STATUS_HANDLE_ENV in environ:
+                import msvcrt
+                fd = msvcrt.open_osfhandle(int(environ[STATUS_HANDLE_ENV]), os.O_WRONLY)
+            else:
+                fd = int(environ[STATUS_FD_ENV])
+            f = os.fdopen(fd, "w", buffering=1, encoding="utf-8")
         except (KeyError, ValueError, OSError):
             return cls(None, keyboard=keyboard)
         reporter = cls(f.write, keyboard=keyboard)

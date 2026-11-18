@@ -12,7 +12,7 @@ import pytest
 LAUNCHER = Path(__file__).resolve().parent.parent / "macos" / "launcher"
 CHECKS = ["never_connected_never_alerts", "drop_alerts_after_debounce", "quick_replug_is_silent", "wake_grace",
           "flapping_is_rate_limited", "rate_limited_alert_fires_later", "keys_missing_once_per_run",
-          "restart_disarms", "restart_budget", "already_running_is_not_a_crash", "parse_rejects_garbage",
+          "restart_disarms", "restart_budget", "already_running_is_not_a_crash", "parse_rejects_garbage", "parse_ignores_new_fields",
           "status_pipe_reaches_the_app", "bridge_exit_drops_pending_disconnect", "quit_after_forced_kill_releases_keys",
           "quit_after_clean_stop_just_exits", "crash_releases_alerts_and_schedules_once",
           "manual_restart_during_wait_spawns_once", "stale_restart_click_does_nothing",

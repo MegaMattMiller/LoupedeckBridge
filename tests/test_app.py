@@ -244,3 +244,25 @@ def test_shutdown_is_not_reported_as_a_disconnect(tmp_path):
         await asyncio.gather(task, return_exceptions=True)
     asyncio.run(main())
     assert json.loads(lines[-1])["loupedeck"] is True   # nothing reported after shutdown began
+
+
+def test_busy_loupedeck_reaches_the_status(tmp_path):
+    # Milestone 7: "Loupedeck: in use by another program" in the Windows tray menu.
+    import json
+    from bridge import app as appmod
+    from bridge.status import StatusReporter
+
+    class BusyMidi:
+        on_open = on_close = on_busy = None
+
+        async def events(self):
+            await asyncio.Event().wait()
+            yield  # pragma: no cover
+
+    lines, midi = [], BusyMidi()
+    appmod.build(config_dir=tmp_path, midi=midi, port=1, state_file=tmp_path / "c.json",
+                 status=StatusReporter(lines.append))
+    midi.on_busy(True)
+    assert json.loads(lines[-1])["loupedeck_busy"] is True
+    midi.on_busy(False)
+    assert json.loads(lines[-1])["loupedeck_busy"] is False

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 
 import mido
 
@@ -156,4 +157,47 @@ def test_unknown_messages_skipped():
         midi.ports[0].send_in(cc(33, 1))
         assert await asyncio.wait_for(nxt, 1) == Turn("exposure", 1)
         await events.aclose()
+    asyncio.run(main())
+
+
+# ---- milestone 7: a Loupedeck held by another program (Windows opens a MIDI input for one program at a time) ----
+
+def busy_rig(failures):
+    midi = FakeMidi()
+    real_open = midi.open_port
+
+    def open_port(name, callback=None):
+        if failures is None or failures:
+            raise (failures.pop(0) if failures else OSError("MidiInWinMM::openPort: error creating Windows MM MIDI input port"))
+        return real_open(name, callback)
+
+    busy = []
+    mi = MidiInput(HW, list_ports=midi.list_ports, open_port=open_port, poll=0.01, busy_retry=0.01)
+    mi.on_busy = busy.append
+    return midi, mi, busy
+
+
+def test_busy_port_is_retried_and_reported(caplog):
+    async def main():
+        midi, mi, busy = busy_rig([OSError("in use"), OSError("in use")])
+        events = mi.events()
+        nxt = asyncio.ensure_future(events.__anext__())
+        await wait_until(lambda: len(midi.ports) == 1)
+        midi.ports[0].send_in(cc(33, 1))
+        assert isinstance(await asyncio.wait_for(nxt, 1), Turn)
+        assert busy == [True, False]
+        await events.aclose()
+    with caplog.at_level(logging.INFO, logger="midi"):
+        asyncio.run(main())
+    assert sum("in use by another program" in r.getMessage() for r in caplog.records) == 1
+
+
+def test_busy_clears_when_unplugged():
+    async def main():
+        midi, mi, busy = busy_rig(None)          # always busy
+        nxt = asyncio.ensure_future(mi.events().__anext__())
+        await wait_until(lambda: busy == [True])
+        midi.present = False
+        await wait_until(lambda: busy == [True, False])
+        nxt.cancel()
     asyncio.run(main())

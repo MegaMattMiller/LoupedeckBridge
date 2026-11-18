@@ -15,14 +15,17 @@ from bridge import app, instance, platform
 log = logging.getLogger("app")
 
 EXIT_ALREADY_RUNNING = 3
+# Set to "1" by the Windows tray app, which reads the bridge's stderr through a pipe and appends it to bridge.log
+# (milestone 7): the file can't be compared with the pipe, so it says so.
+STDERR_IS_LOG_ENV = "LB_STDERR_IS_LOG"
 
 
-def log_handlers(log_path, stderr=None) -> list:
+def log_handlers(log_path, stderr=None, environ=os.environ) -> list:
     """The log file, plus a copy on stderr unless stderr *is* that file: LoupedeckBridge.app sends the
     bridge's stderr to bridge.log (so early crashes are recorded), and a console copy would double every line."""
     stderr = sys.stderr if stderr is None else stderr
     handlers: list = [RotatingFileHandler(log_path, maxBytes=1_000_000, backupCount=3, encoding="utf-8")]
-    if not _same_file(stderr, log_path):
+    if environ.get(STDERR_IS_LOG_ENV) != "1" and not _same_file(stderr, log_path):
         handlers.insert(0, logging.StreamHandler(stderr))
     return handlers
 
@@ -93,14 +96,29 @@ async def _run(args) -> None:
         log.warning("the app that started the bridge has gone (force-quit?); stopping")
         main_task.cancel()
 
-    watcher = asyncio.create_task(stop_when_parent_gone())
+    def stop_from_control() -> None:   # from the control pipe's thread (Windows)
+        try:
+            loop.call_soon_threadsafe(main_task.cancel)
+        except RuntimeError:           # the bridge has already finished
+            pass
+
+    watcher = None
+    if sys.platform == "win32":
+        # A parent's exit doesn't change our parent id on Windows. The tray app's control pipe says "stop", and
+        # ends by itself if the tray app dies.
+        control = instance.open_control()
+        if control is not None:
+            instance.watch_control(control, stop_from_control)
+    else:
+        watcher = asyncio.create_task(stop_when_parent_gone())
     try:
         await app.run(debug=args.debug, midi_port=args.midi_port, lightroom_port=args.lightroom_port,
                       settings_port=args.settings_port or None)
     except asyncio.CancelledError:
         pass
     finally:
-        watcher.cancel()
+        if watcher is not None:
+            watcher.cancel()
 
 
 def _check_permission() -> None:

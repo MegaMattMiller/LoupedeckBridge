@@ -125,6 +125,8 @@ def build(config_dir: Path, midi, port: Optional[int] = None, state_file: Option
         midi.on_open = device_opened
     if hasattr(midi, "on_close"):
         midi.on_close = device_closed
+    if hasattr(midi, "on_busy"):
+        midi.on_busy = lambda busy: status.set(loupedeck_busy=busy)   # another program has it (Windows)
     return App(midi, session, dials, dispatcher, settings, status)
 
 

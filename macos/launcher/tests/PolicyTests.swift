@@ -178,6 +178,11 @@ enum PolicyTests {
             if BridgeStatus.parse(nullURL)?.settings_url != nil || BridgeStatus.parse(nullURL) == nil { return "null url" }
             return BridgeStatus.parse(good) == want ? nil : "parsed \(String(describing: BridgeStatus.parse(good)))"
         }
+        check("parse_ignores_new_fields") {
+            // Milestone 7: the bridge also reports "loupedeck_busy" (Windows); the Mac app must still read the line.
+            let line = #"{"loupedeck": false, "lightroom": true, "keys": "allowed", "five_mode": "ratings", "settings_url": null, "loupedeck_busy": true}"#
+            return BridgeStatus.parse(line)?.lightroom == true ? nil : "refused a line with a new field"
+        }
         check("bridge_exit_drops_pending_disconnect") {
             // Review: the bridge reports "loupedeck: false" while shutting down; a crash then raised a
             // false "disconnected" alert, and "back" after the restart.

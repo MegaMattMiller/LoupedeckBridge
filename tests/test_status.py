@@ -31,7 +31,7 @@ def test_writes_only_changes():
 def test_initial_state():
     s = StatusReporter(lambda line: None, keyboard=Keyboard(True))
     assert s.state == {"loupedeck": False, "lightroom": False, "keys": "allowed", "five_mode": "ratings",
-                       "settings_url": None}
+                       "settings_url": None, "loupedeck_busy": False}
     assert StatusReporter(lambda line: None, keyboard=Keyboard(False)).state["keys"] == "missing"
 
 
@@ -91,3 +91,8 @@ def test_keys_polled_until_allowed():
         assert len(lines) == settled                    # polling stopped once allowed
         await asyncio.wait_for(task, 1)                 # and run() returned
     asyncio.run(main())
+
+
+def test_status_starts_not_busy():
+    # Milestone 7: "the Loupedeck is in use by another program" (Windows opens a MIDI input for one program).
+    assert StatusReporter(None).state["loupedeck_busy"] is False

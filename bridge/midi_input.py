@@ -15,19 +15,33 @@ log = logging.getLogger("midi")
 class MidiInput:
     def __init__(self, hardware: HardwareMap, port_hint: str = "Loupedeck",
                  list_ports: Callable[[], List[str]] = mido.get_input_names,
-                 open_port: Callable = mido.open_input, poll: float = 1.0):
+                 open_port: Callable = mido.open_input, poll: float = 1.0, busy_retry: float = 3.0):
         self.hardware, self.port_hint = hardware, port_hint
         self.list_ports, self.open_port, self.poll = list_ports, open_port, poll
+        self.busy_retry = busy_retry
         self.on_open: Optional[Callable[[], None]] = None   # called each time the device (re)appears
         self.on_close: Optional[Callable[[], None]] = None  # called each time its port closes
+        # Called with True when another program holds the Loupedeck (on Windows a MIDI input opens for one program
+        # at a time: usually the Loupedeck or Logi software), and with False once that's over (milestone 7).
+        self.on_busy: Optional[Callable[[bool], None]] = None
+        self._busy = False
 
     async def events(self) -> AsyncIterator[Event]:
         loop = asyncio.get_running_loop()
         while True:
             name = await self._wait_for_port()
             queue: asyncio.Queue = asyncio.Queue()
-            # rtmidi calls back from its own thread; hand messages to the event loop safely.
-            port = self.open_port(name, callback=lambda msg: loop.call_soon_threadsafe(queue.put_nowait, msg))
+            try:
+                # rtmidi calls back from its own thread; hand messages to the event loop safely.
+                port = self.open_port(name, callback=lambda msg: loop.call_soon_threadsafe(queue.put_nowait, msg))
+            except Exception as e:  # noqa: BLE001 — rtmidi raises its own error types; any failure here is "busy"
+                if not self._busy:
+                    log.warning("the Loupedeck is in use by another program (%s): quit the Loupedeck or Logi "
+                                "software. Retrying every %g s.", e, self.busy_retry)
+                    self._set_busy(True)
+                await asyncio.sleep(self.busy_retry)
+                continue
+            self._set_busy(False)
             log.info("Loupedeck connected (%s)", name)
             if self.on_open is not None:
                 try:
@@ -61,12 +75,23 @@ class MidiInput:
                     except Exception:
                         log.exception("on_close hook failed")
 
+    def _set_busy(self, busy: bool) -> None:
+        if busy == self._busy:
+            return
+        self._busy = busy
+        if self.on_busy is not None:
+            try:
+                self.on_busy(busy)
+            except Exception:
+                log.exception("on_busy hook failed")
+
     async def _wait_for_port(self) -> str:
         waiting_logged = False
         while True:
             name = self._find_port()
             if name is not None:
                 return name
+            self._set_busy(False)        # unplugged while another program held it: no longer "busy"
             if not waiting_logged:
                 log.info("waiting for a MIDI input named like %r (is the Loupedeck+ plugged in, "
                          "and the Loupedeck software quit?)", self.port_hint)
