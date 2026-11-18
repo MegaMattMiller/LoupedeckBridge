@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 
 namespace LoupedeckBridge
 {
@@ -47,6 +48,25 @@ namespace LoupedeckBridge
         static string Show(IEnumerable<object> items) => "[" + string.Join(", ", items) + "]";
         static bool Same(IEnumerable<SupervisorAction> got, params SupervisorAction[] want) => got.SequenceEqual(want);
         static bool Same(IEnumerable<Alert> got, params Alert[] want) => got.SequenceEqual(want);
+
+        [DllImport("shell32.dll", SetLastError = true)]
+        static extern IntPtr CommandLineToArgvW([MarshalAs(UnmanagedType.LPWStr)] string cmdLine, out int numArgs);
+
+        [DllImport("kernel32.dll")]
+        static extern IntPtr LocalFree(IntPtr mem);
+
+        /// How Windows itself splits a command line (what a started program sees as its arguments).
+        static string[] SplitLikeWindows(string arguments)
+        {
+            var argv = CommandLineToArgvW("program.exe " + arguments, out var count);
+            try
+            {
+                var parts = new string[count - 1];
+                for (var i = 1; i < count; i++) parts[i - 1] = Marshal.PtrToStringUni(Marshal.ReadIntPtr(argv, i * IntPtr.Size));
+                return parts;
+            }
+            finally { LocalFree(argv); }
+        }
 
         static int Main(string[] args)
         {
@@ -394,6 +414,24 @@ namespace LoupedeckBridge
                 foreach (var name in new[] { "LoupedeckBridge", "LoupedeckBridge Dev" })
                     foreach (var text in texts)
                         if (TrayText.Tooltip(name, text).Length > 63) return TrayText.Tooltip(name, text);
+                return null;
+            });
+
+            Check("command_line_quotes_paths", () =>
+            {
+                // Review Focus 1: paths with spaces, accents, trailing backslashes and quotes survive the command lines
+                // the tray app builds (the bridge's arguments; --finish-update's install folder).
+                var cases = new[]
+                {
+                    new[] { "--finish-update", "1234", @"C:\Users\Zoë Ünal\AppData\Local\Programs\LoupedeckBridge" },
+                    new[] { @"C:\path with space\", "plain", "" },
+                    new[] { "say \"hi\"", @"back\\slashes\\", "tab\tthere", @"C:\no space\" },
+                };
+                foreach (var argv in cases)
+                {
+                    var back = SplitLikeWindows(CommandLine.Join(argv));
+                    if (!back.SequenceEqual(argv)) return CommandLine.Join(argv) + " → " + string.Join(" | ", back);
+                }
                 return null;
             });
 

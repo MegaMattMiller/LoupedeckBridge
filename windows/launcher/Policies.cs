@@ -362,6 +362,33 @@ namespace LoupedeckBridge
             new List<string> { "-E", "-s", "-B", "-X", "utf8", "-m", "bridge" }.Concat(extra ?? Enumerable.Empty<string>()).ToList();
     }
 
+    /// Building a Windows command line that the started program splits back into exactly these arguments
+    /// (CommandLineToArgvW's rules: quotes around anything with spaces or quotes; backslashes doubled before a quote
+    /// and at the end of a quoted argument).
+    public static class CommandLine
+    {
+        public static string Quote(string arg)
+        {
+            if (arg.Length > 0 && arg.IndexOfAny(new[] { ' ', '\t', '\n', '\v', '"' }) < 0) return arg;
+            var quoted = new System.Text.StringBuilder("\"");
+            for (var i = 0; ; i++)
+            {
+                var backslashes = 0;
+                while (i < arg.Length && arg[i] == '\\') { i++; backslashes++; }
+                if (i == arg.Length)
+                {
+                    quoted.Append('\\', backslashes * 2);
+                    break;
+                }
+                if (arg[i] == '"') quoted.Append('\\', backslashes * 2 + 1).Append('"');
+                else quoted.Append('\\', backslashes).Append(arg[i]);
+            }
+            return quoted.Append('"').ToString();
+        }
+
+        public static string Join(IEnumerable<string> args) => string.Join(" ", args.Select(Quote));
+    }
+
     /// A release version: three numbers, compared numerically ("0.10.0" > "0.9.9"). A leading "v" is allowed.
     public sealed class Version : IComparable<Version>, IEquatable<Version>
     {
