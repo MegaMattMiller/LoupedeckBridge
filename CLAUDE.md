@@ -48,6 +48,13 @@ tools/bridgectl logs
 ```
 The installed release is `/Applications/LoupedeckBridge.app`; `tools/bridgectl start|stop|status` act on it.
 
+On Windows (milestone 7), in PowerShell:
+```powershell
+py -m venv .venv; .venv\Scripts\pip install -r requirements-dev.txt   # setup
+.venv\Scripts\python -m pytest -q                                      # tests
+.venv\Scripts\python -m bridge --debug                                 # run in a terminal
+```
+
 ## Known traps
 - **Controls dead but the bridge looks healthy:** the Loupedeck's USB dongle can drop silently. Check the log
   for "Loupedeck connected" and ask the user to replug the dongle before suspecting the code.

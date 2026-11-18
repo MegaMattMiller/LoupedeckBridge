@@ -57,7 +57,7 @@ async def main() -> None:
         await lr.close()
 
     path = PROJECT / "docs" / f"lr_parameters_{version}.json"
-    path.write_text(json.dumps(out, indent=1, ensure_ascii=False))
+    path.write_text(json.dumps(out, indent=1, ensure_ascii=False), encoding="utf-8")
     types: dict[str, int] = {}
     for e in out.values():
         key = e["type"] if isinstance(e["type"], str) else "error"

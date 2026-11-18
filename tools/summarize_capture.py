@@ -38,7 +38,7 @@ def main() -> None:
     path = Path(sys.argv[1]) if len(sys.argv) > 1 else newest_capture()
     order: dict[str, list[tuple]] = defaultdict(list)        # label -> sources in arrival order
     values: dict[tuple, list] = defaultdict(list)             # (label, source) -> values
-    for line in path.read_text().splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         rec = json.loads(line)
         if "marker" in rec:
             continue

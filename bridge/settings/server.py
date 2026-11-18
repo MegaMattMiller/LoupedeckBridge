@@ -100,7 +100,7 @@ class SettingsServer:
         if request.path not in FILES:
             return connection.respond(HTTPStatus.NOT_FOUND, "Not found\n")
         name, content_type = FILES[request.path]
-        body = (STATIC / name).read_text()
+        body = (STATIC / name).read_text(encoding="utf-8")
         if name == "index.html":
             body = body.replace("__TOKEN__", self.token).replace("__VERSION__", __version__)
         ws_sources = " ".join(f"ws://{h}" for h in sorted(self._hosts))

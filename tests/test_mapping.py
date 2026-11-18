@@ -402,3 +402,16 @@ def test_user_file_replaces_default(tmp_path):
     m = Mapping.load(write(tmp_path / "m.json", {"c1": {"press": {"type": "call", "message": "undo", "args": []}}}))
     assert m.press_action("c1") == {"type": "call", "message": "undo", "args": []}
     assert m.turn_action("exposure") == NONE  # not in the user's file → nothing (no merging)
+
+
+def test_mapping_reads_utf8_with_bom(tmp_path):
+    # Milestone 7 (Review Focus 1): on Windows, a mapping.json hand-edited in Notepad is UTF-8, perhaps with a
+    # BOM, and may sit under a user folder with non-ASCII letters and spaces.
+    folder = tmp_path / "Zoë Ünal x"
+    folder.mkdir()
+    user = folder / "mapping.json"
+    doc = {"controls": {"p1": {"press": {"type": "preset", "id": "abc", "name": "Café ☕ ★"}}}}
+    user.write_bytes(b"\xef\xbb\xbf" + json.dumps(doc, ensure_ascii=False).encode("utf-8"))
+    m = Mapping.load(user)
+    assert m.warnings == []
+    assert m.press_action("p1")["name"] == "Café ☕ ★"

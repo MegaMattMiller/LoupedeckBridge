@@ -79,7 +79,7 @@ def main() -> None:
 
     out = args.out or PROJECT / "captures" / f"raw-{datetime.now():%Y%m%d-%H%M%S}.jsonl"
     out.parent.mkdir(parents=True, exist_ok=True)
-    fh = out.open("a", buffering=1)  # line-buffered: survives Ctrl-C mid-capture
+    fh = out.open("a", buffering=1, encoding="utf-8")  # line-buffered: survives Ctrl-C mid-capture
 
     def write(rec: dict) -> None:
         with _lock:

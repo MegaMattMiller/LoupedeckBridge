@@ -1,5 +1,6 @@
 # Tests on every push and pull request. No secrets, read-only.
 #   suite:          the whole test suite with Python 3.9 (the oldest the bridge supports)
+#   suite-windows:  the same on Windows (milestone 7)
 #   release-build:  builds the release app with its bundled Python, runs the suite with that Python (test
 #                   tools pinned by hash), then rehearses release.yml's signing with a throwaway identity (not
 #                   the release key): sign in one step that deletes the keychain, the app's own update check,
@@ -29,6 +30,22 @@ jobs:
         run: python -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
       - name: Test
         run: .venv/bin/python -m pytest -q
+
+  suite-windows:
+    name: Suite on Windows (Python 3.9)
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version: "3.9.13"
+          architecture: x64
+      - name: Install
+        run: python -m venv .venv; .venv\Scripts\python -m pip install -r requirements-dev.txt
+      - name: Test
+        run: .venv\Scripts\python -m pytest -q
 
   release-build:
     name: Release build and signing rehearsal

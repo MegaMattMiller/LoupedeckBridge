@@ -73,11 +73,11 @@ class CommandCatalog:
 
     @classmethod
     def load(cls, commands_path: Path = COMMANDS_PATH, params_path: Path = PARAMS_PATH) -> "CommandCatalog":
-        raw = json.loads(commands_path.read_text())
+        raw = json.loads(commands_path.read_text(encoding="utf-8-sig"))
         commands = {c["id"]: {"id": c["id"], "label": c["label"], "group": c["group"],
                               "message": c["message"], "args": list(c.get("args", []))} for c in raw["commands"]}
         pairs = {p["id"]: {"id": p["id"], "label": p["label"], "cw": p["cw"], "ccw": p["ccw"]} for p in raw["pairs"]}
-        return cls(commands, pairs, _slider_labels(json.loads(params_path.read_text())))
+        return cls(commands, pairs, _slider_labels(json.loads(params_path.read_text(encoding="utf-8-sig"))))
 
     # ---- page choice → mapping action -------------------------------------------
     def action_for(self, choice: dict, slot: str) -> Optional[dict]:

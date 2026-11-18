@@ -35,7 +35,7 @@ def main() -> None:
     ap.add_argument("--settle", type=float, default=2.0, help="seconds to keep listening after the first hit")
     args = ap.parse_args()
 
-    cfg = json.loads((PROJECT / "config" / "loupedeck_plus.json").read_text())
+    cfg = json.loads((PROJECT / "config" / "loupedeck_plus.json").read_text(encoding="utf-8-sig"))
     hsl = {n for mode, m in cfg.get("colour_dials", {}).items() if not mode.startswith("_") for n in m.values()}
     known_cc = set(cfg["dials"].values()) | hsl | set(args.ignore)
     known_note = known_cc | set(cfg["buttons"].values())
@@ -45,7 +45,7 @@ def main() -> None:
         sys.exit(f"No MIDI input matching {args.port!r}")
 
     log_path = PROJECT / "captures" / f"find-{datetime.now():%Y%m%d-%H%M%S}.jsonl"
-    log = log_path.open("a", buffering=1)
+    log = log_path.open("a", buffering=1, encoding="utf-8")
     hits: list[tuple[float, str, int, object]] = []
     first = threading.Event()
     t0 = time.monotonic()

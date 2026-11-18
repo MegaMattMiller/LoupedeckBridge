@@ -48,7 +48,7 @@ def lightroom_port(path: Optional[Path] = None) -> int:
     if path is None:
         path = platform.current().lightroom_connections_json()
     try:
-        return int(json.loads(path.read_text())["port"])
+        return int(json.loads(path.read_text(encoding="utf-8-sig"))["port"])
     except (OSError, ValueError, KeyError, TypeError):
         return DEFAULT_PORT
 
@@ -178,7 +178,7 @@ class Lightroom:
         if self.frame_log is None:
             return
         text = self._redacted(frame if isinstance(frame, str) else json.dumps(frame))
-        with self.frame_log.open("a") as fh:
+        with self.frame_log.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps({"dir": direction, "frame": text}) + "\n")
 
     def _redacted(self, text: str) -> str:
@@ -201,12 +201,12 @@ def _find_guid(resp: Any) -> Optional[str]:
 
 def _load_state(path: Path) -> dict:
     try:
-        return json.loads(path.read_text())
+        return json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, ValueError):
         return {}
 
 
 def _save_state(path: Path, state: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(state, indent=2))
+    path.write_text(json.dumps(state, indent=2), encoding="utf-8")
     path.chmod(0o600)

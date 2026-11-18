@@ -21,7 +21,7 @@ def log_handlers(log_path, stderr=None) -> list:
     """The log file, plus a copy on stderr unless stderr *is* that file: LoupedeckBridge.app sends the
     bridge's stderr to bridge.log (so early crashes are recorded), and a console copy would double every line."""
     stderr = sys.stderr if stderr is None else stderr
-    handlers: list = [RotatingFileHandler(log_path, maxBytes=1_000_000, backupCount=3)]
+    handlers: list = [RotatingFileHandler(log_path, maxBytes=1_000_000, backupCount=3, encoding="utf-8")]
     if not _same_file(stderr, log_path):
         handlers.insert(0, logging.StreamHandler(stderr))
     return handlers

@@ -31,7 +31,7 @@ class StatusReporter:
     def from_env(cls, environ: Mapping[str, str] = os.environ, keyboard=None) -> "StatusReporter":
         """Write to the fd the app passed in LB_STATUS_FD; without one, report nothing."""
         try:
-            f = os.fdopen(int(environ[STATUS_FD_ENV]), "w", buffering=1)
+            f = os.fdopen(int(environ[STATUS_FD_ENV]), "w", buffering=1, encoding="utf-8")
         except (KeyError, ValueError, OSError):
             return cls(None, keyboard=keyboard)
         reporter = cls(f.write, keyboard=keyboard)

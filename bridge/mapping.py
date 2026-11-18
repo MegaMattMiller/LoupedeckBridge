@@ -137,7 +137,7 @@ def _dumps(doc: dict) -> str:
 
 def _write_atomic(path: Path, text: str) -> None:
     tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(text)
+    tmp.write_text(text, encoding="utf-8")
     os.replace(tmp, path)
 
 
@@ -165,7 +165,7 @@ class Mapping:
             cls._follow_new_default(user_path, base_path, default_path, warnings)
         doc: Optional[dict] = None
         try:
-            doc = json.loads(user_path.read_text())
+            doc = json.loads(user_path.read_text(encoding="utf-8-sig"))
             raw = doc["controls"]
             if not isinstance(raw, dict):
                 raise ValueError("'controls' isn't an object")
@@ -174,7 +174,7 @@ class Mapping:
             log.error(msg)
             warnings.append(msg)
             doc = None
-            raw = json.loads(default_path.read_text())["controls"]
+            raw = json.loads(default_path.read_text(encoding="utf-8-sig"))["controls"]
 
         controls = _parse(raw, warnings)
         for w in warnings:
@@ -184,14 +184,14 @@ class Mapping:
     @staticmethod
     def _follow_new_default(user_path: Path, base_path: Path, default_path: Path, warnings: List[str]) -> None:
         try:
-            base = json.loads(base_path.read_text())["controls"]
-            user_doc = json.loads(user_path.read_text())
+            base = json.loads(base_path.read_text(encoding="utf-8-sig"))["controls"]
+            user_doc = json.loads(user_path.read_text(encoding="utf-8-sig"))
             user = user_doc["controls"]
         except (OSError, ValueError, KeyError, TypeError):
             return  # no snapshot (older install) or an unreadable file: leave everything as is
         if not isinstance(base, dict) or not isinstance(user, dict):
             return  # a broken file: load() falls back to the default and leaves the file alone
-        default_doc = json.loads(default_path.read_text())
+        default_doc = json.loads(default_path.read_text(encoding="utf-8-sig"))
         default = default_doc["controls"]
         if base == default:
             return
@@ -286,7 +286,7 @@ class Mapping:
         self._edit(change)
 
     def _default_controls(self) -> dict:
-        return json.loads(self.default_path.read_text())["controls"]
+        return json.loads(self.default_path.read_text(encoding="utf-8-sig"))["controls"]
 
     def _edit(self, change: Callable[[dict], None]) -> None:
         """Apply change() to a copy of the file and keep it only once it's saved: a failed save

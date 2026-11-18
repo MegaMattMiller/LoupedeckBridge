@@ -5,7 +5,12 @@ from __future__ import annotations
 import hashlib
 import os
 import subprocess
+import sys
 from pathlib import Path
+
+import pytest
+
+pytestmark = pytest.mark.skipif(sys.platform != "darwin", reason="macOS tools: bash, ditto, codesign, open")
 
 REPO = Path(__file__).resolve().parent.parent
 BUNDLE_ID = "io.github.megamattmiller.loupedeckbridge"

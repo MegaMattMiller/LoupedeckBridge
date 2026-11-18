@@ -11,6 +11,7 @@ from bridge.platform import macos, windows
 
 def test_macos_paths(monkeypatch, tmp_path):
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))   # Path.home() reads this one on Windows
     assert macos.lightroom_connections_json() == (
         tmp_path / "Library/Application Support/Adobe/Lightroom CC/Connections/connections.json")
     assert macos.state_dir() == tmp_path / "Library/Application Support/loupedeck-lr-bridge"

@@ -30,7 +30,7 @@ CHANGELOG = """# Changelog
 def check(tmp_path, *args, version="0.5.0", changelog=CHANGELOG):
     (tmp_path / "bridge").mkdir(exist_ok=True)
     (tmp_path / "bridge" / "__init__.py").write_text(f'"""x"""\n__version__ = "{version}"\n')
-    (tmp_path / "CHANGELOG.md").write_text(changelog)
+    (tmp_path / "CHANGELOG.md").write_text(changelog, encoding="utf-8")
     return subprocess.run([sys.executable, str(SCRIPT), *args, "--root", str(tmp_path)],
                           capture_output=True, text=True, timeout=30)
 
@@ -75,3 +75,15 @@ def test_the_repo_is_releasable():
     result = subprocess.run([sys.executable, str(SCRIPT), bridge.__version__], capture_output=True, text=True,
                             timeout=30)
     assert result.returncode == 0, result.stderr
+
+
+def test_notes_print_as_utf8(tmp_path):
+    # Milestone 7: on Windows a pipe uses the old code page, so "→" or "★" in the notes crashed the script
+    # (tools/release.sh runs it from Git Bash there).
+    (tmp_path / "bridge").mkdir()
+    (tmp_path / "bridge" / "__init__.py").write_text('__version__ = "0.6.0"\n', encoding="utf-8")
+    (tmp_path / "CHANGELOG.md").write_text("# Changelog\n\n## v0.6.0\n\n- Ratings ★ → colours.\n", encoding="utf-8")
+    result = subprocess.run([sys.executable, str(SCRIPT), "0.6.0", "--root", str(tmp_path)],
+                            capture_output=True, timeout=30)
+    assert result.returncode == 0, result.stderr.decode("utf-8", "replace")
+    assert "Ratings ★ → colours." in result.stdout.decode("utf-8")

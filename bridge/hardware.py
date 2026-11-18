@@ -55,7 +55,7 @@ class HardwareMap:
 
     @classmethod
     def load(cls, path: Path = DEFAULT_PATH) -> "HardwareMap":
-        raw = json.loads(path.read_text())
+        raw = json.loads(path.read_text(encoding="utf-8-sig"))
         dials = _entries(raw["dials"])
         for bank, colours in _entries(raw["colour_dials"]).items():
             for colour, num in colours.items():

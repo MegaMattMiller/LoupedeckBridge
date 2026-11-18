@@ -13,3 +13,7 @@ build/
 # The release app build (tools/build_release_app.sh) and its downloads
 dist/
 .cache/
+
+# The Windows tray app's build output (dotnet build)
+windows/**/bin/
+windows/**/obj/

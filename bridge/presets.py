@@ -101,7 +101,7 @@ class PresetCatalog:
         if self.cache_path is None:
             return {}
         try:
-            data = json.loads(self.cache_path.read_text())
+            data = json.loads(self.cache_path.read_text(encoding="utf-8-sig"))
             return {k: v for k, v in data.items() if isinstance(k, str) and isinstance(v, str)}
         except (OSError, ValueError, AttributeError):
             return {}
@@ -112,7 +112,7 @@ class PresetCatalog:
         try:
             self.cache_path.parent.mkdir(parents=True, exist_ok=True)
             tmp = self.cache_path.with_name(self.cache_path.name + ".tmp")
-            tmp.write_text(json.dumps(self._names))
+            tmp.write_text(json.dumps(self._names), encoding="utf-8")
             os.replace(tmp, self.cache_path)
         except OSError as e:  # a cache is a convenience: never fail a load over it
             log.warning("couldn't save the preset name cache: %s", e)

@@ -13,7 +13,7 @@ def acquire(path: Path) -> Optional[IO]:
     """Lock `path` for this process. Returns the open file (keep it open while running; the OS
     releases the lock when the process exits), or None if another bridge holds it."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    fh = open(path, "a+")
+    fh = open(path, "a+", encoding="utf-8")
     try:
         if sys.platform == "win32":
             import msvcrt

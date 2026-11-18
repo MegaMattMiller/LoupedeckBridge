@@ -31,14 +31,14 @@ def problem(root: Path, version: str) -> "tuple[str | None, str]":
     """(why it isn't releasable, or None; the notes)."""
     if not re.fullmatch(r"\d+\.\d+\.\d+", version):
         return f"'{version}' isn't a version like 0.5.0", ""
-    init = (root / "bridge" / "__init__.py").read_text()
+    init = (root / "bridge" / "__init__.py").read_text(encoding="utf-8")
     match = re.search(r'^__version__ = "([^"]*)"', init, re.M)
     if not match:
         return "bridge/__init__.py has no __version__", ""
     if match.group(1) != version:
         return f"bridge/__init__.py says {match.group(1)}, not {version}", ""
     changelog = root / "CHANGELOG.md"
-    notes = section(changelog.read_text(), version) if changelog.exists() else None
+    notes = section(changelog.read_text(encoding="utf-8"), version) if changelog.exists() else None
     if notes is None:
         return f"CHANGELOG.md has no '## v{version}' section", ""
     if not notes:
@@ -56,6 +56,9 @@ def main(argv: "list[str]") -> int:
     if why:
         print(f"check_release: {why}", file=sys.stderr)
         return 1
+    # UTF-8 whatever the console: on Windows a pipe would use the old code page, which has no "★" or "→"
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     print(notes)
     return 0
 
