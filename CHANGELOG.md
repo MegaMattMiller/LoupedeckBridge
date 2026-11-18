@@ -3,6 +3,20 @@
 Each release's section here becomes its GitHub release notes (`tools/check_release.py`). Versions are
 `bridge/__init__.py`'s `__version__`.
 
+## v0.6.2 — 2026-11-18
+
+The review's smaller fixes for Windows, and the first update to install from the tray.
+
+- **Updates from the tray:** an unexpected error while checking or installing ends with its reason, not a crash
+  dialog. Alerts name the step that failed in plain words. Before it quits, the tray app checks that the new version
+  really started. After a failed swap it starts whichever copy is still whole. TLS is left to Windows (1.2 and 1.3).
+- **The tray app** is built for 64-bit Windows only, which its key release relies on.
+- **Uninstall** keeps the Settings → Apps entry until the app is really gone, so it can be tried again from there. It
+  removes the update preferences too (your layout, presets and client ID stay), and it works when started from inside
+  the install folder.
+- **`install.ps1`** is plain ASCII, because Windows PowerShell reads it in the PC's own code page.
+- **The settings page** names the keys a shortcut sends on this system (Ctrl on Windows).
+
 ## v0.6.1 — 2026-11-18
 
 Windows: the bridge, a tray app, and releases installed with one PowerShell command. One release now carries both
