@@ -10,6 +10,7 @@ The workflows are read as text: each check names the property it protects. outli
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -193,6 +194,20 @@ def test_windows_jobs_use_no_macos_only_tools():
             if "runs-on: windows" in body:
                 used = [tool for tool in mac_only if tool in body]
                 assert not used, f"{name}: {each} runs on Windows but uses {used}"
+
+
+def test_artifacts_download_into_folders_the_checkout_doesnt_have():
+    # The v0.6.0 release run: the sign job downloaded the Windows zip into windows/, which the checkout already has
+    # (the tray app's source), so "only the zip is there" failed before signing (and `cp windows/*` would have).
+    tracked = subprocess.run(["git", "ls-files"], cwd=REPO, capture_output=True, text=True, check=True).stdout
+    taken = {line.split("/")[0] for line in tracked.splitlines()}
+    for name, text in (("release.yml", RELEASE), ("ci.yml", CI)):
+        for each in outline(text)["jobs"]:
+            for step in steps(job(text, each)):
+                path = re.search(r"\n\s+path: (\S+)", step)
+                if "actions/download-artifact" in step and path:
+                    first = path.group(1).split("/")[0]
+                    assert first not in taken, f"{name}: {each} downloads into {first}/, which the checkout already has"
 
 
 def test_jobs_need_only_jobs_that_exist():
