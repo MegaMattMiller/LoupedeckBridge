@@ -7,7 +7,7 @@ On a PC without this repo, in PowerShell:
 (The second line relaxes PowerShell's script policy for that one run only. Read install.ps1 first if you like.)
 
   install.ps1 [-Version latest|vX.Y.Z] [-AllowOlder]    install, or update to that version
-  install.ps1 -Uninstall                                remove it (Settings → Apps runs this too); your settings stay
+  install.ps1 -Uninstall                                remove it (Settings > Apps runs this too); your settings stay
 
 It downloads the release with Invoke-WebRequest (so Windows adds no "downloaded from the internet" mark, and there's no
 SmartScreen step), checks its SHA-256, checks that its signature (the .p7s) was made with the LoupedeckBridge release
@@ -16,7 +16,7 @@ LoupedeckBridge, keep the old version as LoupedeckBridge.previous, put the new o
 fails, nothing is changed. It prints the release key's fingerprint first: on a new PC, compare it with the one in the
 README (or one you noted elsewhere).
 
-It installs to %LOCALAPPDATA%\Programs\LoupedeckBridge, adds a Start menu entry and an entry in Settings → Apps.
+It installs to %LOCALAPPDATA%\Programs\LoupedeckBridge, adds a Start menu entry and an entry in Settings > Apps.
 Exit codes: 0 done, 1 refused or failed (nothing replaced), 2 usage. Runs on Windows PowerShell 5.1.
 #>
 param(
@@ -53,6 +53,7 @@ $InstallDir = Setting 'LB_INSTALL_DIR' (Join-Path $env:LOCALAPPDATA 'Programs\Lo
 $StartMenuDir = Setting 'LB_START_MENU_DIR' (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs')
 $RunKey = Setting 'LB_RUN_KEY' 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
 $UninstallKey = Setting 'LB_UNINSTALL_KEY' 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\LoupedeckBridge'
+$PrefsKey = Setting 'LB_PREFS_KEY' 'HKCU:\Software\LoupedeckBridge'      # the tray app's update preferences
 $MaxBytes = [long](Setting 'LB_MAX_DOWNLOAD_BYTES' '209715200')   # 200 MB: a release is about 30 MB
 $Exe = Join-Path $InstallDir 'LoupedeckBridge.exe'
 $Previous = "$InstallDir.previous"
@@ -111,18 +112,31 @@ function Start-LoupedeckBridge {
 
 # ---- uninstall ------------------------------------------------------------------------------------------------------
 if ($Uninstall) {
-    Set-Location $env:TEMP                     # not inside the folder about to be removed
+    # Not inside the folders about to be removed: Set-Location moves only PowerShell's location, and Windows won't
+    # remove a folder that is the process's current folder (Settings > Apps may start this in the install folder).
+    Set-Location $env:TEMP
+    [Environment]::CurrentDirectory = $env:TEMP
     if (-not (Stop-LoupedeckBridge)) { Fail "LoupedeckBridge won't quit (quit it from its tray icon, then try again)" }
     Wait-InstalledProcesses
     Remove-ItemProperty -Path $RunKey -Name 'LoupedeckBridge' -ErrorAction SilentlyContinue
     Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $StartMenuDir 'LoupedeckBridge.lnk')
-    Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $UninstallKey
     foreach ($dir in $InstallDir, $Previous, $New, $Older) {
         if (Test-Path $dir) {
             try { Remove-Item -Recurse -Force $dir }
-            catch { Start-Sleep -Seconds 2; Remove-Item -Recurse -Force $dir }
+            catch {
+                Start-Sleep -Seconds 2
+                try { Remove-Item -Recurse -Force $dir }
+                catch {
+                    Say "couldn't remove $dir ($($_.Exception.Message)). Close any program using it, then try again (Settings > Apps, or install.ps1 -Uninstall)."
+                    exit 1
+                }
+            }
         }
     }
+    # Only once the app is gone: its entry in Settings > Apps (so a failed uninstall can be tried again from there),
+    # and its update preferences.
+    Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $UninstallKey
+    Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $PrefsKey
     Say "LoupedeckBridge was removed."
     Say "Your layout, presets and Lightroom client ID are kept in $env:APPDATA\loupedeck-lr-bridge and $env:LOCALAPPDATA\loupedeck-lr-bridge (with the logs); delete those folders to remove them too."
     exit 0
@@ -286,7 +300,7 @@ try {
     if ($held) { $held.Dispose() }
     if ($hadPrevious) { Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $Older }
 
-    # ---- the Start menu entry and Settings → Apps
+    # ---- the Start menu entry and Settings > Apps
     New-Item -ItemType Directory -Force $StartMenuDir | Out-Null
     $shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut((Join-Path $StartMenuDir 'LoupedeckBridge.lnk'))
     $shortcut.TargetPath = $Exe

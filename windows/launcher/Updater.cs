@@ -49,7 +49,6 @@ namespace LoupedeckBridge
             this.info = info;
             this.installDir = installDir;
             current = info.Version;
-            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
             http = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
             http.DefaultRequestHeaders.UserAgent.ParseAdd($"LoupedeckBridge/{current}");
             // What earlier runs found and announced (Start at login relaunches the app every day).
@@ -76,18 +75,6 @@ namespace LoupedeckBridge
             }
         }
 
-        public static string StepLabel(InstallStep step)
-        {
-            switch (step)
-            {
-                case InstallStep.Download: return "downloading";
-                case InstallStep.Verify: return "checking it";
-                case InstallStep.Unzip: return "unpacking";
-                case InstallStep.StopBridge: return "stopping the bridge";
-                default: return "handing over";
-            }
-        }
-
         // ---- checking -----------------------------------------------------------------------------------------
         public void Start()
         {
@@ -111,25 +98,18 @@ namespace LoupedeckBridge
         void Check(bool manual)
         {
             Phase = Phases.Checking;
-            Task.Run(async () =>
+            Background.Safely(() =>
             {
-                try
+                var request = new HttpRequestMessage(HttpMethod.Get, LatestUrl);
+                request.Headers.Accept.ParseAdd("application/vnd.github+json");
+                using (var cancel = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(15)))
+                using (var response = http.SendAsync(request, cancel.Token).GetAwaiter().GetResult())
                 {
-                    var request = new HttpRequestMessage(HttpMethod.Get, LatestUrl);
-                    request.Headers.Accept.ParseAdd("application/vnd.github+json");
-                    using (var cancel = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(15)))
-                    using (var response = await http.SendAsync(request, cancel.Token))
-                    {
-                        if (response.StatusCode != HttpStatusCode.OK) return ((ReleaseInfo)null, $"GitHub answered {(int)response.StatusCode}");
-                        var release = ReleaseInfo.Parse(await response.Content.ReadAsStringAsync());
-                        return (release, release == null ? "GitHub's answer had no Windows release in it" : null);
-                    }
+                    if (response.StatusCode != HttpStatusCode.OK) return ((ReleaseInfo)null, $"GitHub answered {(int)response.StatusCode}");
+                    var release = ReleaseInfo.Parse(response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+                    return (release, release == null ? "GitHub's answer had no Windows release in it" : null);
                 }
-                catch (Exception e) when (e is HttpRequestException || e is TaskCanceledException || e is WebException)
-                {
-                    return ((ReleaseInfo)null, e.Message);
-                }
-            }).ContinueWith(t => OnUi(() => Checked(t.Result.Item1, t.Result.Item2, manual)));
+            }, why => ((ReleaseInfo)null, why)).ContinueWith(t => OnUi(() => Checked(t.Result.Item1, t.Result.Item2, manual)));
         }
 
         void Checked(ReleaseInfo release, string why, bool manual)
@@ -166,7 +146,8 @@ namespace LoupedeckBridge
             if (Available == null || Phase != Phases.Idle) return;
             Begin("v" + Available.Version);
             var release = Available;
-            Task.Run(() => Prepare(release)).ContinueWith(t => OnUi(() => AfterPrepare(t.Result)));
+            Background.Safely(() => Prepare(release), why => $"{Updates.StepLabel(Step)}: {why}")
+                .ContinueWith(t => OnUi(() => AfterPrepare(t.Result)));
         }
 
         /// "Go back to the previous version": the copy kept by the last update, handed over the same way.
@@ -176,7 +157,8 @@ namespace LoupedeckBridge
             if (previous == null || Phase != Phases.Idle) return;
             Begin("v" + previous);
             Step = InstallStep.Unzip;
-            Task.Run(() => Swap.GoBack(installDir, Swap.CopyTree)).ContinueWith(t => OnUi(() => AfterPrepare(t.Result)));
+            Background.Safely(() => Swap.GoBack(installDir, Swap.CopyTree), why => $"{Updates.StepLabel(InstallStep.Unzip)}: {why}")
+                .ContinueWith(t => OnUi(() => AfterPrepare(t.Result)));
         }
 
         void Begin(string target)
@@ -219,7 +201,7 @@ namespace LoupedeckBridge
                 catch (Exception e) when (e is HttpRequestException || e is TaskCanceledException || e is WebException
                                           || e is IOException || e is DownloadTooLargeException || e is AggregateException)
                 {
-                    return $"{StepLabel(InstallStep.Download)}: {(e as AggregateException)?.InnerException?.Message ?? e.Message}";
+                    return $"{Updates.StepLabel(InstallStep.Download)}: {(e as AggregateException)?.InnerException?.Message ?? e.Message}";
                 }
 
                 Step = InstallStep.Verify;
@@ -257,7 +239,7 @@ namespace LoupedeckBridge
             }
             catch (Exception e) when (e is IOException || e is UnauthorizedAccessException || e is InvalidDataException)
             {
-                return $"{StepLabel(Step)}: {e.Message}";
+                return $"{Updates.StepLabel(Step)}: {e.Message}";
             }
             finally
             {
@@ -284,13 +266,23 @@ namespace LoupedeckBridge
             try
             {
                 var args = new[] { "--finish-update", Process.GetCurrentProcess().Id.ToString(), installDir };
-                Process.Start(new ProcessStartInfo(exe, CommandLine.Join(args)) { UseShellExecute = true });
+                using (var started = Process.Start(new ProcessStartInfo(exe, CommandLine.Join(args)) { UseShellExecute = true }))
+                {
+                    // The new copy waits for this one to exit before it swaps. If it has already ended, it can't finish
+                    // the update, and quitting would leave nothing running (final review, minor 4).
+                    if (started != null && started.WaitForExit(2000))
+                    {
+                        Failed($"{Updates.StepLabel(InstallStep.HandOver)}: the new version stopped at once (exit {started.ExitCode})",
+                               bridgeStopped: true);
+                        return;
+                    }
+                }
                 Log.Write($"handed over to {Target}; quitting");
                 Exit();
             }
             catch (Exception e) when (e is System.ComponentModel.Win32Exception || e is FileNotFoundException)
             {
-                Failed($"{StepLabel(InstallStep.HandOver)}: {e.Message}", bridgeStopped: true);
+                Failed($"{Updates.StepLabel(InstallStep.HandOver)}: {e.Message}", bridgeStopped: true);
             }
         }
 

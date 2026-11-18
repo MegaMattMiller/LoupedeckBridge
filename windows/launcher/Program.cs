@@ -109,8 +109,10 @@ namespace LoupedeckBridge
             }
             try
             {
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Path.Combine(installDir, "LoupedeckBridge.exe"))
-                                                 { UseShellExecute = true, WorkingDirectory = installDir });
+                // The installed copy, or whichever is still whole if the swap and its put-back both failed.
+                // (Its working folder is the one above: the install folder itself may be the one that's missing.)
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Swap.ExeToStart(installDir))
+                                                 { UseShellExecute = true, WorkingDirectory = Swap.OutsideFolder(installDir) });
             }
             catch (Exception e) when (e is System.ComponentModel.Win32Exception || e is FileNotFoundException)
             {

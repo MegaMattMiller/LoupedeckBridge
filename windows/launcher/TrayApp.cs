@@ -207,7 +207,7 @@ namespace LoupedeckBridge
             {
                 menu.Items.Add(new ToolStripSeparator());
                 if (updater.Phase == Updater.Phases.Installing)
-                    menu.Items.Add(Info($"Installing {updater.Target}: {Updater.StepLabel(updater.Step)}…", null));
+                    menu.Items.Add(Info($"Installing {updater.Target}: {Updates.StepLabel(updater.Step)}…", null));
                 else if (updater.Available != null)
                     menu.Items.Add(Action($"Update available: v{updater.Available.Version} – Install…", () => updater.InstallAvailable()));
                 var check = Action(updater.Phase == Updater.Phases.Checking ? "Checking for updates…" : "Check for updates now",

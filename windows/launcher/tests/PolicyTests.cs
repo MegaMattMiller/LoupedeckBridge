@@ -13,6 +13,7 @@ namespace LoupedeckBridge
     static class PolicyTests
     {
         static int failures;
+        static readonly List<string> scratch = new List<string>();   // removed at the end (final review, minor 12)
 
         static void Check(string name, Func<string> body)
         {
@@ -686,7 +687,9 @@ namespace LoupedeckBridge
             // ---- swapping a new version in (the new copy finishes the update after the old one exits) -------------
             string Scratch()
             {
-                var dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "lb-swap-" + Guid.NewGuid().ToString("N"), "Programs");
+                var top = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "lb-swap-" + Guid.NewGuid().ToString("N"));
+                scratch.Add(top);
+                var dir = System.IO.Path.Combine(top, "Programs");
                 System.IO.Directory.CreateDirectory(dir);
                 return dir;
             }
@@ -738,7 +741,7 @@ namespace LoupedeckBridge
                     System.IO.File.Copy(System.IO.Path.Combine(from, "version.txt"), System.IO.Path.Combine(to, "version.txt"));
                     throw new System.IO.IOException("There is not enough space on the disk.");
                 });
-                if (why == null || !why.StartsWith("CopyNewIn")) return "result: " + why;
+                if (why == null || !why.StartsWith(Updates.StepLabel(InstallStep.CopyNewIn) + ": ")) return "result: " + why;
                 if (Version_(install) != "0.6.0" || System.IO.File.ReadAllText(System.IO.Path.Combine(install, "app", "code.py")) != "# v0.6.0")
                     return "the old version isn't back intact";
                 return System.IO.Directory.Exists(Swap.PreviousDir(install)) ? "a .previous was left behind" : null;
@@ -777,7 +780,7 @@ namespace LoupedeckBridge
                 using (System.IO.File.Open(System.IO.Path.Combine(install, "app", "code.py"), System.IO.FileMode.Open,
                                            System.IO.FileAccess.Read, System.IO.FileShare.Read))
                     why = Swap.Run(install, Swap.NewDir(install), Swap.CopyTree);
-                if (why == null || !why.StartsWith(InstallStep.MoveOldAside.ToString())) return "result: " + why;
+                if (why == null || !why.StartsWith(Updates.StepLabel(InstallStep.MoveOldAside) + ": ")) return "result: " + why;
                 if (Version_(install) != "0.6.0") return "installed " + Version_(install);
                 return System.IO.Directory.Exists(Swap.PreviousDir(install)) && Version_(Swap.PreviousDir(install)) == "0.5.9"
                     ? null : "the older .previous is gone";
@@ -791,7 +794,7 @@ namespace LoupedeckBridge
                 MakeApp(install, "0.6.0");
                 MakeApp(Swap.NewDir(install), "0.6.1");
                 var why = Swap.Run(install, Swap.NewDir(install), (from, to) => throw new System.IO.IOException("disk full"));
-                if (why == null || !why.StartsWith(InstallStep.CopyNewIn.ToString())) return "result: " + why;
+                if (why == null || !why.StartsWith(Updates.StepLabel(InstallStep.CopyNewIn) + ": ")) return "result: " + why;
                 if (Version_(install) != "0.6.0") return "installed " + Version_(install);
                 return System.IO.Directory.Exists(Swap.PreviousDir(install)) && Version_(Swap.PreviousDir(install)) == "0.5.9"
                     ? null : "the older .previous is gone";
@@ -848,6 +851,59 @@ namespace LoupedeckBridge
                 return Swap.IsNewDirOf(@"C:\x.new", @"C:\Users") ? "accepted an unrelated folder" : null;
             });
 
+            // ---- final review minors (milestone 7) ---------------------------------------------------------------
+            Check("background_failures_become_results", () =>
+            {
+                // Minor 3: an error the updater didn't foresee (here, ones SignedCms or an unzip could throw) is a failed
+                // check or install with its reason, never .NET's crash dialog or a menu stuck at "Checking...".
+                var outcome = Background.Safely<string>(() => throw new NotSupportedException("odd signature"), why => "failed: " + why).Result;
+                if (outcome != "failed: odd signature") return "got " + outcome;
+                var nested = Background.Safely<string>(() => throw new AggregateException(new ArgumentException("bad entry")), why => why).Result;
+                if (nested != "bad entry") return "got " + nested;
+                return Background.Safely(() => "fine", why => "failed").Result == "fine" ? null : "a result was lost";
+            });
+
+            Check("finish_update_starts_whatever_copy_is_left", () =>
+            {
+                // Minor 4: if both the swap and its put-back fail, start the copy that's still whole, not a missing exe.
+                var root = Scratch();
+                var install = System.IO.Path.Combine(root, "LoupedeckBridge");
+                MakeApp(install, "0.6.1");
+                MakeApp(Swap.PreviousDir(install), "0.6.0");
+                MakeApp(Swap.NewDir(install), "0.6.2");
+                string Exe(string dir) => System.IO.Path.Combine(dir, "LoupedeckBridge.exe");
+                if (Swap.ExeToStart(install) != Exe(install)) return "not the installed copy: " + Swap.ExeToStart(install);
+                System.IO.Directory.Delete(install, true);
+                if (Swap.ExeToStart(install) != Exe(Swap.PreviousDir(install))) return "not the previous copy: " + Swap.ExeToStart(install);
+                System.IO.Directory.Delete(Swap.PreviousDir(install), true);
+                return Swap.ExeToStart(install) == Exe(Swap.NewDir(install)) ? null : "not the new copy: " + Swap.ExeToStart(install);
+            });
+
+            Check("install_steps_are_named_in_plain_words", () =>
+            {
+                // Minor 5: an alert said "MoveOldAside: ...".
+                var labels = new List<string>();
+                foreach (InstallStep step in Enum.GetValues(typeof(InstallStep)))
+                {
+                    var label = Updates.StepLabel(step);
+                    if (string.IsNullOrEmpty(label) || label.Contains(step.ToString())) return $"{step}: '{label}'";
+                    labels.Add(label);
+                }
+                if (labels.Distinct().Count() != labels.Count) return "two steps share a label: " + string.Join(", ", labels);
+                var root = Scratch();
+                var install = System.IO.Path.Combine(root, "LoupedeckBridge");
+                MakeApp(install, "0.6.0");
+                MakeApp(Swap.NewDir(install), "0.6.1");
+                var why = Swap.Run(install, Swap.NewDir(install), (from, to) => throw new System.IO.IOException("disk full"));
+                return why != null && why.StartsWith(Updates.StepLabel(InstallStep.CopyNewIn) + ": ") ? null : "got " + why;
+            });
+
+            Environment.CurrentDirectory = System.IO.Path.GetTempPath();   // Swap.Run stepped into a scratch folder
+            foreach (var dir in scratch)
+            {
+                try { System.IO.Directory.Delete(dir, recursive: true); }
+                catch (Exception e) when (e is System.IO.IOException || e is UnauthorizedAccessException) { }
+            }
             return failures == 0 ? 0 : 1;
         }
     }

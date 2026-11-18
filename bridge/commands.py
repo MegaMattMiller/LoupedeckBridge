@@ -146,7 +146,8 @@ class CommandCatalog:
         if kind == "key":
             return {"label": f"Key: {key_labels().get(action['key'], action['key'])}", "choice": None}
         if kind == "shortcut":
-            return {"label": "Shortcut: " + " + ".join(action.get("mac", [])), "choice": None}
+            keys = action.get("windows" if sys.platform == "win32" else "mac", [])     # the keys this system sends
+            return {"label": "Shortcut: " + " + ".join(keys), "choice": None}
         if kind == "preset":
             name = action.get("name") or action.get("id")
             return {"label": f"Preset: {name}" if name else "Empty", "choice": None}

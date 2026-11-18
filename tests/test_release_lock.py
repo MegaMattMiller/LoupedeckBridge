@@ -70,3 +70,11 @@ def test_both_installers_pin_the_same_key():
     windows = re.search(r'^\$PinnedSignerSha256Default = "([0-9a-f]{64})"$',
                         (REPO / "tools" / "install.ps1").read_text(encoding="utf-8"), re.M)
     assert mac and windows and mac.group(1) == windows.group(1)
+
+
+def test_install_ps1_is_ascii():
+    # Final review, minor 6: Windows PowerShell 5.1 reads a file without a BOM in the PC's ANSI code page, so any
+    # non-ASCII byte in install.ps1 (even in a comment) could be misread on some PCs.
+    data = (REPO / "tools" / "install.ps1").read_bytes()
+    odd = sorted({line for line, text in enumerate(data.splitlines(), 1) if any(b > 127 for b in text)})
+    assert not odd, f"tools/install.ps1 has non-ASCII bytes on lines {odd}"

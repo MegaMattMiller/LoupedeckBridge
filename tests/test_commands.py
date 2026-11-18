@@ -112,7 +112,8 @@ def test_describe_round_trips_every_choice(c):
         assert c.describe(c.action_for({"kind": kind}, slot))["choice"] == {"kind": kind}
 
 
-def test_describe_labels(c):
+def test_describe_labels(c, monkeypatch):
+    monkeypatch.setattr(sys, "platform", "darwin")         # the shortcut's keys depend on the system
     def label(action):
         return c.describe(action)["label"]
     assert label({"type": "call", "message": "resetToDefault", "args": ["Exposure2012"]}) == "Reset Exposure"
@@ -153,3 +154,12 @@ def test_cmd_label_on_windows(c, monkeypatch):
     assert c.describe({"type": "key", "key": "cmd"})["label"] == "Key: Cmd (sends Ctrl)"
     monkeypatch.setattr(sys, "platform", "darwin")
     assert c.describe({"type": "key", "key": "cmd"})["label"] == "Key: Cmd"
+
+
+def test_shortcut_label_names_the_keys_this_system_sends(c, monkeypatch):
+    # Final review, minor 11: on Windows the bridge sends the "windows" list, so the page names those keys.
+    shortcut = {"type": "shortcut", "mac": ["cmd", "e"], "windows": ["ctrl", "shift", "e"]}
+    monkeypatch.setattr(sys, "platform", "win32")
+    assert c.describe(shortcut)["label"] == "Shortcut: ctrl + shift + e"
+    monkeypatch.setattr(sys, "platform", "darwin")
+    assert c.describe(shortcut)["label"] == "Shortcut: cmd + e"

@@ -108,9 +108,9 @@ class Rig:
                                                       encoding="utf-8")
         return zip_path
 
-    def run(self, *args: str) -> subprocess.CompletedProcess:
+    def run(self, *args: str, script: Path = SCRIPT, cwd: "Path | None" = None) -> subprocess.CompletedProcess:
         return subprocess.run([POWERSHELL, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File",
-                               str(SCRIPT), *args], capture_output=True, text=True, env=self.env, timeout=180)
+                               str(script), *args], capture_output=True, text=True, env=self.env, timeout=180, cwd=cwd)
 
     def installed(self) -> "str | None":
         marker = self.install / "app" / "version.txt"
@@ -421,3 +421,86 @@ def test_uninstall_removes_a_leftover_older_copy(rig):
     (leftover / "app").mkdir(parents=True)
     result = rig.run("-Uninstall")
     assert result.returncode == 0 and not leftover.exists(), output(result)
+
+
+# ---- final review, minors 7 and 8 -------------------------------------------------------------------------------
+
+@pytest.fixture
+def other_drive(tmp_path):
+    """A folder on another drive: on GitHub's runner, its second disk (RUNNER_TEMP is on D:); elsewhere a drive letter
+    for a folder of this test's own (subst, for this login session only, removed afterwards; the same disk underneath),
+    so no real drive of the user's is written to."""
+    runner = os.environ.get("RUNNER_TEMP")
+    if runner and Path(runner).drive.upper() != tmp_path.drive.upper():
+        folder = Path(runner) / f"lb-other-drive-{uuid.uuid4().hex}"
+        folder.mkdir()
+        try:
+            yield folder
+        finally:
+            shutil.rmtree(folder, ignore_errors=True)
+        return
+    folder = tmp_path / "other-drive"
+    folder.mkdir()
+    taken = {d[0] for d in os.listdrives()} if hasattr(os, "listdrives") else set()
+    for letter in "QRSTUVWXYZ":
+        if letter in taken or os.path.exists(f"{letter}:\\"):
+            continue
+        if subprocess.run(["subst", f"{letter}:", str(folder)], capture_output=True).returncode == 0:
+            try:
+                yield Path(f"{letter}:\\")
+            finally:
+                subprocess.run(["subst", f"{letter}:", "/D"], capture_output=True)
+            return
+    pytest.skip("no free drive letter for subst")
+
+
+def test_install_with_temp_on_another_drive(rig, other_drive):
+    # Minor 7: a folder can't be moved to another drive, so the download is unpacked next to the install folder, not
+    # in %TEMP% (which some people move to another drive).
+    temp = other_drive / "temp"
+    temp.mkdir()
+    rig.env["TEMP"] = rig.env["TMP"] = str(temp)
+    rig.release("0.6.0")
+    result = rig.run()
+    assert result.returncode == 0 and rig.installed() == "0.6.0", output(result)
+
+
+def test_uninstall_keeps_its_apps_entry_until_the_app_is_gone(rig):
+    # Minor 8: a folder that can't be removed (a program stands in it) keeps the Settings > Apps entry, so uninstalling
+    # can be tried again from there.
+    rig.release("0.6.0")
+    assert rig.run().returncode == 0
+    holder = hold(rig, then=170)
+    try:
+        result = rig.run("-Uninstall")
+    finally:
+        holder.kill()
+        holder.wait(timeout=10)
+    assert result.returncode == 1 and "try again" in output(result), output(result)
+    assert rig.registry("DisplayName") == "LoupedeckBridge"
+    result = rig.run("-Uninstall")
+    assert result.returncode == 0 and rig.registry("DisplayName") is None, output(result)
+
+
+def test_uninstall_removes_the_update_preferences(rig):
+    # Minor 8: the tray app's update preferences (HKCU\Software\LoupedeckBridge) go too; the layout and presets stay.
+    prefs = rig.key + "\Prefs"
+    rig.env["LB_PREFS_KEY"] = prefs
+    rig.release("0.6.0")
+    assert rig.run().returncode == 0
+    subprocess.run([POWERSHELL, "-NoProfile", "-Command", f"New-Item -Force -Path '{prefs}' | Out-Null; "
+                    f"New-ItemProperty -Force -Path '{prefs}' -Name AutoUpdateCheck -Value 0 -PropertyType DWord | Out-Null"],
+                   env=rig.env, check=True, capture_output=True)
+    assert rig.run("-Uninstall").returncode == 0
+    left = subprocess.run([POWERSHELL, "-NoProfile", "-Command", f"Test-Path '{prefs}'"], env=rig.env,
+                          capture_output=True, text=True)
+    assert left.stdout.strip() == "False"
+
+
+def test_uninstall_started_inside_the_install_folder(rig):
+    # Minor 8: Settings > Apps runs the installed copy of install.ps1; started with the install folder as its current
+    # folder, its process must step out before removing it (Set-Location alone moves only PowerShell's own location).
+    rig.release("0.6.0")
+    assert rig.run().returncode == 0
+    result = rig.run("-Uninstall", script=rig.install / "install.ps1", cwd=rig.install)
+    assert result.returncode == 0 and not rig.install.exists(), output(result)

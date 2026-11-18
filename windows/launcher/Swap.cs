@@ -54,7 +54,7 @@ namespace LoupedeckBridge
             }
             catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
             {
-                return $"{InstallStep.MoveOldAside}: {e.Message}";
+                return $"{Updates.StepLabel(InstallStep.MoveOldAside)}: {e.Message}";
             }
             try
             {
@@ -68,9 +68,9 @@ namespace LoupedeckBridge
                 }
                 catch (Exception back) when (back is IOException || back is UnauthorizedAccessException)
                 {
-                    return $"{InstallStep.MoveOldAside}: {e.Message} (the version before it is in {older}: {back.Message})";
+                    return $"{Updates.StepLabel(InstallStep.MoveOldAside)}: {e.Message} (the version before it is in {older}: {back.Message})";
                 }
-                return $"{InstallStep.MoveOldAside}: {e.Message}";
+                return $"{Updates.StepLabel(InstallStep.MoveOldAside)}: {e.Message}";
             }
             try
             {
@@ -86,9 +86,9 @@ namespace LoupedeckBridge
                 }
                 catch (Exception back) when (back is IOException || back is UnauthorizedAccessException)
                 {
-                    return $"{InstallStep.CopyNewIn}: {e.Message} (and the previous version couldn't be put back: {back.Message})";
+                    return $"{Updates.StepLabel(InstallStep.CopyNewIn)}: {e.Message} (and the previous version couldn't be put back: {back.Message})";
                 }
-                return $"{InstallStep.CopyNewIn}: {e.Message}";
+                return $"{Updates.StepLabel(InstallStep.CopyNewIn)}: {e.Message}";
             }
             if (hadPrevious)
             {
@@ -96,6 +96,18 @@ namespace LoupedeckBridge
                 catch (Exception e) when (e is IOException || e is UnauthorizedAccessException) { }   // the next swap removes it
             }
             return null;
+        }
+
+        /// After a swap, the copy to start: the installed one, or, if a failed swap couldn't put it back, the previous one,
+        /// or else the new one (final review, minor 4: never a missing exe, which would leave nothing running).
+        public static string ExeToStart(string installDir)
+        {
+            foreach (var dir in new[] { installDir, PreviousDir(installDir), NewDir(installDir) })
+            {
+                var exe = Path.Combine(dir, "LoupedeckBridge.exe");
+                if (File.Exists(exe)) return exe;
+            }
+            return Path.Combine(installDir, "LoupedeckBridge.exe");
         }
 
         /// Prepare going back: copy .previous into .new, to be handed over like an update.
@@ -113,7 +125,7 @@ namespace LoupedeckBridge
             }
             catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
             {
-                return $"{InstallStep.Unzip}: couldn't copy the previous version ({e.Message})";
+                return $"{Updates.StepLabel(InstallStep.Unzip)}: couldn't copy the previous version ({e.Message})";
             }
         }
 

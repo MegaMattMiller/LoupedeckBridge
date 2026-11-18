@@ -533,6 +533,23 @@ namespace LoupedeckBridge
         }
     }
 
+    /// Background work whose outcome always arrives as a result (final review, minor 3): an exception of any kind, even one
+    /// nobody foresaw, becomes `failed(its innermost message)`, so an update check or install fails with a reason
+    /// instead of .NET's crash dialog and a menu stuck at "Checking...".
+    public static class Background
+    {
+        public static System.Threading.Tasks.Task<T> Safely<T>(Func<T> work, Func<string, T> failed) =>
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                try { return work(); }
+                catch (Exception e)
+                {
+                    while (e is AggregateException && e.InnerException != null) e = e.InnerException;
+                    return failed(e.Message);
+                }
+            });
+    }
+
     /// The install steps, in order. Everything is checked (Verify) before anything is unpacked, stopped or moved. A
     /// running program can't be moved on Windows, so the new copy finishes the swap after this one exits (HandOver).
     public enum InstallStep { Download, Verify, Unzip, StopBridge, HandOver, MoveOldAside, CopyNewIn, LaunchNew }
@@ -544,6 +561,22 @@ namespace LoupedeckBridge
             InstallStep.Download, InstallStep.Verify, InstallStep.Unzip, InstallStep.StopBridge, InstallStep.HandOver,
             InstallStep.MoveOldAside, InstallStep.CopyNewIn, InstallStep.LaunchNew,
         };
+
+        /// How the menu and alerts name a step (final review, minor 5: not "MoveOldAside").
+        public static string StepLabel(InstallStep step)
+        {
+            switch (step)
+            {
+                case InstallStep.Download: return "downloading";
+                case InstallStep.Verify: return "checking it";
+                case InstallStep.Unzip: return "unpacking";
+                case InstallStep.StopBridge: return "stopping the bridge";
+                case InstallStep.HandOver: return "handing over";
+                case InstallStep.MoveOldAside: return "moving the old version aside";
+                case InstallStep.CopyNewIn: return "putting the new version in place";
+                default: return "starting the new version";
+            }
+        }
 
         public const string Folder = "LoupedeckBridge";
 

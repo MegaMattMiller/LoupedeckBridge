@@ -74,8 +74,10 @@ def results(tmp_path_factory, signed):
     built = build(LAUNCHER / "tests" / "PolicyTests.csproj", out)
     if built.returncode != 0:
         pytest.fail("the C# checks don't build:\n" + built.stdout[-3000:] + built.stderr[-1000:])
+    temp = Path(os.environ.get("TEMP", "."))
+    before = {p.name for p in temp.glob("lb-swap-*")}
     run = subprocess.run([str(out / "PolicyTests.exe"), str(signed)], capture_output=True, text=True, timeout=120)
-    found = {}
+    found = {"__scratch_left__": {p.name for p in temp.glob("lb-swap-*")} - before}
     for line in run.stdout.splitlines():
         status, _, rest = line.partition(" ")
         name, _, why = rest.partition(":")
@@ -153,3 +155,25 @@ def test_exe_steps_out_of_its_start_folder(tray_exe, tmp_path):
         for proc in (finisher, sleeper):
             proc.kill()
             proc.wait(timeout=10)
+
+
+# ---- final review, minors 9, 10 and 12 ---------------------------------------------------------------------------
+
+def test_tray_exe_is_64_bit(tray_exe):
+    # KeyRelease's INPUT struct has Windows' size only in a 64-bit process: the exe is built for x64, not AnyCPU (whose
+    # PE header says i386 and leaves the choice to Windows and the build's defaults).
+    data = tray_exe.read_bytes()
+    pe = int.from_bytes(data[0x3C:0x40], "little")
+    assert data[pe:pe + 4] == b"PE\0\0"
+    assert int.from_bytes(data[pe + 4:pe + 6], "little") == 0x8664, "LoupedeckBridge.exe isn't built for x64"
+
+
+def test_tray_app_leaves_tls_to_windows():
+    # .NET Framework 4.8 uses the TLS versions Windows allows (1.2 and 1.3) unless told otherwise; setting
+    # ServicePointManager.SecurityProtocol narrows that (`|= Tls12` on the default turns TLS 1.3 off).
+    for source in LAUNCHER.glob("*.cs"):
+        assert "SecurityProtocol" not in source.read_text(encoding="utf-8"), source.name
+
+
+def test_policy_checks_leave_no_scratch_folders(results):
+    assert not results["__scratch_left__"], f"PolicyTests left {sorted(results['__scratch_left__'])} in %TEMP%"
