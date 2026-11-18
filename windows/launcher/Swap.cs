@@ -18,6 +18,21 @@ namespace LoupedeckBridge
         public static string PreviousDir(string installDir) => installDir.TrimEnd('\\', '/') + ".previous";
         public static string NewDir(string installDir) => installDir.TrimEnd('\\', '/') + ".new";
 
+        /// Is `appDir` the .new folder of `installDir`? `--finish-update` only ever runs from there (security review:
+        /// a wrong argument must never move or delete some other folder).
+        public static bool IsNewDirOf(string appDir, string installDir)
+        {
+            try
+            {
+                string Full(string path) => Path.GetFullPath(path).TrimEnd('\\', '/');
+                return string.Equals(Full(appDir), Full(NewDir(installDir)), StringComparison.OrdinalIgnoreCase);
+            }
+            catch (Exception e) when (e is ArgumentException || e is NotSupportedException || e is PathTooLongException)
+            {
+                return false;
+            }
+        }
+
         /// Swap `newDir` in; null when done, otherwise "<step>: <reason>" (with the old version back in place).
         public static string Run(string installDir, string newDir, Action<string, string> copyTree)
         {

@@ -82,6 +82,11 @@ namespace LoupedeckBridge
         /// one is kept as <install>.previous), and start whatever is in place, with a note if the swap failed.
         static int FinishUpdate(BuildInfo info, string newDir, string pidText, string installDir)
         {
+            if (!Swap.IsNewDirOf(newDir, installDir))
+            {
+                Log.Write($"--finish-update must run from {Swap.NewDir(installDir)}, not {newDir}; nothing was changed", "ERROR");
+                return 2;
+            }
             if (int.TryParse(pidText, out var pid))
             {
                 try { using (var old = System.Diagnostics.Process.GetProcessById(pid)) old.WaitForExit(30_000); }

@@ -448,6 +448,17 @@ namespace LoupedeckBridge
 
         public static string AssetName(Version version) => $"LoupedeckBridge-v{version}-windows-x64.zip";
 
+        /// A download address the updater may use: https on github.com (its downloads then redirect to GitHub's own
+        /// storage), ending in exactly the expected file name. Anything else, e.g. a saved entry someone changed, is
+        /// refused (security review; the signature check would refuse the file anyway).
+        static Uri GitHubDownload(string link, string fileName)
+        {
+            if (!Uri.TryCreate(link, UriKind.Absolute, out var url) || url.Scheme != Uri.UriSchemeHttps
+                || !string.Equals(url.Host, "github.com", StringComparison.OrdinalIgnoreCase)) return null;
+            return string.Equals(Uri.UnescapeDataString(url.Segments.LastOrDefault() ?? ""), fileName, StringComparison.Ordinal)
+                ? url : null;
+        }
+
         public static ReleaseInfo Parse(string json)
         {
             var f = Json.Object(json);
@@ -460,7 +471,7 @@ namespace LoupedeckBridge
             foreach (var asset in assets.OfType<Dictionary<string, object>>())
             {
                 if (Json.Required(asset, "name", out string name) && Json.Required(asset, "browser_download_url", out string link)
-                    && Uri.TryCreate(link, UriKind.Absolute, out var url) && url.Scheme == Uri.UriSchemeHttps)
+                    && GitHubDownload(link, name) is Uri url)
                     urls[name] = url;
             }
             var zip = AssetName(version);
@@ -484,8 +495,9 @@ namespace LoupedeckBridge
                 || !Json.Required(f, "sha256", out string sha) || !Json.Required(f, "signature", out string sig)) return null;
             var version = Version.Parse(v);
             if (version == null || !(version > newerThan)) return null;
-            Uri Https(string text) => Uri.TryCreate(text, UriKind.Absolute, out var u) && u.Scheme == Uri.UriSchemeHttps ? u : null;
-            var (zipUrl, shaUrl, sigUrl) = (Https(zip), Https(sha), Https(sig));
+            var name = AssetName(version);
+            var (zipUrl, shaUrl, sigUrl) = (GitHubDownload(zip, name), GitHubDownload(sha, name + ".sha256"),
+                                            GitHubDownload(sig, name + ".p7s"));
             return zipUrl == null || shaUrl == null || sigUrl == null ? null : new ReleaseInfo(version, zipUrl, shaUrl, sigUrl);
         }
     }

@@ -767,6 +767,34 @@ namespace LoupedeckBridge
                 return Swap.GoBackProblem(Swap.PreviousDir(install));
             });
 
+            // ---- security review (milestone 7): downloads only from GitHub, the swap only from its .new folder --------
+            Check("release_parse_needs_github_downloads", () =>
+            {
+                var elsewhere = sampleRelease.Replace("https://github.com/o/r/releases/download/v0.6.0/" + windowsZip + "\"",
+                                                      "https://example.com/o/r/releases/download/v0.6.0/" + windowsZip + "\"");
+                return ReleaseInfo.Parse(elsewhere) == null ? null : "accepted a download from another host";
+            });
+
+            Check("restore_refuses_other_hosts_and_names", () =>
+            {
+                var saved = ReleaseInfo.Parse(sampleRelease).Saved();
+                var current06 = Version.Parse("0.5.1");
+                var otherHost = saved.Replace("https://github.com/", "https://example.com/");
+                if (ReleaseInfo.Restore(otherHost, current06) != null) return "restored another host";
+                var otherName = saved.Replace(windowsZip + ".p7s", "evil.p7s");
+                return ReleaseInfo.Restore(otherName, current06) == null ? null : "restored another file name";
+            });
+
+            Check("finish_update_only_from_the_new_folder", () =>
+            {
+                var install = @"C:\Users\Zoë\AppData\Local\Programs\LoupedeckBridge";
+                if (!Swap.IsNewDirOf(install + ".new", install)) return "refused the real .new folder";
+                if (!Swap.IsNewDirOf(install.ToUpperInvariant() + ".NEW\\", install)) return "refused it with other case and a slash";
+                foreach (var other in new[] { @"C:\Windows", install, install + ".previous", @"C:\Users\Zoë\Downloads\LoupedeckBridge" })
+                    if (Swap.IsNewDirOf(other, install)) return "accepted " + other;
+                return Swap.IsNewDirOf(@"C:\x.new", @"C:\Users") ? "accepted an unrelated folder" : null;
+            });
+
             return failures == 0 ? 0 : 1;
         }
     }
