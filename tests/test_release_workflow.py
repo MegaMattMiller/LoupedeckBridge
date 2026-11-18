@@ -184,6 +184,17 @@ def test_workflows_are_laid_out_as_github_reads_them():
     assert ci["jobs"] == ["suite", "suite-windows", "release-build", "release-build-windows"]
 
 
+def test_windows_jobs_use_no_macos_only_tools():
+    # tools/make_signing_identity.sh needs shasum and macOS's /usr/bin/openssl; Git Bash on Windows has neither.
+    mac_only = ("make_signing_identity.sh", "shasum", "/usr/bin/openssl", "ditto", "codesign", "security ")
+    for name, text in (("release.yml", RELEASE), ("ci.yml", CI)):
+        for each in outline(text)["jobs"]:
+            body = job(text, each)
+            if "runs-on: windows" in body:
+                used = [tool for tool in mac_only if tool in body]
+                assert not used, f"{name}: {each} runs on Windows but uses {used}"
+
+
 def test_jobs_need_only_jobs_that_exist():
     for name, text in (("release.yml", RELEASE), ("ci.yml", CI)):
         jobs = outline(text)["jobs"]

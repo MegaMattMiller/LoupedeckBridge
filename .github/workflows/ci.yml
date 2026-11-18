@@ -131,11 +131,21 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
-      - name: Make a throwaway signing identity, and pin it instead of the release key
+      - name: Make a throwaway signing identity, as the Windows tests do, and pin it instead of the release key
         shell: bash
         run: |
-          tools/make_signing_identity.sh --out "$RUNNER_TEMP/id"
-          echo "LB_SIGNER_SHA256=$(cat "$RUNNER_TEMP/id/signer.sha256")" >> "$GITHUB_ENV"
+          # the release key's own tool is macOS-only (LibreSSL); tests/signing_fixtures.py makes the same kind of
+          # certificate with Git for Windows' openssl
+          python - "$RUNNER_TEMP/id" <<'PY'
+          import os, sys
+          from pathlib import Path
+          sys.path.insert(0, "tests")
+          from signing_fixtures import make_identity
+          identity = make_identity(Path(sys.argv[1]), "CI")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8", newline="\n") as env:
+              env.write(f"LB_SIGNER_SHA256={identity.sha256}\nLB_P12={identity.p12}\n"
+                        f"LB_P12_PASSWORD={identity.password_file}\n")
+          PY
       - name: Build the Windows release
         run: |
           pwsh -File tools/build_windows_app.ps1 -Release dist
@@ -157,7 +167,7 @@ jobs:
         shell: bash
         run: |
           pwsh -File tools/package_windows_release.ps1 dist/LoupedeckBridge out
-          tools/sign_windows_zip.sh out/*.zip "$RUNNER_TEMP/id/LoupedeckBridge-Release.p12" "$RUNNER_TEMP/id/p12-password"
+          tools/sign_windows_zip.sh out/*.zip "$LB_P12" "$LB_P12_PASSWORD"
       - name: The tray app and tools/install.ps1 accept it, and refuse a changed byte (tampered) and another key
         run: |
           pwsh -File tools/check_windows_release.ps1 -Dir out -Pinned $env:LB_SIGNER_SHA256
