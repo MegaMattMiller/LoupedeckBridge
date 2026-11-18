@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from collections import Counter
 from pathlib import Path
 from typing import Dict, Optional, Tuple
@@ -19,6 +20,12 @@ PARAMS_PATH = ROOT / "docs" / "lr_parameters_10.0.json"
 
 KEY_LABELS = {"shift": "Shift", "ctrl": "Ctrl", "cmd": "Cmd", "alt": "Alt", "tab": "Tab",
               "left": "Left arrow", "right": "Right arrow", "up": "Up arrow", "down": "Down arrow"}
+
+
+def key_labels(platform: Optional[str] = None) -> Dict[str, str]:
+    """KEY_LABELS for this system: on Windows, Cmd sends Ctrl (milestone 7)."""
+    platform = sys.platform if platform is None else platform
+    return {**KEY_LABELS, "cmd": "Cmd (sends Ctrl)"} if platform == "win32" else dict(KEY_LABELS)
 # Calls the page doesn't offer but that appear in the default layout.
 SPECIAL_LABELS = {"toggleBlackAndWhite": "Black & white (kept in step with the device)",
                   "exportWithPrevious": "Export with previous settings"}
@@ -137,7 +144,7 @@ class CommandCatalog:
                 return {"label": f"Reset {self.sliders.get(args[0], args[0])}", "choice": None}
             return {"label": SPECIAL_LABELS.get(message, f"Lightroom: {message}"), "choice": None}
         if kind == "key":
-            return {"label": f"Key: {KEY_LABELS.get(action['key'], action['key'])}", "choice": None}
+            return {"label": f"Key: {key_labels().get(action['key'], action['key'])}", "choice": None}
         if kind == "shortcut":
             return {"label": "Shortcut: " + " + ".join(action.get("mac", [])), "choice": None}
         if kind == "preset":

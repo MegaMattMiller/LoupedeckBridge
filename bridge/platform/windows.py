@@ -32,5 +32,6 @@ def log_dir() -> Path:
 
 
 def keyboard():
-    """Keyboard keys on Windows arrive with milestone 6; until then key buttons do nothing."""
-    return None
+    """The real key sender (SendInput; Windows needs no permission for it)."""
+    from bridge.platform.windows_keys import WindowsKeyboard
+    return WindowsKeyboard()

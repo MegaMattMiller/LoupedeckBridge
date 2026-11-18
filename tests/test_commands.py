@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import sys
 
 import pytest
 
@@ -141,3 +142,14 @@ def test_to_page(c):
         in page["commands"]
     labels = [label for _, label in page["sliders"]]
     assert labels == sorted(labels, key=str.casefold)
+
+
+def test_cmd_label_on_windows(c, monkeypatch):
+    # Milestone 7: Cmd sends Ctrl on Windows, and the page says so.
+    from bridge.commands import key_labels
+    assert key_labels("win32")["cmd"] == "Cmd (sends Ctrl)"
+    assert key_labels("darwin")["cmd"] == "Cmd"
+    monkeypatch.setattr(sys, "platform", "win32")
+    assert c.describe({"type": "key", "key": "cmd"})["label"] == "Key: Cmd (sends Ctrl)"
+    monkeypatch.setattr(sys, "platform", "darwin")
+    assert c.describe({"type": "key", "key": "cmd"})["label"] == "Key: Cmd"
