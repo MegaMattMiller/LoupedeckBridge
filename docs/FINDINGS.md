@@ -363,6 +363,26 @@ Checked on the user's Windows PC: Windows 11 (10.0.26200), x64.
   browser) are never touched.
 - The release's bundled Python has no launcher.
 
+**On GitHub's Windows runner (`windows-2025`, CI 2026-11-18):**
+- The suite passes on Python 3.9.13, and with the Windows release's bundled Python 3.12. The tray app builds there
+  with the .NET SDK for .NET Framework 4.8, with no NuGet download.
+- **A detached CMS signature made by macOS's LibreSSL** (`openssl smime -sign -binary -noattr -md sha256`, as the
+  release signs the Windows zip) passes .NET Framework's `SignedCms` check, the tray app's. With Git for Windows'
+  OpenSSL 3 checked here (Task 8), both halves of "To verify first" 6 are proven.
+- `tools/make_signing_identity.sh` is macOS-only: it needs `shasum` and macOS's `/usr/bin/openssl`, which Git Bash
+  doesn't have. CI's Windows job makes its throwaway key with `tests/signing_fixtures.py`.
+
+**Found by the whole-branch review, and checked here:**
+- **Windows won't rename a folder that a process stands in** (its current folder), or that contains one. A tray app
+  started from the Start menu or by an update stood in the install folder, so its update's swap failed ("being used
+  by another process"), and so would a browser or Notepad it opened. The tray app and the bridge now step out at
+  start.
+- **Windows PowerShell 5.1's `Move-Item`, when a folder rename fails, moves the folder's files one by one** and stops
+  at the held one, leaving the folder split in two. `[IO.Directory]::Move` fails cleanly and moves nothing.
+  `install.ps1` uses it.
+- **`LoupedeckBridge.exe --quit` returns once the tray app lets go of its single-instance lock,** a moment before
+  its process has exited. `install.ps1` waits for every process running from the install folder before it moves it.
+
 ## API notes the handoff didn't capture
 - **How object handles come about:** `addAdjustmentChangeObserver(param?)` and `addHapticsObserver()` return a GUID/object. Later notifications arrive as extra responses for that same original `requestId` (this is the "one request, many responses" case). Call `close` on the handle when done.
 - **Tracking:** `startTracking(param)` turns itself off **2 s** after the last change, or as soon as a *different* parameter is adjusted. `stopTracking()` commits **one** history state. `setMultipleAdjustmentThreshold` defaults to **0.5 s** and has no effect if it's larger than the tracking delay.

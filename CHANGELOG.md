@@ -3,6 +3,25 @@
 Each release's section here becomes its GitHub release notes (`tools/check_release.py`). Versions are
 `bridge/__init__.py`'s `__version__`.
 
+## v0.6.0 — 2026-11-18
+
+Windows: the bridge, a tray app, and releases installed with one PowerShell command. One release now carries both
+platforms' downloads.
+
+- **Windows 10 and 11 (64-bit):** everything the Mac version does: dials, buttons, presets, keyboard keys and
+  shortcuts, and the settings page. Cmd sends Ctrl. Keyboard keys need no permission.
+- **A tray app,** in the notification area (Windows may first hide it behind **^**): the status at a glance, alerts
+  when the Loupedeck drops out, restarts after errors, Start at login, and updates from its menu, with Go back.
+- **`tools/install.ps1`** installs a release for the current user, with no admin rights: a Start menu entry, and an
+  entry in Settings → Apps that uninstalls it. It checks every download against the same release key as the Mac's
+  before it replaces anything, and keeps the previous version for Go back.
+- **Releases:** the Windows zip is signed (a detached `.p7s`) in the same approved step as the Mac app, checked on
+  Windows, and published only together with the Mac download.
+- **The bridge** reads and writes its files as UTF-8 on every system (a `mapping.json` saved by Notepad works), and
+  carries on when the Loupedeck is unplugged on Windows.
+- `tools/release.sh` also runs from Git Bash on Windows, and checks that `install.sh` and `install.ps1` pin the same
+  release key.
+
 ## v0.5.1 — 2026-11-17
 
 Safer installs and releases (from the review of v0.5.0), and the first update installed from the menu.

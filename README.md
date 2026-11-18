@@ -1,18 +1,21 @@
 # LoupedeckBridge
 
-Use a **Loupedeck+** with **Adobe Lightroom** (the cloud-based desktop app, *not* Lightroom Classic) on macOS.
+Use a **Loupedeck+** with **Adobe Lightroom** (the cloud-based desktop app, *not* Lightroom Classic) on macOS and
+Windows.
 
 Loupedeck's own software only supports Lightroom Classic. Lightroom 10 has an external-controller
 WebSocket API, so this is a small local Python bridge: Loupedeck+ MIDI in → Lightroom API calls out,
 over `127.0.0.1` only.
 
-**Status:** v0.5.0 is the first release, for Apple Silicon Macs on macOS 14 or later: dials, dial clicks,
-Lightroom buttons and presets, real keyboard keys and shortcuts, a settings page for presets and for
-remapping any control (with an Fn layer), and a menu-bar app with alerts, Start at login and updates.
-Windows comes next. See the [design](docs/superpowers/specs/2026-11-16-loupedeck-bridge-design.md),
-[CHANGELOG.md](CHANGELOG.md) and [docs/FINDINGS.md](docs/FINDINGS.md) for everything verified so far.
+**Status:** releases for Apple Silicon Macs on macOS 14 or later (since v0.5.0) and for Windows 10 and 11, 64-bit
+(since v0.6.0; checked on Windows 11): dials, dial clicks, Lightroom buttons and presets, real keyboard keys and
+shortcuts, a settings page for presets and for remapping any control (with an Fn layer), and a menu-bar or tray
+app with alerts, Start at login and updates. See the
+[design](docs/superpowers/specs/2026-11-16-loupedeck-bridge-design.md), the
+[Windows design](docs/superpowers/specs/2026-11-17-m7-windows-design.md), [CHANGELOG.md](CHANGELOG.md) and
+[docs/FINDINGS.md](docs/FINDINGS.md) for everything verified so far.
 
-## Install
+## Install on a Mac
 
 1. In Lightroom: **Preferences → Interface → Enable external controllers**, then restart Lightroom.
 2. Quit the Loupedeck / Logi software so it doesn't grab the device.
@@ -47,22 +50,61 @@ GitHub:
 If a check fails, nothing is replaced. The app it replaces goes to the Trash. For one version:
 `bash install.sh v0.5.0`. Going back to an older version than the installed one also needs `--allow-older`.
 
+## Install on Windows
+
+For Windows 10 or 11, 64-bit. No admin rights, GitHub account or developer tools needed.
+
+1. In Lightroom: **Edit → Preferences → Interface → Enable external controllers**, then restart Lightroom.
+2. Quit the Loupedeck / Logi software, and turn off its start at login. Windows 11 lets both programs read the
+   Loupedeck at once, so it would act on every control too.
+3. In **PowerShell** (Start → type "PowerShell"):
+   ```powershell
+   irm https://raw.githubusercontent.com/MegaMattMiller/LoupedeckBridge/main/tools/install.ps1 -OutFile install.ps1
+   ```
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File install.ps1
+   ```
+   The second line relaxes PowerShell's script policy for that one run only. You can read `install.ps1` first. It
+   downloads the newest release, checks it, installs it to `%LOCALAPPDATA%\Programs\LoupedeckBridge`, adds a Start
+   menu entry and an entry in Settings → Apps, and starts it. In a copy of this repo,
+   `pwsh -File tools\bridgectl.ps1 install` does the same.
+4. **Find the tray icon:** Windows puts a new tray icon behind the **^** next to the clock. Drag it from there onto
+   the taskbar, or turn LoupedeckBridge on in Settings → Personalization → Taskbar → Other system tray icons.
+5. In Lightroom, the **Allow** dialog. The client ID it hands back is saved to
+   `%LOCALAPPDATA%\loupedeck-lr-bridge\client.json`, so it only appears once.
+
+Keyboard keys need no permission on Windows. The Loupedeck's **Cmd sends Ctrl**, so Cmd + Z undoes, as on the Mac.
+
+Before it replaces anything, `install.ps1` checks the download's SHA-256, its signature (the `.p7s` next to it, made
+with the same **LoupedeckBridge release key** as the Mac app), and that the zip holds exactly one LoupedeckBridge
+release of the version asked for. It prints the key's fingerprint first, the same one as above.
+
+If a check fails, nothing is replaced. The version it replaces is kept as `LoupedeckBridge.previous` next to the
+installed one. For one version: `powershell -ExecutionPolicy Bypass -File install.ps1 -Version v0.6.0`. Going back to
+an older version than the installed one also needs `-AllowOlder`.
+
+**Uninstall:** Settings → Apps → LoupedeckBridge → Uninstall (or `install.ps1 -Uninstall`). Your layout, presets and
+client ID stay in `%APPDATA%\loupedeck-lr-bridge` and `%LOCALAPPDATA%\loupedeck-lr-bridge` (with the logs); delete
+those folders to remove them too.
+
 ## Updates
 
+The same on both systems, from the menu-bar or tray icon's menu:
 - Once a day, the app asks GitHub for the newest release. A new one shows in the menu, just above Quit, as
   **Update available: v… – Install…**, with one alert per version.
   - **Check for updates now** checks straight away.
   - Untick **Check for updates automatically** to stop the daily check.
-- **Install…** checks the download exactly as `install.sh` does, signature included. Only then does it
-  stop the bridge, move this version to the Trash, put the new one in its place and start it. If any step
-  fails, the current version keeps running and an alert says which step.
-- Permissions carry over: every release is signed with the same key, and installed in the same place.
+- **Install…** checks the download exactly as `install.sh` / `install.ps1` do, signature included. Only then does
+  it stop the bridge, put this version aside (the Trash on a Mac, `LoupedeckBridge.previous` on Windows), put the
+  new one in its place and start it. If any step fails, the current version keeps running (or is put back) and an
+  alert says which step.
+- Settings and permissions carry over: every release is signed with the same key, and installed in the same place.
 - If the new version's bridge keeps failing (the menu says it has stopped), **Go back to the previous
-  version (v…)…** puts the copy in the Trash back, after the same checks.
+  version (v…)…** puts the previous copy back (on the Mac after the same checks).
 
 ## What talks to the internet
 
-Only the menu-bar app, and only GitHub:
+Only the menu-bar or tray app (and the installers, when you run them), and only GitHub:
 - `api.github.com`, for the daily check (and **Check for updates now**). It sends `LoupedeckBridge/<version>`
   as its user agent, and no account or ID.
 - GitHub's download servers, when you install an update.
@@ -78,7 +120,8 @@ The bridge itself only connects to Lightroom on `127.0.0.1`, and its settings pa
   - A broken file falls back to the default and is left untouched (the settings page won't save over it).
   - It follows improvements to the default layout **control by control**. Controls you changed (e.g.
     presets on P1–P8) stay as you set them; the log mentions when a newer default exists for one of those.
-- **Logs:** `~/Library/Logs/loupedeck-lr-bridge/bridge.log`.
+- **Logs:** `~/Library/Logs/loupedeck-lr-bridge/bridge.log` (Windows:
+  `%LOCALAPPDATA%\loupedeck-lr-bridge\logs\bridge.log`).
 - **Behaviour:** dials and Lightroom buttons work even when Lightroom is in the background.
   Input is dropped while Lightroom is closed, and the bridge reconnects when it's back. Turning a
   colour dial in the device's B&W mode does nothing unless the photo is already black & white.
@@ -191,6 +234,28 @@ In a copy of this repo, `tools/bridgectl start | stop | restart | status | logs`
 release. `stop` (like Quit in the menu) releases any held keys first. Only one bridge runs at a time: a
 second one, e.g. from a terminal, refuses to start.
 
+## The tray app (Windows)
+
+On Windows, LoupedeckBridge lives in the notification area by the clock (see *Find the tray icon* above). It works
+like the Mac's menu-bar app:
+- **The icon** shows sliders when all is well, and a warning when the Loupedeck or Lightroom isn't connected or the
+  bridge has stopped. Hover over it for the same in words.
+- **Its menu** (click or right-click): the version, the Loupedeck, Lightroom and the five buttons' mode, then
+  **Open settings…**, **Start at login**, the update items and **Quit LoupedeckBridge**. If another program holds
+  the Loupedeck (possible on PCs where only one program can read it), it says "Loupedeck: in use by another program",
+  and the bridge keeps trying.
+- **Alerts** are Windows notifications named LoupedeckBridge, with the same rules as on the Mac: "Loupedeck
+  disconnected", "Loupedeck is back", "LoupedeckBridge stopped" (restarted after 5 seconds, at most 3 times in 10
+  minutes, then **Restart bridge** and **Open log** in the menu), and one per new version.
+- **Keys:** the bridge sends key presses with Windows' `SendInput`, which needs no permission. A held Loupedeck
+  Shift/Ctrl/Alt/Cmd applies to your real mouse and keyboard too (Windows keeps one key state for all input), so
+  Alt-drag and Shift-click work. If the tray app or the bridge is ended (even from Task Manager), held keys are let
+  go.
+- **Start at login** is off until you tick it. It appears in Task Manager → Startup apps.
+
+In a copy of this repo, `pwsh -File tools\bridgectl.ps1 start | stop | restart | status | logs | settings` control
+the installed release, as `tools/bridgectl` does on the Mac.
+
 ## Development
 
 ```bash
@@ -223,26 +288,49 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 - **The release app** locally: `tools/build_release_app.sh OUT_DIR` (it downloads the pinned Python into
   `.cache/` the first time), then `LB_RELEASE_APP=OUT_DIR/LoupedeckBridge.app .venv/bin/python -m pytest -q
   tests/test_release_bundle.py`.
-- **CI** (`.github/workflows/ci.yml`) runs on every push: the suite on Python 3.9, then the release app built
-  and tested with its own Python, and a signing rehearsal with a throwaway key (sign, check, package, install).
+- **CI** (`.github/workflows/ci.yml`) runs on every push: the suite on Python 3.9 on macOS and Windows; then each
+  release built and tested with its own Python, and a signing rehearsal with a throwaway key (sign, check, package,
+  install, and a changed byte refused). It also checks that a signature made by macOS's LibreSSL, as the release
+  signs the Windows zip, passes the tray app's check.
+
+**On Windows**, in PowerShell 7 (`pwsh`), with Python 3.9 or later and, for the tray app, the .NET SDK (it builds for
+the .NET Framework 4.8 that comes with Windows):
+```powershell
+py -m venv .venv; .venv\Scripts\pip install -r requirements-dev.txt
+.venv\Scripts\python -m pytest -q
+```
+- **Run from the terminal:** `.venv\Scripts\python -m bridge --debug`. Keyboard keys work this way too.
+- **The dev build**, "LoupedeckBridge Dev", runs this repo's code with its `.venv` (so Python changes need no
+  rebuild), with its own name for notifications and Start at login, and never updates itself:
+  ```powershell
+  pwsh -File tools\bridgectl.ps1 build          # builds build\LoupedeckBridge Dev\ (dotnet, telemetry off)
+  pwsh -File tools\bridgectl.ps1 start -Dev     # pauses the installed release while it runs
+  pwsh -File tools\bridgectl.ps1 stop -Dev      # stops it and brings the release back
+  ```
+- **The release folder** locally: `pwsh -File tools\build_windows_app.ps1 -Release OUT_DIR` (it downloads the pinned
+  Python into `.cache\` the first time), then set `LB_WINDOWS_RELEASE_DIR=OUT_DIR\LoupedeckBridge` and run
+  `tests\test_windows_release_bundle.py`.
 
 ## Releasing
 
 1. Set the version in `bridge/__init__.py`, and add a `## vX.Y.Z` section to `CHANGELOG.md` (it becomes the
    release notes). Merge to `main` and push.
-2. `tools/release.sh X.Y.Z`. It checks that you're on an up-to-date, clean `main`, that the version and
-   changelog match, that a release key is pinned, and that the tests pass. Then it tags `vX.Y.Z` and asks
-   before pushing the tag.
-3. GitHub builds and tests that tag (`.github/workflows/release.yml`), then waits. In the run on GitHub's
-   Actions page, **Review deployments** → approve `release`.
-4. It signs the tested build with the release key, checks that the updater and `install.sh` will accept it,
-   and publishes the release. Installed apps see it within a day.
+2. `tools/release.sh X.Y.Z` (on the Mac, or in Git Bash on Windows). It checks that you're on an up-to-date, clean
+   `main`, that the version and changelog match, that `install.sh` and `install.ps1` pin the same release key, and
+   that the tests pass. Then it tags `vX.Y.Z` and asks before pushing the tag.
+3. GitHub builds and tests that tag for both systems (`.github/workflows/release.yml`), then waits. In the run on
+   GitHub's Actions page, **Review deployments** → approve `release`.
+4. In one step it signs the tested Mac app and the tested Windows zip (a detached `.p7s`) with the release key. It
+   checks that the Mac updater and `install.sh` will accept the Mac app, then, on Windows, that the tray app and
+   `install.ps1` accept the Windows zip. It publishes the release only with all five downloads (each zip, its
+   `.sha256`, and the Windows `.p7s`): the Mac apps' update check needs the Mac zip in the newest release. Installed
+   apps see it within a day.
 
 **The release key** lives only in this repo's GitHub `release` environment (secrets `MAC_SIGNING_P12` and
 `MAC_SIGNING_P12_PASSWORD`). Only `v*` tags can use that environment, and only after you approve the run.
 `tools/make_signing_identity.sh` made it (2026-11-17), and its certificate's SHA-256 is pinned in
-`tools/install.sh`. **Don't replace it:** installed apps only accept updates signed with the key they were
-signed with, so a new key means reinstalling on every Mac with `install.sh`.
+`tools/install.sh` and `tools/install.ps1`. **Don't replace it:** installed apps only accept updates signed with
+the key they were signed with, so a new key means reinstalling everywhere with `install.sh` / `install.ps1`.
 
 ## Roadmap
 
@@ -252,7 +340,7 @@ signed with, so a new key means reinstalling on every Mac with `install.sh`.
 4. ✅ Settings page: remap any control, with an Fn layer
 5. ✅ Start at login, plus a menu-bar status icon and alerts
 6. ✅ Mac releases: a self-contained app built and signed on GitHub, installed with one command, updated from the menu
-7. Windows (macOS-tested code first, then a Windows test run), with releases for friends
+7. ✅ Windows: the bridge, a tray app, and releases for friends installed with one PowerShell command
 
 ## Layout
 
@@ -268,13 +356,17 @@ signed with, so a new key means reinstalling on every Mac with `install.sh`.
 | `bridge/status.py` | Status lines for the menu-bar app |
 | `bridge/dials.py`, `bridge/dial_feel.py` | Detent coalescing, tracking, the dial-feel curve |
 | `bridge/session.py` | Keeps a registered Lightroom connection alive |
-| `bridge/platform/` | Per-OS paths (macOS, Windows) |
+| `bridge/platform/` | Per-OS paths and keyboard keys (macOS, Windows) |
 | `bridge/lightroom.py` | Async Lightroom Controller API client (register, requests, observers) |
 | `config/loupedeck_plus.json` | Loupedeck+ MIDI map: every dial, colour-dial mode bank and button |
 | `docs/lr_parameters_10.0.json` | Type, label, default and range of all 170 Lightroom edit parameters |
 | `macos/launcher/` | The menu-bar app (Swift): the bridge process, menu and alerts, updates, signature check |
-| `tools/bridgectl` | Start, stop, build and install from the terminal |
-| `tools/install.sh` | The standalone installer (any Mac) |
+| `windows/launcher/` | The tray app (C#, .NET Framework 4.8): the same for Windows, with its checks in `tests/` |
+| `tools/bridgectl`, `tools/bridgectl.ps1` | Start, stop, build and install from the terminal (Mac, Windows) |
+| `tools/install.sh`, `tools/install.ps1` | The standalone installers (any Mac; any Windows PC), and the Windows uninstall |
+| `tools/build_windows_app.ps1`, `tools/package_windows_release.ps1` | The Windows dev build and release folder; its zip |
+| `tools/sign_windows_zip.sh`, `tools/check_windows_release.ps1` | Signing the Windows zip (`.p7s`); checking it on Windows |
+| `tools/python-standalone-windows.lock`, `tools/release-requirements-windows.txt` | The Windows release's pinned Python and packages |
 | `tools/build_mac_app.sh`, `tools/build_release_app.sh` | The dev app; the release app with its own Python |
 | `tools/sign_release_app.sh`, `tools/package_release.sh` | Signing and zipping a release |
 | `tools/python-standalone.lock`, `tools/release-requirements.txt` | The release's pinned Python and packages |
