@@ -336,6 +336,33 @@ Checked on the user's Windows PC: Windows 11 (10.0.26200), x64.
   for PCs where an input still opens for one program at a time. The flip side: the Loupedeck or Logi software
   running at the same time would also act on every control, so it must still be quit.
 
+**The tray app's live check** (the dev build, "LoupedeckBridge Dev"), with the user. All passed:
+- The icon starts behind the taskbar's **^** (Windows' default for a new tray icon); the user dragged it out.
+- **The menu:** "LoupedeckBridge Dev (repo)", then Loupedeck, Lightroom, Five buttons, Open settings…, Start at login,
+  Quit. While Lightroom was closed it showed the warning icon, and the bridge retried every 2 s. It connected about
+  1 s after Lightroom opened.
+- **Unplugging:** "Loupedeck disconnected" 3.7 s after the drop (3 s grace, then the next tick). "Loupedeck is back"
+  on replug. A replug 3.0 s later was silent.
+- **The notifications are named after the exe's FileDescription:** "LoupedeckBridge Dev".
+- **Ending the bridge's Python in Task Manager** (exit code 1): the keys were let go, a "stopped… restarting" alert
+  appeared, and a new bridge started 5.2 s later.
+- **Ending the tray app while the Loupedeck held Shift:** the control pipe closed, and the bridge stopped by itself
+  ("bridge stopped"). Shift wasn't stuck, and nothing was left running.
+- **Open settings…** opened the page, with no firewall prompt (it listens on 127.0.0.1).
+- **Quit, and `bridgectl.ps1 stop -Dev` (`--quit`):** a clean stop (exit 0), and nothing left running.
+- **Start at login:** `bridgectl.ps1 login on|off -Dev` sets and removes the Run value (the quoted exe path). Not
+  checked through a sign-out.
+
+**Found here: in the dev build, the bridge is two processes** (bug, fixed test-first).
+- A venv's `python.exe` is a launcher that starts the real Python (`C:\Program Files\Python311\python.exe`) as its
+  child. The pipes reach it fine.
+- But ending only the launcher left the real bridge running, holding the Loupedeck and the lock, so a restart would
+  fail as "already running".
+- Now a forced stop ends the launcher's `python.exe` child, and an orphaned one is ended once the launcher exits.
+  Checked live: ending only the launcher gave a restarted bridge with the Loupedeck 5 s later. Other children (e.g. a
+  browser) are never touched.
+- The release's bundled Python has no launcher.
+
 ## API notes the handoff didn't capture
 - **How object handles come about:** `addAdjustmentChangeObserver(param?)` and `addHapticsObserver()` return a GUID/object. Later notifications arrive as extra responses for that same original `requestId` (this is the "one request, many responses" case). Call `close` on the handle when done.
 - **Tracking:** `startTracking(param)` turns itself off **2 s** after the last change, or as soon as a *different* parameter is adjusted. `stopTracking()` commits **one** history state. `setMultipleAdjustmentThreshold` defaults to **0.5 s** and has no effect if it's larger than the tracking delay.
