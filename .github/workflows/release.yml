@@ -33,6 +33,7 @@ concurrency:
   group: release
   cancel-in-progress: false
 
+jobs:
   build:
     name: Build and test
     runs-on: macos-15

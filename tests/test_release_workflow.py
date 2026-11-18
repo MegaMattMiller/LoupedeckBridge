@@ -5,7 +5,8 @@
 - the key can't be exported from the temporary keychain
 Milestone 7: the Windows build is saved and checked the same way, signed in the same key step, verified on Windows
 before anything is published, and nothing is published unless both platforms' downloads are there.
-The workflows are read as text: each check names the property it protects."""
+The workflows are read as text: each check names the property it protects. outline() checks the layout GitHub reads
+(the test tools have no YAML parser), so a broken layout fails here instead of every check passing vacuously."""
 from __future__ import annotations
 
 import re
@@ -16,8 +17,24 @@ RELEASE = (REPO / ".github" / "workflows" / "release.yml").read_text()
 CI = (REPO / ".github" / "workflows" / "ci.yml").read_text()
 
 
+def outline(text: str) -> "dict[str, list[str]]":
+    """A workflow's top-level keys, each with its keys one level in (two spaces), in order."""
+    keys: "dict[str, list[str]]" = {}
+    current = None
+    for line in text.splitlines():
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        top = re.match(r"([A-Za-z_-]+):", line)
+        child = re.match(r"  ([A-Za-z_-]+):", line)
+        if top:
+            current = keys.setdefault(top.group(1), [])
+        elif child and current is not None:
+            current.append(child.group(1))
+    return keys
+
+
 def job(text: str, name: str) -> str:
-    start = text.index(f"\n  {name}:\n")
+    start = text.index(f"\n  {name}:\n", text.index("\njobs:\n"))
     following = re.search(r"\n  [A-Za-z_-]+:\n", text[start + 1:])
     return text[start: start + 1 + following.start()] if following else text[start:]
 
@@ -156,3 +173,21 @@ def test_libressl_signatures_are_checked_on_windows():
     # The release signs the Windows zip with macOS's LibreSSL; CI proves Windows' SignedCms accepts what it makes.
     assert "libressl-sample" in job(CI, "release-build") and "tools/sign_windows_zip.sh" in job(CI, "release-build")
     assert "libressl-sample" in job(CI, "release-build-windows")
+
+
+def test_workflows_are_laid_out_as_github_reads_them():
+    release, ci = outline(RELEASE), outline(CI)
+    assert list(release) == ["name", "on", "permissions", "concurrency", "jobs"], list(release)
+    assert release["concurrency"] == ["group", "cancel-in-progress"], "a job outside `jobs:` is no job at all"
+    assert release["jobs"] == ["build", "build-windows", "sign", "verify-windows", "publish"]
+    assert list(ci) == ["name", "on", "permissions", "jobs"], list(ci)
+    assert ci["jobs"] == ["suite", "suite-windows", "release-build", "release-build-windows"]
+
+
+def test_jobs_need_only_jobs_that_exist():
+    for name, text in (("release.yml", RELEASE), ("ci.yml", CI)):
+        jobs = outline(text)["jobs"]
+        for each in jobs:
+            needs = re.search(r"\n    needs: (.+)\n", job(text, each))
+            needed = set(re.findall(r"[A-Za-z_-]+", needs.group(1))) if needs else set()
+            assert needed <= set(jobs) - {each}, f"{name}: {each} needs {sorted(needed - set(jobs))}"
