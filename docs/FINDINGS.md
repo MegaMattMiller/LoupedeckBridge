@@ -400,6 +400,33 @@ Checked on the user's Windows PC: Windows 11 (10.0.26200), x64.
 - The tray said v0.6.1, its notifications are named "LoupedeckBridge", and "Check for updates now" said up to date.
 - Not checked with the release: an unplug alert (the user was on RDP, away from the Loupedeck; the dev build's was).
 
+**The first update from the tray, Go back and uninstall** (v0.6.1 → v0.6.2, with the user over RDP). All passed:
+- **Update:** "Check for updates now" in v0.6.1 found v0.6.2, and **Install…** took 5 s from "installing" to "v0.6.2
+  started". Then:
+  - `LoupedeckBridge.previous` held v0.6.1, with no `.new` or `.older` left
+  - the Apps entry said 0.6.2, and Start at login still pointed at the installed exe
+  - the new bridge reconnected to the Loupedeck and Lightroom within 1.5 s
+- **The Start menu entry** started v0.6.2 after a Quit.
+- **Go back:** with `app\bridge\__main__.py` renamed and the bridge ended, it crashed once and failed its 3 restarts
+  (5 s apart, "No module named bridge.__main__"), then stopped.
+  - The menu offered "Go back to the previous version (v0.6.1)…". The switch took 5 s.
+  - v0.6.1 ran, the broken v0.6.2 became `.previous`, and the Apps entry said 0.6.1.
+  - There was one "LoupedeckBridge stopped" alert per crash, four in all, as on the Mac.
+- **Updating again:** v0.6.1 doesn't check by itself within a day of its last check, so "Check for updates now" found
+  v0.6.2. Install brought a fresh copy, so `.previous` was the intact v0.6.1 again and the broken copy was gone.
+- **Uninstall from Settings → Apps:**
+  - removed the app, `.previous`, the Start menu entry, the Apps entry, the Start at login value and the update
+    preferences, and left nothing running
+  - kept `mapping.json`, `client.json` and the logs
+- **Reinstalling with `install.ps1`** gave v0.6.2 with no `.previous`. Lightroom connected with no Allow dialog.
+  Start at login stays off until it's turned on in the menu: neither the install nor the app turns it on.
+- **Found here: running the test suite deleted this PC's real update preferences** (bug in the tests, fixed
+  test-first).
+  - The `install.ps1` tests pointed every setting at a temporary place except the new `LB_PREFS_KEY`, so each
+    uninstall test removed `HKCU\Software\LoupedeckBridge`.
+  - With no "last check" left, the installed tray checked GitHub every minute while the suite ran.
+  - A test now checks that the tests set every place `install.ps1` changes.
+
 ## API notes the handoff didn't capture
 - **How object handles come about:** `addAdjustmentChangeObserver(param?)` and `addHapticsObserver()` return a GUID/object. Later notifications arrive as extra responses for that same original `requestId` (this is the "one request, many responses" case). Call `close` on the handle when done.
 - **Tracking:** `startTracking(param)` turns itself off **2 s** after the last change, or as soon as a *different* parameter is adjusted. `stopTracking()` commits **one** history state. `setMultipleAdjustmentThreshold` defaults to **0.5 s** and has no effect if it's larger than the tracking delay.
