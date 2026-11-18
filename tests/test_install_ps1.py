@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 import uuid
 import zipfile
 from pathlib import Path
@@ -118,6 +119,17 @@ class Rig:
     def logged(self) -> "list[str]":
         return self.log.read_text(encoding="utf-8").splitlines() if self.log.exists() else []
 
+    def starts(self, count: int, timeout: float = 15.0) -> "list[str]":
+        """The installed app's start lines, once there are `count` of them: install.ps1 starts the app and exits
+        without waiting, so its line can come a moment later."""
+        exe = str(self.install / "LoupedeckBridge.exe").lower()
+        deadline = time.monotonic() + timeout
+        while True:
+            found = [line for line in self.logged() if line.strip().lower() == exe]
+            if len(found) >= count or time.monotonic() > deadline:
+                return found
+            time.sleep(0.1)
+
     def registry(self, name: str) -> "str | None":
         result = subprocess.run([POWERSHELL, "-NoProfile", "-Command",
                                  f"(Get-ItemProperty -Path '{self.key}\\Uninstall\\LoupedeckBridge' -ErrorAction "
@@ -146,12 +158,12 @@ def output(result) -> str:
 
 
 def test_install_into_empty_dir(rig):
+    rig.env["LB_FAKE_SLOW_START"] = "1.5"      # install.ps1 starts the app and exits without waiting
     rig.release("0.6.0")
     result = rig.run()
     assert result.returncode == 0, output(result)
     assert rig.installed() == "0.6.0"
-    assert any(line.strip().lower() == str(rig.install / "LoupedeckBridge.exe").lower() for line in rig.logged()), \
-        "the installed app wasn't started"
+    assert rig.starts(1), "the installed app wasn't started"
 
 
 def test_install_a_named_version(rig):
@@ -292,16 +304,17 @@ def test_app_that_wont_quit_is_left_alone(rig):
 def test_failed_copy_puts_back_and_restarts_the_old_app(rig):
     # Review Focus 5: the swap fails after the old version was moved aside (here: the new folder can't be renamed into
     # place, because a file in it is held open), so the old one is put back and started again.
+    rig.env["LB_FAKE_SLOW_START"] = "1.5"      # install.ps1 starts the app and exits without waiting
     rig.release("0.6.0")
     assert rig.run().returncode == 0
+    assert rig.starts(1), rig.logged()
     rig.release("0.6.1")
     rig.env["LB_INSTALL_HOLD_FILE"] = "app/version.txt"         # see install.ps1: a file in .new held open, for tests
     result = rig.run()
     assert result.returncode == 1 and "put back" in output(result), output(result)
     assert rig.installed() == "0.6.0"
     assert not (rig.install.parent / "LoupedeckBridge.previous").exists()
-    starts = [line for line in rig.logged() if line.strip().lower() == str(rig.install / "LoupedeckBridge.exe").lower()]
-    assert len(starts) == 2, rig.logged()           # started after the first install, and again after the put-back
+    assert len(rig.starts(2)) == 2, rig.logged()           # started after the first install, and again after the put-back
 
 
 def test_downloads_are_size_capped(rig):

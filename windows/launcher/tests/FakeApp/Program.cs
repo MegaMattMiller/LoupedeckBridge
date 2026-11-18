@@ -3,9 +3,12 @@
 //   --quit          ends the other running copies of itself (same path) and exits 0; with LB_FAKE_WONT_QUIT=1 it
 //                   leaves them and exits 1, like a LoupedeckBridge that won't quit
 //   --login status  prints "off"
+// LB_FAKE_SLOW_START=SECONDS makes a start (no arguments) wait that long before it logs, as a real app may take a moment
+// to start: install.ps1 starts the app and exits without waiting, so tests must wait for its line.
 
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Threading;
 
@@ -16,6 +19,9 @@ static class FakeApp
         var self = Process.GetCurrentProcess();
         var path = self.MainModule.FileName;
         var log = Environment.GetEnvironmentVariable("LB_FAKE_LOG");
+        if (args.Length == 0 && double.TryParse(Environment.GetEnvironmentVariable("LB_FAKE_SLOW_START"), NumberStyles.Float,
+                                                CultureInfo.InvariantCulture, out var delay))
+            Thread.Sleep(TimeSpan.FromSeconds(delay));
         if (!string.IsNullOrEmpty(log)) File.AppendAllText(log, path + " " + string.Join(" ", args) + "\n");
         if (args.Length > 0 && args[0] == "--quit")
         {
