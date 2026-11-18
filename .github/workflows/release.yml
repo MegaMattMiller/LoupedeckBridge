@@ -33,6 +33,7 @@ jobs:
     runs-on: macos-15
     outputs:
       version: ${{ steps.version.outputs.version }}
+      commit: ${{ steps.commit.outputs.sha }}
       zip_sha256: ${{ steps.save.outputs.zip_sha256 }}
     steps:
       - name: Which version
@@ -40,15 +41,21 @@ jobs:
         env:
           INPUT_VERSION: ${{ inputs.version }}
           REF_NAME: ${{ github.ref_name }}
+          REF: ${{ github.ref }}
         run: |
           version="${INPUT_VERSION:-$REF_NAME}"
           version="${version#v}"
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::'$version' isn't a version like 0.5.0"; exit 1; }
+          # "Run workflow" must be started from that tag (the release environment only accepts v* tags)
+          [ "$REF" = "refs/tags/v$version" ] || { echo "::error::run this from the tag v$version, not $REF"; exit 1; }
           echo "version=$version" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: refs/tags/v${{ steps.version.outputs.version }}
           persist-credentials: false
+      - name: Which commit (the publish job signs and releases this one)
+        id: commit
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - name: The version and changelog match
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -92,8 +99,16 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          ref: refs/tags/v${{ needs.build.outputs.version }}
+          ref: ${{ needs.build.outputs.commit }}
           persist-credentials: false
+      - name: The tag still points at the commit that was built and tested
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+          COMMIT: ${{ needs.build.outputs.commit }}
+        run: |
+          tagged="$(git ls-remote "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" "refs/tags/v$VERSION" "refs/tags/v$VERSION^{}" \
+            | awk '$2 ~ /\^\{\}$/ {peeled=$1} $2 !~ /\^\{\}$/ {plain=$1} END {print (peeled != "" ? peeled : plain)}')"
+          [ "$tagged" = "$COMMIT" ] || { echo "::error::v$VERSION points at ${tagged:-nothing} now, not the built $COMMIT"; exit 1; }
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
         with:
           name: unsigned-app
@@ -124,7 +139,7 @@ jobs:
           app=dist/LoupedeckBridge.app
           "$app/Contents/MacOS/LoupedeckBridge" --check-signature "$app"
           pinned="$(sed -n 's/^PINNED_SIGNER_SHA256_DEFAULT="\(.*\)"$/\1/p' tools/install.sh)"
-          codesign --verify --strict "$app"
+          codesign --verify --strict -R="identifier \"io.github.megamattmiller.loupedeckbridge\"" "$app"
           codesign -d --extract-certificates="$RUNNER_TEMP/cert" "$app"
           signer="$(shasum -a 256 "$RUNNER_TEMP/cert0" | awk '{print $1}')"
           [ -n "$pinned" ] && [ "$signer" = "$pinned" ] || { echo "::error::signed with $signer, but tools/install.sh pins '$pinned'"; exit 1; }

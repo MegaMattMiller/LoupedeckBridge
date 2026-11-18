@@ -64,15 +64,28 @@ jobs:
         run: |
           dist/LoupedeckBridge.app/Contents/MacOS/LoupedeckBridge --check-signature dist/LoupedeckBridge.app
           tools/package_release.sh dist/LoupedeckBridge.app out
-      - name: Install it with tools/install.sh, as on another Mac
+      - name: A changed byte is refused (a real certificate, so it's the change that's caught)
+        run: |
+          tampered="$RUNNER_TEMP/tampered/LoupedeckBridge.app"
+          mkdir -p "$RUNNER_TEMP/tampered"
+          ditto dist/LoupedeckBridge.app "$tampered"
+          printf '#' >> "$tampered/Contents/Resources/app/bridge/__init__.py"
+          if dist/LoupedeckBridge.app/Contents/MacOS/LoupedeckBridge --check-signature "$tampered"; then
+            echo "::error::the app's check accepted a changed app"; exit 1
+          fi
+      - name: Install it with tools/install.sh, as on another Mac (after refusing it against another key)
         run: |
           version="$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' bridge/__init__.py)"
           mkdir -p "$RUNNER_TEMP/releases/v$version" "$RUNNER_TEMP/Applications" "$RUNNER_TEMP/bin"
           cp out/* "$RUNNER_TEMP/releases/v$version/"
           printf '#!/bin/sh\necho "would open $*"\n' > "$RUNNER_TEMP/bin/open"   # don't start it on the runner
           chmod +x "$RUNNER_TEMP/bin/open"
-          PATH="$RUNNER_TEMP/bin:$PATH" LB_INSTALL_DIR="$RUNNER_TEMP/Applications" \
-            LB_DOWNLOAD_BASE="file://$RUNNER_TEMP/releases" \
-            LB_PINNED_SIGNER_SHA256="$LB_SIGNER_SHA256" tools/install.sh "v$version"
+          export PATH="$RUNNER_TEMP/bin:$PATH" LB_INSTALL_DIR="$RUNNER_TEMP/Applications" \
+            LB_DOWNLOAD_BASE="file://$RUNNER_TEMP/releases"
+          if LB_PINNED_SIGNER_SHA256="$(printf '%064d' 0)" tools/install.sh "v$version"; then
+            echo "::error::install.sh accepted a release signed with another key"; exit 1
+          fi
+          [ ! -e "$LB_INSTALL_DIR/LoupedeckBridge.app" ] || { echo "::error::something was installed anyway"; exit 1; }
+          LB_PINNED_SIGNER_SHA256="$LB_SIGNER_SHA256" tools/install.sh "v$version"
           app="$RUNNER_TEMP/Applications/LoupedeckBridge.app"
           "$app/Contents/MacOS/LoupedeckBridge" --check-signature "$app"
