@@ -8,7 +8,7 @@ WebSocket API, so this is a small local Python bridge: Loupedeck+ MIDI in → Li
 over `127.0.0.1` only.
 
 **Status:** releases for Apple Silicon Macs on macOS 14 or later (since v0.5.0) and for Windows 10 and 11, 64-bit
-(since v0.6.0; checked on Windows 11): dials, dial clicks, Lightroom buttons and presets, real keyboard keys and
+(since v0.6.1; checked on Windows 11): dials, dial clicks, Lightroom buttons and presets, real keyboard keys and
 shortcuts, a settings page for presets and for remapping any control (with an Fn layer), and a menu-bar or tray
 app with alerts, Start at login and updates. See the
 [design](docs/superpowers/specs/2026-11-16-loupedeck-bridge-design.md), the
@@ -80,7 +80,7 @@ with the same **LoupedeckBridge release key** as the Mac app), and that the zip 
 release of the version asked for. It prints the key's fingerprint first, the same one as above.
 
 If a check fails, nothing is replaced. The version it replaces is kept as `LoupedeckBridge.previous` next to the
-installed one. For one version: `powershell -ExecutionPolicy Bypass -File install.ps1 -Version v0.6.0`. Going back to
+installed one. For one version: `powershell -ExecutionPolicy Bypass -File install.ps1 -Version v0.6.1`. Going back to
 an older version than the installed one also needs `-AllowOlder`.
 
 **Uninstall:** Settings → Apps → LoupedeckBridge → Uninstall (or `install.ps1 -Uninstall`). Your layout, presets and

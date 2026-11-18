@@ -3,10 +3,11 @@
 Each release's section here becomes its GitHub release notes (`tools/check_release.py`). Versions are
 `bridge/__init__.py`'s `__version__`.
 
-## v0.6.0 — 2026-11-18
+## v0.6.1 — 2026-11-18
 
 Windows: the bridge, a tray app, and releases installed with one PowerShell command. One release now carries both
-platforms' downloads.
+platforms' downloads. (v0.6.0 was tagged but never published: its release run stopped before signing, because the
+signing job downloaded the Windows zip into the repo's own `windows/` folder. That's fixed here.)
 
 - **Windows 10 and 11 (64-bit):** everything the Mac version does: dials, buttons, presets, keyboard keys and
   shortcuts, and the settings page. Cmd sends Ctrl. Keyboard keys need no permission.

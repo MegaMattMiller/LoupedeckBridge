@@ -2,7 +2,7 @@
 
 A local bridge so a Loupedeck+ controls Adobe Lightroom (the cloud-based desktop app, **not** Lightroom
 Classic, though both may be installed). Python bridge (Loupedeck+ MIDI in, Lightroom's controller WebSocket
-API out), plus a menu-bar app on macOS and a tray app on Windows. Mac releases since v0.5.0, Windows since v0.6.0
+API out), plus a menu-bar app on macOS and a tray app on Windows. Mac releases since v0.5.0, Windows since v0.6.1
 (milestone 7). See README.md.
 
 ## Start here, not with new probes
