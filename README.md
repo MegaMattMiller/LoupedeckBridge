@@ -6,50 +6,81 @@ Loupedeck's own software only supports Lightroom Classic. Lightroom 10 has an ex
 WebSocket API, so this is a small local Python bridge: Loupedeck+ MIDI in → Lightroom API calls out,
 over `127.0.0.1` only.
 
-**Status:** on macOS, milestones 1–4 work: dials, dial clicks, Lightroom buttons and presets, real
-keyboard keys and shortcuts (run as LoupedeckBridge.app), and a settings page for presets and for
-remapping any control, with an Fn layer. Start at login and a status display come next. See the
-[design](docs/superpowers/specs/2026-11-16-loupedeck-bridge-design.md) and
-[docs/FINDINGS.md](docs/FINDINGS.md) for everything verified so far.
+**Status:** v0.5.0 is the first release, for Apple Silicon Macs on macOS 14 or later: dials, dial clicks,
+Lightroom buttons and presets, real keyboard keys and shortcuts, a settings page for presets and for
+remapping any control (with an Fn layer), and a menu-bar app with alerts, Start at login and updates.
+Windows comes next. See the [design](docs/superpowers/specs/2026-11-16-loupedeck-bridge-design.md),
+[CHANGELOG.md](CHANGELOG.md) and [docs/FINDINGS.md](docs/FINDINGS.md) for everything verified so far.
 
-## Setup
+## Install
 
-1. Lightroom: **Preferences → Interface → Enable external controllers**, then restart Lightroom.
+1. In Lightroom: **Preferences → Interface → Enable external controllers**, then restart Lightroom.
 2. Quit the Loupedeck / Logi software so it doesn't grab the device.
-3. Python environment:
+3. In Terminal, on any Mac (no GitHub account or developer tools needed):
    ```bash
-   python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+   curl -fsSLo install.sh https://raw.githubusercontent.com/MegaMattMiller/LoupedeckBridge/main/tools/install.sh
    ```
-4. The first connection shows an **Allow** dialog in Lightroom. The client ID it hands back is
-   saved to `~/Library/Application Support/loupedeck-lr-bridge/client.json`, so the dialog
-   only appears once.
+   ```bash
+   bash install.sh
+   ```
+   You can read `install.sh` first; it's short. It downloads the newest release, checks it, puts
+   **LoupedeckBridge.app** in `/Applications` and starts it. In a copy of this repo,
+   `tools/bridgectl install` does the same.
+4. On the first start, allow:
+   - **Notifications**, for the alerts.
+   - **Accessibility:** click *Open System Settings* and turn on **LoupedeckBridge** (keyboard keys need it).
+   - In Lightroom, the **Allow** dialog. The client ID it hands back is saved to
+     `~/Library/Application Support/loupedeck-lr-bridge/client.json`, so it only appears once.
 
-## Run
+Before it replaces anything, `install.sh` checks:
+- the download's SHA-256
+- that it holds exactly one LoupedeckBridge.app, with the release's bundle id and the version asked for
+- that it's validly signed with the **LoupedeckBridge release key** (the certificate's SHA-256 is pinned
+  in the script)
 
-```bash
-.venv/bin/python -m bridge
-```
+If a check fails, nothing is replaced. The app it replaces goes to the Trash. For one version:
+`bash install.sh v0.5.0`. Going back to an older version than the installed one also needs `--allow-older`.
 
-Stop it with Ctrl-C. Add `--debug` for a verbose log plus a Lightroom frame log (client GUID redacted).
+## Updates
+
+- Once a day, the app asks GitHub for the newest release. A new one shows in the menu, just above Quit, as
+  **Update available: v… – Install…**, with one alert per version.
+  - **Check for updates now** checks straight away.
+  - Untick **Check for updates automatically** to stop the daily check.
+- **Install…** checks the download exactly as `install.sh` does, signature included. Only then does it
+  stop the bridge, move this version to the Trash, put the new one in its place and start it. If any step
+  fails, the current version keeps running and an alert says which step.
+- Permissions carry over: every release is signed with the same key, and installed in the same place.
+- If the new version's bridge keeps failing (the menu says it has stopped), **Go back to the previous
+  version (v…)…** puts the copy in the Trash back, after the same checks.
+
+## What talks to the internet
+
+Only the menu-bar app, and only GitHub:
+- `api.github.com`, for the daily check (and **Check for updates now**). It sends `LoupedeckBridge/<version>`
+  as its user agent, and no account or ID.
+- GitHub's download servers, when you install an update.
+
+The bridge itself only connects to Lightroom on `127.0.0.1`, and its settings page only answers on
+`127.0.0.1`. Dev builds never check for updates.
+
+## Using it
 
 - **Your layout:** `mapping.json` in `~/Library/Application Support/loupedeck-lr-bridge/`
   (Windows: `%APPDATA%\loupedeck-lr-bridge\`). It's created from `config/default_mapping.json` on
-  first run. Edit it and restart.
+  first run. The settings page edits it; you can also edit it by hand and restart.
   - A broken file falls back to the default and is left untouched (the settings page won't save over it).
   - It follows improvements to the default layout **control by control**. Controls you changed (e.g.
     presets on P1–P8) stay as you set them; the log mentions when a newer default exists for one of those.
 - **Logs:** `~/Library/Logs/loupedeck-lr-bridge/bridge.log`.
-- **Dial feel:** the four constants at the top of `bridge/dial_feel.py`.
 - **Behaviour:** dials and Lightroom buttons work even when Lightroom is in the background.
   Input is dropped while Lightroom is closed, and the bridge reconnects when it's back. Turning a
   colour dial in the device's B&W mode does nothing unless the photo is already black & white.
 
-Tests: `.venv/bin/python -m pip install -r requirements-dev.txt && .venv/bin/python -m pytest -q`
-
 ## Settings page: presets on P1–P8
 
-While the bridge runs, open **http://127.0.0.1:7690/** with `tools/bridgectl settings`, the
-Loupedeck's **custom mode** button, or a bookmark.
+While the bridge runs, open **http://127.0.0.1:7690/** with **Open settings…** in the menu, the
+Loupedeck's **custom mode** button, `tools/bridgectl settings`, or a bookmark.
 1. Pick a slot (P1–P8) on the left.
 2. Search your Lightroom presets on the right, and click one to put it on that slot.
 3. ✕ clears a slot.
@@ -102,38 +133,17 @@ The **Buttons & dials** tab changes what any control does. Changes save and work
   and Reset brings them back.
 - `tools/lr_check_commands.py` checks the command list against Lightroom (on a test photo).
 
-## Run as an app (macOS, needed for keyboard keys)
+## The menu-bar app
 
 The Loupedeck's arrow buttons, the Before/After and screen-mode shortcuts, and Shift/Ctrl/Cmd/Alt/Tab
-in Keys mode (Fn + --/Col; the bridge starts in Ratings) send real key presses. macOS only allows that with the **Accessibility** permission, which it grants
-to the *app* that started the bridge. Run the bridge from the small **LoupedeckBridge.app** so the
-permission covers only the bridge, not your terminal:
+in Keys mode (Fn + --/Col) send real key presses. macOS only allows that with the **Accessibility**
+permission, which it grants to the *app* that started the bridge. So the bridge always runs inside
+**LoupedeckBridge.app**, and the permission covers only it, not your terminal.
 
-```bash
-tools/bridgectl build    # builds build/LoupedeckBridge.app (needs Xcode's command-line tools)
-tools/bridgectl start
-```
-
-On the first start, macOS asks three times. Allow all three:
-1. **Documents access**, because the bridge's code lives in this repo under `~/Documents`.
-2. **Notifications**, for the alerts below.
-3. **Accessibility:** click *Open System Settings* and turn on **LoupedeckBridge**. Check it any
-   time with `open -n build/LoupedeckBridge.app --args --check-permission` (the result goes to the log).
-
-**After rebuilding the app** (`tools/bridgectl build`), macOS treats it as a new app (it's signed locally),
-so permissions given to the old build may not carry over:
-- **Keyboard keys stop working,** and the menu says "Keyboard keys: need permission". In System Settings →
-  Privacy & Security → Accessibility, remove LoupedeckBridge with "−", add `build/LoupedeckBridge.app`
-  again with "+", and switch it on. The menu updates within seconds.
-- **No alerts,** and the log says "alerts are off". In System Settings → Notifications → LoupedeckBridge,
-  turn "Allow notifications" on, then `tools/bridgectl restart`.
-- Editing the Python code never needs a rebuild, only changes to `macos/launcher/` do.
-
-### The menu-bar icon
 While the bridge runs, LoupedeckBridge shows an icon in the menu bar: sliders when all is well, a warning
 triangle when the Loupedeck or Lightroom isn't connected, keyboard keys need permission, or the bridge
-has stopped. Its menu shows the Loupedeck, Lightroom, keyboard keys and the five buttons' mode, plus
-**Open settings…**, **Start at login** and **Quit LoupedeckBridge**.
+has stopped. Its menu shows the version, the Loupedeck, Lightroom, keyboard keys and the five buttons'
+mode, plus **Open settings…**, **Start at login**, the update items and **Quit LoupedeckBridge**.
 
 **Alerts** (macOS notifications):
 - **"Loupedeck disconnected"** when a Loupedeck that was working drops and is still gone after about
@@ -144,13 +154,14 @@ has stopped. Its menu shows the Loupedeck, Lightroom, keyboard keys and the five
 - **"LoupedeckBridge stopped"** if the bridge crashes. The app restarts it after 5 seconds, at most 3 times
   in 10 minutes. After that, the menu offers **Restart bridge** and **Open log**. If the bridge ever dies
   abruptly, the app lets go of any key it was holding.
+- **"LoupedeckBridge v… is available"**, once per new version.
 - No alert when Lightroom quits; the icon shows it.
 
 **One limit:** a Loupedeck that goes quiet while still plugged in (it happened once on 2026-11-16) can't
 be detected, because the device sends nothing when idle. Replug its dongle if the controls stop responding.
 
-**Start at login** is off until you tick it in the menu, or run `tools/bridgectl login on`
-(`off` / `status` too). It appears in System Settings → General → Login Items.
+**Start at login** is off until you tick it in the menu (or `tools/bridgectl login on`; `off` and
+`status` too). It appears in System Settings → General → Login Items.
 
 **What these permissions cover, plainly:**
 - Accessibility lets LoupedeckBridge send key presses, and watch and adjust real mouse and keyboard
@@ -160,12 +171,8 @@ be detected, because the device sends nothing when idle. Replug its dongle if th
     mouse and keyboard events, so Alt-drag and Shift-click work.
 - The tap is switched off whenever no Loupedeck modifier is held. It only ever reads and changes
   modifier flags, and logs nothing about your input.
-- The permission belongs to the app, and the app runs whatever code is in this repo and its `.venv`.
-  Treat changes to those like changes to any app you've given Accessibility.
-
-`tools/bridgectl stop | restart | status | logs` do what they say. `stop` (like Quit in the menu)
-releases any held keys first.
-Only one bridge runs at a time: a second one, e.g. from a terminal, refuses to start.
+- The permission belongs to the app. A release runs only the code inside it, and updates are checked
+  against the release key; the dev build runs whatever is in this repo and its `.venv`.
 
 Keys go to whichever app is in front, like a second keyboard.
 - Before/After sends `\` (Lightroom's Show Original).
@@ -174,6 +181,63 @@ Keys go to whichever app is in front, like a second keyboard.
 - Tab and the arrows repeat while held.
 - A held Loupedeck Shift/Ctrl/Alt/Cmd also applies to your real mouse and keyboard, e.g. Alt-drag a slider or Shift-click photos.
 
+In a copy of this repo, `tools/bridgectl start | stop | restart | status | logs` control the installed
+release. `stop` (like Quit in the menu) releases any held keys first. Only one bridge runs at a time: a
+second one, e.g. from a terminal, refuses to start.
+
+## Development
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
+.venv/bin/python -m pytest -q
+```
+
+- **Run from the terminal:** `.venv/bin/python -m bridge` (Ctrl-C stops it; `--debug` adds a verbose log
+  and a Lightroom frame log, client GUID redacted). Keyboard keys don't work this way (see above).
+- **The dev app**, "LoupedeckBridge Dev", runs this repo's code with its `.venv`, so editing the Python never
+  needs a rebuild (only changes to `macos/launcher/` do). It has its own bundle id, so it never mixes with
+  the release in Login Items, notifications or Accessibility, and it never updates itself.
+  ```bash
+  tools/bridgectl build          # builds build/LoupedeckBridge Dev.app (needs Xcode's command-line tools)
+  tools/bridgectl start --dev    # pauses the installed release while it runs
+  tools/bridgectl stop --dev     # stops it and brings the release back
+  ```
+  `restart`, `status` and `login` take `--dev` too (`logs` shows the one log both write). On its first start macOS asks for Documents access
+  (the code lives in this repo under `~/Documents`), notifications and Accessibility.
+- **After rebuilding the dev app**, macOS treats it as a new app (it's signed ad hoc), so its permissions may
+  not carry over:
+  - **Keyboard keys stop working,** and the menu says "Keyboard keys: need permission". In System Settings →
+    Privacy & Security → Accessibility, remove LoupedeckBridge Dev with "−", add `build/LoupedeckBridge Dev.app`
+    again with "+", and switch it on. The menu updates within seconds.
+  - **No alerts,** and the log says "alerts are off". In System Settings → Notifications → LoupedeckBridge Dev,
+    turn "Allow notifications" on, then `tools/bridgectl restart --dev`.
+  - Check Accessibility any time with `open -n "build/LoupedeckBridge Dev.app" --args --check-permission`
+    (the result goes to the log).
+- **Dial feel:** the four constants at the top of `bridge/dial_feel.py`.
+- **The release app** locally: `tools/build_release_app.sh OUT_DIR` (it downloads the pinned Python into
+  `.cache/` the first time), then `LB_RELEASE_APP=OUT_DIR/LoupedeckBridge.app .venv/bin/python -m pytest -q
+  tests/test_release_bundle.py`.
+- **CI** (`.github/workflows/ci.yml`) runs on every push: the suite on Python 3.9, then the release app built
+  and tested with its own Python, and a signing rehearsal with a throwaway key (sign, check, package, install).
+
+## Releasing
+
+1. Set the version in `bridge/__init__.py`, and add a `## vX.Y.Z` section to `CHANGELOG.md` (it becomes the
+   release notes). Merge to `main` and push.
+2. `tools/release.sh X.Y.Z`. It checks that you're on an up-to-date, clean `main`, that the version and
+   changelog match, that a release key is pinned, and that the tests pass. Then it tags `vX.Y.Z` and asks
+   before pushing the tag.
+3. GitHub builds and tests that tag (`.github/workflows/release.yml`), then waits. In the run on GitHub's
+   Actions page, **Review deployments** → approve `release`.
+4. It signs the tested build with the release key, checks that the updater and `install.sh` will accept it,
+   and publishes the release. Installed apps see it within a day.
+
+**The release key** lives only in this repo's GitHub `release` environment (secrets `MAC_SIGNING_P12` and
+`MAC_SIGNING_P12_PASSWORD`). Only `v*` tags can use that environment, and only after you approve the run.
+`tools/make_signing_identity.sh` made it (2026-11-17), and its certificate's SHA-256 is pinned in
+`tools/install.sh`. **Don't replace it:** installed apps only accept updates signed with the key they were
+signed with, so a new key means reinstalling on every Mac with `install.sh`.
+
 ## Roadmap
 
 1. ✅ Core bridge on macOS: dials, dial clicks, Lightroom buttons, presets, reconnects
@@ -181,25 +245,36 @@ Keys go to whichever app is in front, like a second keyboard.
 3. ✅ Settings page: search presets and assign them to P1–P8
 4. ✅ Settings page: remap any control, with an Fn layer
 5. ✅ Start at login, plus a menu-bar status icon and alerts
-6. Windows (macOS-tested code first, then a Windows test run)
-7. **GitHub Releases** once it's shippable: versioned downloads and a changelog
+6. ✅ Mac releases: a self-contained app built and signed on GitHub, installed with one command, updated from the menu
+7. Windows (macOS-tested code first, then a Windows test run), with releases for friends
 
 ## Layout
 
 | Path | What |
 |---|---|
 | `bridge/__main__.py`, `bridge/app.py` | Entry point and wiring |
+| `bridge/__init__.py` | The version (`__version__`) |
 | `bridge/midi_input.py`, `bridge/hardware.py` | Loupedeck+ MIDI → control events (survives unplugging) |
 | `bridge/mapping.py`, `config/default_mapping.json` | Control → action layout |
 | `bridge/actions.py` | Runs actions: Lightroom calls, presets, dial adjustments, the Fn layer |
 | `bridge/commands.py`, `config/commands.json` | What the settings page may assign, in plain words |
 | `bridge/settings/` | The settings page: server, layout list, static page |
+| `bridge/status.py` | Status lines for the menu-bar app |
 | `bridge/dials.py`, `bridge/dial_feel.py` | Detent coalescing, tracking, the dial-feel curve |
 | `bridge/session.py` | Keeps a registered Lightroom connection alive |
 | `bridge/platform/` | Per-OS paths (macOS, Windows) |
 | `bridge/lightroom.py` | Async Lightroom Controller API client (register, requests, observers) |
 | `config/loupedeck_plus.json` | Loupedeck+ MIDI map: every dial, colour-dial mode bank and button |
 | `docs/lr_parameters_10.0.json` | Type, label, default and range of all 170 Lightroom edit parameters |
+| `macos/launcher/` | The menu-bar app (Swift): the bridge process, menu and alerts, updates, signature check |
+| `tools/bridgectl` | Start, stop, build and install from the terminal |
+| `tools/install.sh` | The standalone installer (any Mac) |
+| `tools/build_mac_app.sh`, `tools/build_release_app.sh` | The dev app; the release app with its own Python |
+| `tools/sign_release_app.sh`, `tools/package_release.sh` | Signing and zipping a release |
+| `tools/python-standalone.lock`, `tools/release-requirements.txt` | The release's pinned Python and packages |
+| `tools/release.sh`, `tools/check_release.py` | Tagging a release; version and changelog checks |
+| `tools/make_signing_identity.sh`, `tools/import_signing_identity.sh` | The release key; its temporary keychain on GitHub |
+| `.github/workflows/` | CI, and the release build |
 | `tools/midi_dump.py` | Labelled raw MIDI capture |
 | `tools/summarize_capture.py` | Turn a capture into a per-control table |
 | `tools/find_unknown.py` | Chime on the first control not in the map yet |

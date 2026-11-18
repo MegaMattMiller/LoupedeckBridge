@@ -193,7 +193,7 @@ A throwaway, ad-hoc-signed app (bundle id `…loupedeckbridge.spike`) answered t
 - Notifications were refused at once, with no prompt, until "Allow notifications" was turned back on for
   LoupedeckBridge in System Settings → Notifications.
 - The first build after the change prompted for both, plus Documents access.
-- A fixed local signing identity would avoid this (a candidate for milestone 7's releases).
+- A fixed signing identity avoids this: milestone 6's releases are all signed with one key.
 
 **With the user, all passed:**
 1. Unplugging the dongle: "disconnected" after about 3 s and a warning icon; replugging: "is back".
@@ -217,6 +217,50 @@ Also checked:
 - A hard kill (exit 137), then "Restart bridge" clicked during the 5 s wait: exactly one new bridge, the
   automatic restart was cancelled, and the app stayed up.
 - Notifications survived this rebuild; Accessibility again had to be removed and re-added.
+
+## Milestone 6: releases, signing and updates (2026-11-17)
+**Signatures:**
+- codesign's requirement `certificate leaf = H"…"` compares a **SHA-1** hash. So both the installer and the
+  app compare the **SHA-256 of the signing certificate (DER)** with the pinned value, after a strict
+  signature check. In the app, the Security framework's first certificate (`SecCodeCopySigningInformation`)
+  is the same one `codesign -d --extract-certificates` writes as `…0`; a check on Calculator.app proves it.
+- A **self-signed** identity shows as "0 valid identities found" (`CSSMERR_TP_NOT_TRUSTED`) in
+  `security find-identity`, but codesign signs with it, and `codesign --verify --strict` passes.
+- A `.p12` from macOS's LibreSSL with `-keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg sha1` imports
+  into a temporary keychain on GitHub's `macos-15` (Apple Silicon) runner. An ad hoc signature has no
+  certificate at all.
+- Signed Mach-O files inside `Contents/Resources` (the bundled Python) pass strict verification, ad hoc and
+  self-signed.
+
+**The bundled Python** (python-build-standalone CPython 3.12.16, `install_only`):
+- The whole suite passes with it (310 tests, locally and on GitHub), with the bundle's own packages.
+  CoreMIDI opens from it. python-rtmidi 1.5.8 has a cp312 arm64 wheel; mido needs `packaging` too.
+- Python would write `__pycache__` into the app, which breaks its signature. So the build precompiles
+  everything with `--invalidation-mode unchecked-hash`, and the app runs Python with `-B`. Running the suite
+  against a built app leaves its signature valid.
+- python-build-standalone isn't a framework build, so it reads the user's `~/.local/lib/python3.12/site-packages`.
+  A `.pth` file planted there ran inside the app (which holds the Accessibility permission). The app now runs
+  Python with `-E -s -B`; with `-s` the planted file doesn't run.
+- Size: a 76 MB app and a 30 MB zip, after removing tests, Tcl/Tk, headers and static libraries. Most of
+  CPython's extension modules are built in; only 6 Mach-O files need signing.
+
+**GitHub Actions:**
+- The newest Python 3.9 GitHub has for Apple Silicon runners is 3.9.13.
+- `upload-artifact` keeps neither symlinks nor permissions, so the tested build travels as a `ditto` zip.
+- CI's signing rehearsal (a throwaway identity: sign, check, package, `install.sh`) passed on the first
+  push.
+
+**The final review (before the first release) found two holes in the release workflow,** both fixed:
+test tools from PyPI weren't pinned and ran before the tested build was saved, and the build's own binary
+ran while the signing key was usable. Now the build is saved first, the test tools are pinned by hash, the
+publish job checks it signs the saved bytes, and the key exists during the signing step only
+(`tests/test_release_workflow.py`).
+
+**Found by a live run of `install.sh`:** it refused an ad hoc build correctly but silently (`pipefail` ended
+the script when there was no certificate to hash). It now says why (a test covers it).
+
+**Still to verify, with the user:** installing v0.5.0 and its first-run permissions, Lightroom without a new
+Allow dialog, and then the menu update to v0.5.1 keeping the permissions.
 
 ## API notes the handoff didn't capture
 - **How object handles come about:** `addAdjustmentChangeObserver(param?)` and `addHapticsObserver()` return a GUID/object. Later notifications arrive as extra responses for that same original `requestId` (this is the "one request, many responses" case). Call `close` on the handle when done.
