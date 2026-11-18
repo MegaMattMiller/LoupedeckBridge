@@ -383,6 +383,23 @@ Checked on the user's Windows PC: Windows 11 (10.0.26200), x64.
 - **`LoupedeckBridge.exe --quit` returns once the tray app lets go of its single-instance lock,** a moment before
   its process has exited. `install.ps1` waits for every process running from the install folder before it moves it.
 
+**The first releases with Windows (2026-11-18):**
+- **v0.6.0 never published.** Its sign job downloaded the Windows zip into `windows/`, a folder the checkout already
+  has (the tray app's source), and stopped before signing. The download now goes to `windows-zip/`, and a test checks
+  that no download lands in a folder the repo has. v0.6.0 stays a tag without a release.
+- **v0.6.1 took three attempts of one run:** the first's Sign job ended as cancelled; the second failed an
+  `install.ps1` test on GitHub's runner, where the started app's log line came after the script had exited (the
+  test now waits for it). A rerun of the failed jobs published it, with all five files.
+- **v0.6.2** (the review's smaller fixes) published on its first attempt.
+
+**v0.6.1 installed the friends' way on this PC** (the README's `irm` and `powershell -ExecutionPolicy Bypass` lines):
+- None of the 2446 installed files has a `Zone.Identifier` ("downloaded from the internet") mark, so there's no
+  SmartScreen step.
+- The Start menu entry and the Apps entry (0.6.1) are there, and the bridge is one `python.exe`.
+- Lightroom connected with the saved client ID, with no new Allow dialog.
+- The tray said v0.6.1, its notifications are named "LoupedeckBridge", and "Check for updates now" said up to date.
+- Not checked with the release: an unplug alert (the user was on RDP, away from the Loupedeck; the dev build's was).
+
 ## API notes the handoff didn't capture
 - **How object handles come about:** `addAdjustmentChangeObserver(param?)` and `addHapticsObserver()` return a GUID/object. Later notifications arrive as extra responses for that same original `requestId` (this is the "one request, many responses" case). Call `close` on the handle when done.
 - **Tracking:** `startTracking(param)` turns itself off **2 s** after the last change, or as soon as a *different* parameter is adjusted. `stopTracking()` commits **one** history state. `setMultipleAdjustmentThreshold` defaults to **0.5 s** and has no effect if it's larger than the tracking delay.
