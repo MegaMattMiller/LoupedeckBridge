@@ -420,6 +420,11 @@ Checked on the user's Windows PC: Windows 11 (10.0.26200), x64.
   - kept `mapping.json`, `client.json` and the logs
 - **Reinstalling with `install.ps1`** gave v0.6.2 with no `.previous`. Lightroom connected with no Allow dialog.
   Start at login stays off until it's turned on in the menu: neither the install nor the app turns it on.
+- **Start at login, through a sign-out and a fresh sign-in** (spec "To verify first" 8): the tray icon came up by
+  itself, as v0.6.2, started by Explorer (which runs the Run entries), and connected to the Loupedeck at once and to
+  Lightroom once it was opened.
+  - At the sign-out, Windows ended the tray app and the bridge without either logging a word (no "quitting", no
+    "bridge stopped"). The next start was clean: no stale lock, and the Loupedeck connected at once.
 - **Found here: running the test suite deleted this PC's real update preferences** (bug in the tests, fixed
   test-first).
   - The `install.ps1` tests pointed every setting at a temporary place except the new `LB_PREFS_KEY`, so each
