@@ -74,7 +74,8 @@ class Rig:
         self.env.update({"LB_PINNED_SIGNER_SHA256": self.a.sha256, "LB_RELEASES_API": self.server.url + "/api",
                          "LB_DOWNLOAD_BASE": self.server.url + "/download", "LB_INSTALL_DIR": str(self.install),
                          "LB_START_MENU_DIR": str(self.start_menu), "LB_RUN_KEY": self.key + "\\Run",
-                         "LB_UNINSTALL_KEY": self.key + "\\Uninstall\\LoupedeckBridge", "LB_FAKE_LOG": str(self.log)})
+                         "LB_UNINSTALL_KEY": self.key + "\\Uninstall\\LoupedeckBridge",
+                         "LB_PREFS_KEY": self.key + "\\Prefs", "LB_FAKE_LOG": str(self.log)})
 
     def release(self, version: str, *, signer=None, extra=(), drop=(), bad_sha=False, info=None, latest=True,
                 padding: int = 0) -> Path:
@@ -155,6 +156,17 @@ def rig(tmp_path, fake_exe, keys):
 
 def output(result) -> str:
     return result.stdout + result.stderr
+
+
+def test_rig_keeps_every_install_ps1_place_away_from_this_pc(rig):
+    # Each place install.ps1 changes (folders, registry keys, GitHub) is a setting the tests point somewhere temporary.
+    # One left out reaches this PC's real install: before this test, LB_PREFS_KEY was, and every uninstall test
+    # deleted the real tray app's update preferences.
+    import re
+    settings = set(re.findall(r"Setting '(LB_\w+)'", SCRIPT.read_text(encoding="utf-8")))
+    not_places = {"LB_MAX_DOWNLOAD_BYTES"}
+    assert settings - not_places - set(rig.env) == set()
+    assert all(rig.env[name].startswith(rig.key) for name in settings if name.endswith("_KEY"))
 
 
 def test_install_into_empty_dir(rig):
@@ -484,8 +496,7 @@ def test_uninstall_keeps_its_apps_entry_until_the_app_is_gone(rig):
 
 def test_uninstall_removes_the_update_preferences(rig):
     # Minor 8: the tray app's update preferences (HKCU\Software\LoupedeckBridge) go too; the layout and presets stay.
-    prefs = rig.key + "\Prefs"
-    rig.env["LB_PREFS_KEY"] = prefs
+    prefs = rig.env["LB_PREFS_KEY"]
     rig.release("0.6.0")
     assert rig.run().returncode == 0
     subprocess.run([POWERSHELL, "-NoProfile", "-Command", f"New-Item -Force -Path '{prefs}' | Out-Null; "
