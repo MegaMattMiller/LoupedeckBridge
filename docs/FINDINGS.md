@@ -287,6 +287,55 @@ its place.
 
 All five of the design's "To verify first" items are confirmed.
 
+## Milestone 7: Windows (2026-11-17)
+Checked on the user's Windows PC: Windows 11 (10.0.26200), x64.
+
+**The PC:**
+- **Lightroom 10.0**, the same build as the Mac (`20261029-1525-df1be3b`), at `C:\Program Files\Adobe\Adobe
+  Lightroom CC\lightroom.exe`.
+  - `%LOCALAPPDATA%\Adobe\Lightroom CC\Connections\connections.json` = `{"port":7682}`.
+  - It listens on **127.0.0.1:7682 only**; the Mac listened on every interface.
+- **The Loupedeck+:** USB `VID_2EC2&PID_0002`, with a MIDI interface ("Loupedeck+") and a serial port (COM11), as on
+  the Mac.
+  - WinMM names the input **`Loupedeck+ 0`** and the output `Loupedeck+ 1`: Windows adds a number. The bridge's
+    "Loupedeck" hint still matches.
+
+**Text encoding:**
+- Python's default text encoding on Windows is cp1252, which misread the ★ in `config/commands.json`. The settings
+  page's `app.js` answered 500.
+- Every text read and write now names UTF-8, and JSON reads accept Notepad's BOM. `tests/test_text_io.py` keeps it
+  that way.
+
+**First live check** (the repo's `python -m bridge --debug`, through a helper holding the tray app's control pipe):
+- Registering saved a new client ID within 3 s. Later runs reconnected with it, with no Allow dialog, in under
+  10 ms.
+- **With the user, all worked:**
+  - dials and dial-click resets, the colour dials, C1/C2, undo/redo, copy/paste, Export and Fn + Export, clr/bw
+  - the --/Col modes
+  - the arrows (repeating) and Tab; `\` (Before/After) and `f` (screen mode), the same shortcuts as on the Mac
+- **The five buttons send keys only in Keys mode** (Fn + --/Col), as designed. Holding Fn while pressing them gives
+  their Fn action, which by default is the rating or colour.
+- **`SendInput` modifiers combine with the real mouse and keyboard with no help.** Windows keeps one key state for
+  all input, so there's no equivalent of the Mac's modifier tap. All of these worked:
+  - Loupedeck Shift-click and Ctrl-click in the grid
+  - Alt-drag on a slider (the clipping view)
+  - Cmd + Z, which undoes (Cmd sends Ctrl)
+  - real Shift + a Loupedeck arrow
+  - Alt pressed and released alone did nothing visible (its release is masked)
+- **Unplugging stopped the bridge** (bug, fixed test-first):
+  - RtMidi's WinMM `closePort` fails in `midiInUnprepareHeader` once the device has gone, and raised
+    `rtmidi.SystemError`.
+  - Its source shows that on this path it has already closed the handle and freed the buffers, yet leaves the port
+    marked open. Destroying the port later (mido's `__del__`, or rtmidi's destructor) would free them a second time.
+  - The bridge now carries on, and keeps that one port alive and marked closed. After the fix, an unplug and replug
+    reconnected (8 s, mostly the user's wait), and the dials worked.
+- **Stopping through the control pipe while the Loupedeck held Shift:** exit 0, "bridge stopped", and Shift was let
+  go (letters typed afterwards were lowercase).
+- **MIDI inputs are shared on this PC.** While another program held `Loupedeck+ 0` open, the bridge opened it too,
+  with no error (Windows 11's multi-client MIDI). So the "in use by another program" state can't happen here; it's
+  for PCs where an input still opens for one program at a time. The flip side: the Loupedeck or Logi software
+  running at the same time would also act on every control, so it must still be quit.
+
 ## API notes the handoff didn't capture
 - **How object handles come about:** `addAdjustmentChangeObserver(param?)` and `addHapticsObserver()` return a GUID/object. Later notifications arrive as extra responses for that same original `requestId` (this is the "one request, many responses" case). Call `close` on the handle when done.
 - **Tracking:** `startTracking(param)` turns itself off **2 s** after the last change, or as soon as a *different* parameter is adjusted. `stopTracking()` commits **one** history state. `setMultipleAdjustmentThreshold` defaults to **0.5 s** and has no effect if it's larger than the tracking delay.
