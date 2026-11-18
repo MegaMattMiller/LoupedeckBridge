@@ -1,0 +1,5 @@
+# The Python inside the Windows release (tools/build_windows_app.ps1 -Release): python-build-standalone's CPython 3.12,
+# install_only, for x64 Windows. The same build (3.12.16, built 2026-10-26) as the Mac's tools/python-standalone.lock.
+# The build refuses a download whose SHA-256 differs.
+url=https://github.com/astral-sh/python-build-standalone/releases/download/20261026/cpython-3.12.16%2B20261026-x86_64-pc-windows-msvc-install_only.tar.gz
+sha256=590dfcbe3a34c07301e6332e13e2188b98655cd072b08afa45a7998dc4c22bc5

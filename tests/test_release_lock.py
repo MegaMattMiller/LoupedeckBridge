@@ -41,3 +41,23 @@ def test_release_test_tools_are_hash_pinned():
     for line in tools.read_text().splitlines():
         if line.strip() and not line.startswith("#"):
             assert re.search(r"--hash=sha256:[0-9a-f]{64}", line), line
+
+
+# ---- milestone 7: the Windows release ---------------------------------------------------------------------
+
+def test_windows_python_lock():
+    lock = dict(line.split("=", 1) for line in
+                (REPO / "tools" / "python-standalone-windows.lock").read_text(encoding="utf-8").splitlines()
+                if line and not line.startswith("#"))
+    assert lock["url"].startswith("https://github.com/astral-sh/python-build-standalone/releases/download/")
+    assert re.search(r"/cpython-3\.12\.\d+%2B\d{8}-x86_64-pc-windows-msvc-install_only\.tar\.gz$", lock["url"])
+    assert re.fullmatch(r"[0-9a-f]{64}", lock["sha256"])
+
+
+def test_windows_release_requirements_pin_what_requirements_pins():
+    release = REPO / "tools" / "release-requirements-windows.txt"
+    wanted, locked = pins(REPO / "requirements.txt"), pins(release)
+    assert wanted and all(locked.get(name) == version for name, version in wanted.items()), (wanted, locked)
+    for line in release.read_text(encoding="utf-8").splitlines():
+        if line.strip() and not line.startswith("#"):
+            assert re.search(r"--hash=sha256:[0-9a-f]{64}", line), line

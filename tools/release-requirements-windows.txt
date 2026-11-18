@@ -1,0 +1,7 @@
+# The Windows release's packages (tools/build_windows_app.ps1 -Release installs exactly these wheels, for the bundled
+# Python 3.12 on x64 Windows, with pip --require-hashes). Same versions as requirements.txt, plus mido's dependency,
+# packaging. tests/test_release_lock.py keeps them in step.
+mido==1.3.3 --hash=sha256:01033c9b10b049e4436fca2762194ca839b09a4334091dd3c34e7f4ae674fd8a
+packaging==26.3 --hash=sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c
+python-rtmidi==1.5.8 --hash=sha256:052c89933cae4fca354012d8ca7248f4f9e1e3f062471409d48415a7f7d7e59e
+websockets==15.0.1 --hash=sha256:fcd5cf9e305d7b8338754470cf69cf81f420459dbae8a3b40cee57417f4614a7
