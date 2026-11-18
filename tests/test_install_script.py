@@ -182,3 +182,24 @@ def test_release_key_is_pinned():
     # copies it into its Info.plist at build time, so clearing or changing it strands installed apps.
     text = (REPO / "tools" / "install.sh").read_text()
     assert 'PINNED_SIGNER_SHA256_DEFAULT="4927ccbb8cc8c7e3c32afa79d58f11f2129b84b3c7638cb530cb2ced0faa2cf4"' in text
+
+
+REAL_KEY = "4927ccbb8cc8c7e3c32afa79d58f11f2129b84b3c7638cb530cb2ced0faa2cf4"
+
+
+def test_install_prints_the_release_key(tmp_path):
+    # So a first install on a new Mac can be checked against a fingerprint noted elsewhere (milestone 6 review).
+    env, server, apps, _ = rig(tmp_path)
+    publish(server, tmp_path, "0.5.0")
+    result = install({**env, "LB_PINNED_SIGNER_SHA256": REAL_KEY, "FAKE_CERT": "x"})   # refused: wrong certificate
+    assert result.returncode == 1
+    assert f"release key (certificate SHA-256): {REAL_KEY}" in result.stdout
+    assert "LB_PINNED_SIGNER_SHA256" not in result.stdout                               # the built-in key
+
+
+def test_install_says_when_the_key_is_overridden(tmp_path):
+    env, server, apps, _ = rig(tmp_path)                    # the rig pins a test key through the environment
+    publish(server, tmp_path, "0.5.0")
+    result = install(env)
+    assert result.returncode == 0 and PINNED in result.stdout
+    assert "not the built-in key (LB_PINNED_SIGNER_SHA256)" in result.stdout

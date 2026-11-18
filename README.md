@@ -38,6 +38,12 @@ Before it replaces anything, `install.sh` checks:
 - that it's validly signed with the **LoupedeckBridge release key** (the certificate's SHA-256 is pinned
   in the script)
 
+It prints that key's fingerprint first. On a new Mac, check it against one you've noted somewhere other than
+GitHub:
+```
+4927ccbb8cc8c7e3c32afa79d58f11f2129b84b3c7638cb530cb2ced0faa2cf4
+```
+
 If a check fails, nothing is replaced. The app it replaces goes to the Trash. For one version:
 `bash install.sh v0.5.0`. Going back to an older version than the installed one also needs `--allow-older`.
 

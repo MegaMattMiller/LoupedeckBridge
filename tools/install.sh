@@ -11,6 +11,7 @@
 # "Open Anyway" step), checks its SHA-256, checks the app's signature is valid AND made with the
 # LoupedeckBridge release key (the certificate's SHA-256 is pinned below), and only then replaces
 # /Applications/LoupedeckBridge.app. The old app goes to the Trash. If any check fails, nothing is replaced.
+# It prints the release key's fingerprint first: on a new Mac, compare it with the one you noted (README.md).
 set -euo pipefail
 
 # The LoupedeckBridge release certificate's SHA-256 (public, not a secret), from tools/make_signing_identity.sh
@@ -40,6 +41,12 @@ for a in "$@"; do
   esac
 done
 [ -n "$PINNED" ] || fail "this installer has no pinned release key yet (PINNED_SIGNER_SHA256_DEFAULT)"
+# Shown first, so a first install on a new Mac can be compared with the fingerprint noted elsewhere.
+if [ "$PINNED" = "$PINNED_SIGNER_SHA256_DEFAULT" ]; then
+  say "release key (certificate SHA-256): $PINNED"
+else
+  say "release key (certificate SHA-256): $PINNED - not the built-in key (LB_PINNED_SIGNER_SHA256)"
+fi
 
 # version_gt A B: true if A > B (three numeric parts).
 version_gt() {
