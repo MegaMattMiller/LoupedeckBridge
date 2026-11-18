@@ -259,8 +259,22 @@ publish job checks it signs the saved bytes, and the key exists during the signi
 **Found by a live run of `install.sh`:** it refused an ad hoc build correctly but silently (`pipefail` ended
 the script when there was no certificate to hash). It now says why (a test covers it).
 
-**Still to verify, with the user:** installing v0.5.0 and its first-run permissions, Lightroom without a new
-Allow dialog, and then the menu update to v0.5.1 keeping the permissions.
+**The first release, v0.5.0 (2026-11-17):** tagged with `tools/release.sh`, built and tested on GitHub,
+signed after the user's approval, and published (a 28.7 MB zip). Installed on the user's Mac with
+`tools/bridgectl install` (`install.sh`):
+- `codesign --verify --strict` and the app's own check pass on the user's Mac (TeamIdentifier "not set", as
+  expected for a self-signed key), and the app has no quarantine flag, so macOS showed no "downloaded from the
+  internet" step.
+- It runs its bundled Python (`…/Resources/python/bin/python3 -E -s -B -m bridge`); the Loupedeck and
+  Lightroom connected, and keyboard keys work after the first-run permission grants.
+- **Lightroom accepted the saved client ID with no new Allow dialog** (the registration version stays "0.1").
+- The first update check ran 32 s after launch against GitHub's real answer: "up to date (v0.5.0)". A relaunch
+  two minutes later didn't check again (once a day).
+- Before installing, the old ad hoc `build/LoupedeckBridge.app` (the same bundle id) had its Start at login
+  turned off and went to the Trash; the dev app is rebuilt later as "LoupedeckBridge Dev".
+
+**Still to verify, with the user:** the menu update to v0.5.1, keeping the permissions, with the old app in
+the Trash.
 
 ## API notes the handoff didn't capture
 - **How object handles come about:** `addAdjustmentChangeObserver(param?)` and `addHapticsObserver()` return a GUID/object. Later notifications arrive as extra responses for that same original `requestId` (this is the "one request, many responses" case). Call `close` on the handle when done.
