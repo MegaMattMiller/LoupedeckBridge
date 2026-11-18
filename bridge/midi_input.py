@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import ctypes
 import logging
 from typing import AsyncIterator, Callable, List, Optional
 
@@ -10,6 +11,25 @@ import mido
 from bridge.hardware import Event, HardwareMap
 
 log = logging.getLogger("midi")
+
+# Ports whose close failed (milestone 7 live check, Windows): after an unplug, RtMidi's WinMM closePort fails in
+# midiInUnprepareHeader, *after* closing the handle and freeing its buffers, but leaves the port marked open. Any
+# later clean-up (mido's __del__, rtmidi's destructor) would run closePort again and free those buffers a second
+# time, which can crash the process. So such a port is marked closed for mido and never destroyed: an extra
+# reference, never released, keeps it alive until the process exits. The device itself can be opened again.
+_UNCLOSABLE: list = []
+
+
+def _keep_forever(port) -> None:
+    try:
+        port.closed = True                      # mido's close() and __del__ do nothing more
+    except AttributeError:
+        pass
+    _UNCLOSABLE.append(port)
+    try:
+        ctypes.pythonapi.Py_IncRef(ctypes.py_object(port))   # not even interpreter shutdown frees it
+    except (AttributeError, OSError):
+        pass
 
 
 class MidiInput:
@@ -68,7 +88,11 @@ class MidiInput:
             finally:
                 if getter is not None:
                     getter.cancel()
-                port.close()
+                try:
+                    port.close()
+                except Exception as e:  # noqa: BLE001 — rtmidi raises its own error types
+                    log.info("the Loupedeck's old port didn't close cleanly (%s); leaving it be", e)
+                    _keep_forever(port)
                 if self.on_close is not None:
                     try:
                         self.on_close()

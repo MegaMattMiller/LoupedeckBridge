@@ -201,3 +201,40 @@ def test_busy_clears_when_unplugged():
         await wait_until(lambda: busy == [True, False])
         nxt.cancel()
     asyncio.run(main())
+
+
+def test_close_error_after_unplug_is_survived():
+    # Live check, 2026-11-17 (Windows): after an unplug, closing the port raised rtmidi's SystemError
+    # ("error closing Windows MM MIDI input port (midiInUnprepareHeader)") and stopped the bridge. RtMidi has
+    # already closed the handle and freed its buffers by then, but still thinks the port is open: destroying it
+    # would free them again. So the bridge carries on, and keeps that port alive and marked closed for good.
+    from bridge import midi_input
+
+    class FailingClosePort(FakePort):
+        def close(self):
+            raise RuntimeError("MidiInWinMM::openPort: error closing Windows MM MIDI input port (midiInUnprepareHeader).")
+
+    async def main():
+        midi = FakeMidi()
+        opened = []
+
+        def open_port(name, callback=None):
+            port = (FailingClosePort if not opened else FakePort)(name, callback)
+            opened.append(port)
+            return port
+
+        closes = []
+        mi = MidiInput(HW, list_ports=midi.list_ports, open_port=open_port, poll=0.01)
+        mi.on_close = lambda: closes.append(1)
+        events = mi.events()
+        nxt = asyncio.ensure_future(events.__anext__())
+        await wait_until(lambda: len(opened) == 1)
+        midi.present = False                      # unplugged: the first port's close fails
+        await wait_until(lambda: closes == [1])
+        midi.present = True                       # replugged: a new port opens, and input flows again
+        await wait_until(lambda: len(opened) == 2)
+        opened[1].send_in(cc(33, 1))
+        assert isinstance(await asyncio.wait_for(nxt, 1), Turn)
+        assert opened[0] in midi_input._UNCLOSABLE and opened[0].closed is True
+        await events.aclose()
+    asyncio.run(main())
