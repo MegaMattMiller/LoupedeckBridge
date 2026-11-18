@@ -1,6 +1,9 @@
 # Tests on every push and pull request. No secrets, read-only.
 #   suite:          the whole test suite with Python 3.9 (the oldest the bridge supports)
 #   suite-windows:  the same on Windows (milestone 7)
+#   release-build-windows: (milestone 7) builds the Windows release with its bundled Python, runs the suite with it,
+#                   signs it with a throwaway identity, and checks it the way friends' PCs will
+#                   (tools/check_windows_release.ps1); and checks a LibreSSL signature from the Mac job passes too
 #   release-build:  builds the release app with its bundled Python, runs the suite with that Python (test
 #                   tools pinned by hash), then rehearses release.yml's signing with a throwaway identity (not
 #                   the release key): sign in one step that deletes the keychain, the app's own update check,
@@ -58,6 +61,19 @@ jobs:
         run: |
           tools/make_signing_identity.sh --out "$RUNNER_TEMP/id"
           echo "LB_SIGNER_SHA256=$(cat "$RUNNER_TEMP/id/signer.sha256")" >> "$GITHUB_ENV"
+      - name: Sign a sample with macOS's LibreSSL, as the release signs Windows zips, for the Windows job to check
+        run: |
+          mkdir -p "$RUNNER_TEMP/libressl-sample"
+          head -c 65536 /dev/urandom > "$RUNNER_TEMP/libressl-sample/sample.bin"
+          OPENSSL=/usr/bin/openssl tools/sign_windows_zip.sh "$RUNNER_TEMP/libressl-sample/sample.bin" \
+            "$RUNNER_TEMP/id/LoupedeckBridge-Release.p12" "$RUNNER_TEMP/id/p12-password"
+          cp "$RUNNER_TEMP/id/signer.sha256" "$RUNNER_TEMP/libressl-sample/"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: libressl-sample
+          path: ${{ runner.temp }}/libressl-sample
+          retention-days: 3
+          if-no-files-found: error
       - name: Build the release app
         run: tools/build_release_app.sh dist
       - name: Test the build with its own Python
@@ -106,3 +122,53 @@ jobs:
           LB_PINNED_SIGNER_SHA256="$LB_SIGNER_SHA256" tools/install.sh "v$version"
           app="$RUNNER_TEMP/Applications/LoupedeckBridge.app"
           "$app/Contents/MacOS/LoupedeckBridge" --check-signature "$app"
+
+  release-build-windows:
+    name: Windows release build and signing rehearsal
+    needs: release-build
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Make a throwaway signing identity, and pin it instead of the release key
+        shell: bash
+        run: |
+          tools/make_signing_identity.sh --out "$RUNNER_TEMP/id"
+          echo "LB_SIGNER_SHA256=$(cat "$RUNNER_TEMP/id/signer.sha256")" >> "$GITHUB_ENV"
+      - name: Build the Windows release
+        run: |
+          pwsh -File tools/build_windows_app.ps1 -Release dist
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Test the build with its own Python
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          # a venv that shares the bundle's packages, so the suite tests those; the test tools go in the venv
+          dist\LoupedeckBridge\python\python.exe -m venv --system-site-packages --without-pip .venv
+          .venv\Scripts\python -m pip install --disable-pip-version-check --require-hashes --only-binary=:all: --no-deps `
+            -r tools/release-test-requirements.txt
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          .venv\Scripts\python -m pytest -q
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $env:LB_WINDOWS_RELEASE_DIR = "$PWD\dist\LoupedeckBridge"
+          .venv\Scripts\python -m pytest -q tests/test_windows_release_bundle.py
+      - name: Package it, and sign it the way a release is (with the throwaway key)
+        shell: bash
+        run: |
+          pwsh -File tools/package_windows_release.ps1 dist/LoupedeckBridge out
+          tools/sign_windows_zip.sh out/*.zip "$RUNNER_TEMP/id/LoupedeckBridge-Release.p12" "$RUNNER_TEMP/id/p12-password"
+      - name: The tray app and tools/install.ps1 accept it, and refuse a changed byte (tampered) and another key
+        run: |
+          pwsh -File tools/check_windows_release.ps1 -Dir out -Pinned $env:LB_SIGNER_SHA256
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: libressl-sample
+          path: libressl-sample
+      - name: A signature made by macOS's LibreSSL (as the release makes them) passes the tray app's check
+        run: |
+          $sha = (Get-Content libressl-sample/signer.sha256).Trim()
+          $p = Start-Process -FilePath dist\LoupedeckBridge\LoupedeckBridge.exe -Wait -PassThru -NoNewWindow `
+            -ArgumentList '--check-signature', "$PWD\libressl-sample\sample.bin", '--pinned', $sha
+          if ($p.ExitCode -ne 0) { "::error::the tray app refused a LibreSSL signature"; exit 1 }

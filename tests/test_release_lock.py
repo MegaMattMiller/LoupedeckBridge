@@ -61,3 +61,12 @@ def test_windows_release_requirements_pin_what_requirements_pins():
     for line in release.read_text(encoding="utf-8").splitlines():
         if line.strip() and not line.startswith("#"):
             assert re.search(r"--hash=sha256:[0-9a-f]{64}", line), line
+
+
+def test_both_installers_pin_the_same_key():
+    # One release key signs both platforms: the Mac's install.sh and Windows' install.ps1 must pin the same certificate.
+    mac = re.search(r'^PINNED_SIGNER_SHA256_DEFAULT="([0-9a-f]{64})"$',
+                    (REPO / "tools" / "install.sh").read_text(encoding="utf-8"), re.M)
+    windows = re.search(r'^\$PinnedSignerSha256Default = "([0-9a-f]{64})"$',
+                        (REPO / "tools" / "install.ps1").read_text(encoding="utf-8"), re.M)
+    assert mac and windows and mac.group(1) == windows.group(1)

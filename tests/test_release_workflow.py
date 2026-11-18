@@ -3,6 +3,8 @@
 - the publish job signs exactly the saved build
 - the signing key exists during one step only, and no code from the build runs while it does
 - the key can't be exported from the temporary keychain
+Milestone 7: the Windows build is saved and checked the same way, signed in the same key step, verified on Windows
+before anything is published, and nothing is published unless both platforms' downloads are there.
 The workflows are read as text: each check names the property it protects."""
 from __future__ import annotations
 
@@ -31,26 +33,27 @@ def test_build_is_saved_before_any_test_code_runs():
 
 
 def test_publish_signs_exactly_the_saved_build():
-    build, publish = job(RELEASE, "build"), job(RELEASE, "publish")
+    build, sign = job(RELEASE, "build"), job(RELEASE, "sign")
     assert "zip_sha256: ${{ steps.save.outputs.zip_sha256 }}" in build
-    unpack = next(s for s in steps(publish) if "ditto -x -k unsigned.zip" in s)
+    unpack = next(s for s in steps(sign) if "ditto -x -k unsigned.zip" in s)
     assert "needs.build.outputs.zip_sha256" in unpack and "shasum -a 256 unsigned.zip" in unpack
 
 
 def test_signing_key_exists_in_one_step_only():
-    publish = steps(job(RELEASE, "publish"))
-    signing = [s for s in publish if "import_signing_identity.sh" in s]
+    sign = steps(job(RELEASE, "sign"))
+    signing = [s for s in sign if "import_signing_identity.sh" in s]
     assert len(signing) == 1
     step = signing[0]
     assert "security delete-keychain" in step and "trap" in step, "the keychain must go at the end of the same step"
     assert "Contents/MacOS/LoupedeckBridge" not in step, "no code from the build may run while the key can sign"
-    after = publish[publish.index(step) + 1:]
+    after = sign[sign.index(step) + 1:]
     assert any("--check-signature" in s for s in after)
     assert not any("keychain" in s and "delete" not in s for s in after)
 
 
 def test_test_tools_are_hash_pinned():
-    for name, text in (("release.yml", job(RELEASE, "build")), ("ci.yml", job(CI, "release-build"))):
+    for name, text in (("release.yml", job(RELEASE, "build")), ("ci.yml", job(CI, "release-build")),
+                       ("release.yml", job(RELEASE, "build-windows")), ("ci.yml", job(CI, "release-build-windows"))):
         assert "requirements-dev.txt" not in text, f"{name}: unpinned test tools in the release build's job"
         assert "--require-hashes" in text and "tools/release-test-requirements.txt" in text, name
 
@@ -65,13 +68,13 @@ def test_signing_key_is_not_extractable():
 
 def test_publish_signs_the_commit_the_build_job_built():
     # Both jobs resolved the tag by name, hours apart across the approval wait.
-    build, publish = job(RELEASE, "build"), job(RELEASE, "publish")
+    build, sign = job(RELEASE, "build"), job(RELEASE, "sign")
     assert "commit: ${{ steps.commit.outputs.sha }}" in build
-    assert "ref: ${{ needs.build.outputs.commit }}" in publish
-    signing = next(i for i, s in enumerate(steps(publish)) if "import_signing_identity.sh" in s)
-    check = next(i for i, s in enumerate(steps(publish)) if "ls-remote" in s)
+    assert "ref: ${{ needs.build.outputs.commit }}" in sign
+    signing = next(i for i, s in enumerate(steps(sign)) if "import_signing_identity.sh" in s)
+    check = next(i for i, s in enumerate(steps(sign)) if "ls-remote" in s)
     assert check < signing, "the tag must be checked unmoved before the key is used"
-    assert "needs.build.outputs.commit" in steps(publish)[check]
+    assert "needs.build.outputs.commit" in steps(sign)[check]
 
 
 def test_run_workflow_needs_the_matching_tag():
@@ -80,7 +83,7 @@ def test_run_workflow_needs_the_matching_tag():
 
 
 def test_publish_checks_the_signing_identifier_like_the_app():
-    accept = next(s for s in steps(job(RELEASE, "publish")) if "--check-signature" in s)
+    accept = next(s for s in steps(job(RELEASE, "sign")) if "--check-signature" in s)
     assert '-R="identifier \\"io.github.megamattmiller.loupedeckbridge\\""' in accept
 
 
@@ -90,3 +93,66 @@ def test_rehearsal_proves_tampering_and_another_key_are_refused():
     assert "tampered" in rehearsal and "if dist/LoupedeckBridge.app/Contents/MacOS/LoupedeckBridge --check-signature" in rehearsal
     assert "another key" in rehearsal and 'LB_PINNED_SIGNER_SHA256="$(printf' in rehearsal
     assert "\n          ! " not in rehearsal
+
+
+# ---- milestone 7: Windows -------------------------------------------------------------------------------------------
+CHECK_SCRIPT = (REPO / "tools" / "check_windows_release.ps1").read_text(encoding="utf-8")
+
+
+def test_windows_build_is_saved_before_any_test_code_runs():
+    build = job(RELEASE, "build-windows")
+    assert build.index("actions/upload-artifact") < build.index("pip install"),         "the tested Windows build must be uploaded before any downloaded test tool runs"
+    assert "zip_sha256: ${{ steps.save.outputs.zip_sha256 }}" in build
+
+
+def test_sign_signs_exactly_the_saved_windows_build():
+    sign = steps(job(RELEASE, "sign"))
+    check = next(i for i, s in enumerate(sign) if "needs.build-windows.outputs.zip_sha256" in s)
+    signing = next(i for i, s in enumerate(sign) if "import_signing_identity.sh" in s)
+    assert check < signing, "the Windows zip must be checked byte for byte before the key is used"
+
+
+def test_both_builds_are_the_same_commit():
+    build_windows, sign = job(RELEASE, "build-windows"), steps(job(RELEASE, "sign"))
+    assert "commit: ${{ steps.commit.outputs.sha }}" in build_windows
+    assert any("needs.build-windows.outputs.commit" in s and "needs.build.outputs.commit" in s for s in sign)
+
+
+def test_windows_zip_is_signed_in_the_key_step():
+    step = next(s for s in steps(job(RELEASE, "sign")) if "import_signing_identity.sh" in s)
+    assert "tools/sign_windows_zip.sh" in step, "the Windows zip is signed while the key exists, in the same step"
+    assert "LoupedeckBridge.exe" not in step and "Contents/MacOS/LoupedeckBridge" not in step
+    assert 'rm -f "$RUNNER_TEMP/id.p12"' in step
+
+
+def test_verify_windows_runs_the_app_check_and_install_ps1():
+    verify = job(RELEASE, "verify-windows")
+    assert "tools/check_windows_release.ps1" in verify and "secrets." not in verify
+    assert "--check-signature" in CHECK_SCRIPT and "install.ps1" in CHECK_SCRIPT
+
+
+def test_publish_needs_both_platforms():
+    publish = job(RELEASE, "publish")
+    needs = re.search(r"needs: \[([^\]]*)\]", publish).group(1)
+    assert {"build", "build-windows", "sign", "verify-windows"} <= {n.strip() for n in needs.split(",")}
+    for name in ("macos-arm64.zip", "macos-arm64.zip.sha256", "windows-x64.zip", "windows-x64.zip.sha256",
+                 "windows-x64.zip.p7s"):
+        assert name in publish, name
+    assert "contents: write" in publish and "secrets." not in publish
+
+
+def test_only_sign_uses_the_release_environment():
+    assert RELEASE.count("environment: release") == 1
+    assert "environment: release" in job(RELEASE, "sign")
+
+
+def test_windows_rehearsal_proves_tampering_and_another_key_are_refused():
+    rehearsal = job(CI, "release-build-windows")
+    assert "tools/check_windows_release.ps1" in rehearsal and "-Pinned" in rehearsal
+    assert "tampered" in CHECK_SCRIPT and "'0' * 64" in CHECK_SCRIPT
+
+
+def test_libressl_signatures_are_checked_on_windows():
+    # The release signs the Windows zip with macOS's LibreSSL; CI proves Windows' SignedCms accepts what it makes.
+    assert "libressl-sample" in job(CI, "release-build") and "tools/sign_windows_zip.sh" in job(CI, "release-build")
+    assert "libressl-sample" in job(CI, "release-build-windows")
