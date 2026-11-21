@@ -7,6 +7,7 @@
 #   less install.sh        # read it if you like
 #   bash install.sh
 #
+# It works out which Mac it's on (Apple Silicon or Intel) and fetches that Mac's download.
 # It downloads the release with curl (so macOS adds no "downloaded from the internet" flag and there's no
 # "Open Anyway" step), checks its SHA-256, checks the app's signature is valid AND made with the
 # LoupedeckBridge release key (the certificate's SHA-256 is pinned below), and only then replaces
@@ -42,6 +43,20 @@ for a in "$@"; do
   esac
 done
 [ -n "$PINNED" ] || fail "this installer has no pinned release key yet (PINNED_SIGNER_SHA256_DEFAULT)"
+
+# ---- which Mac this is -----------------------------------------------------------
+# Each release carries a download per architecture. LB_ARCH forces one (the tests, or fetching the other
+# deliberately).
+arch="${LB_ARCH-}"
+if [ -z "$arch" ]; then
+  arch="$(uname -m)"
+  # A Rosetta shell on an Apple Silicon Mac reports x86_64, but that Mac wants the arm64 build.
+  [ "$(sysctl -n sysctl.proc_translated 2>/dev/null || echo 0)" = 1 ] && arch=arm64
+fi
+case "$arch" in
+  arm64|x86_64) ;;
+  *) fail "this Mac's architecture ($arch) has no LoupedeckBridge download" ;;
+esac
 # Shown first, so a first install on a new Mac can be compared with the fingerprint noted elsewhere.
 if [ "$PINNED" = "$PINNED_SIGNER_SHA256_DEFAULT" ]; then
   say "release key (certificate SHA-256): $PINNED"
@@ -70,10 +85,10 @@ if [ "$want" = "latest" ]; then
   want="${tag#v}"
 fi
 [[ "$want" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "'$want' isn't a release version"
-name="LoupedeckBridge-v$want-macos-arm64.zip"
+name="LoupedeckBridge-v$want-macos-$arch.zip"
 
 # ---- download and check ----------------------------------------------------------
-say "downloading v$want"
+say "downloading v$want for $arch"
 curl -fL --silent --show-error --max-filesize "$MAX_BYTES" -o "$work/$name" "$DOWNLOADS/v$want/$name" \
   || fail "the download failed"
 curl -fL --silent --show-error --max-filesize 4096 -o "$work/$name.sha256" "$DOWNLOADS/v$want/$name.sha256" \
@@ -93,6 +108,8 @@ new_id="$(plutil -extract CFBundleIdentifier raw "$new/Contents/Info.plist" 2>/d
 new_version="$(plutil -extract LBVersion raw "$new/Contents/Info.plist" 2>/dev/null || true)"
 [ "$new_id" = "$BUNDLE_ID" ] || fail "it isn't the LoupedeckBridge release ($new_id)"
 [ "$new_version" = "$want" ] || fail "it says it's v$new_version, not v$want"
+new_arch="$(plutil -extract LBArch raw "$new/Contents/Info.plist" 2>/dev/null || true)"
+[ "$new_arch" = "$arch" ] || fail "it's the ${new_arch:-unknown} build, not $arch"
 
 codesign --verify --strict -R="identifier \"$BUNDLE_ID\"" "$new" 2>/dev/null \
   || fail "its signature isn't valid for $BUNDLE_ID"

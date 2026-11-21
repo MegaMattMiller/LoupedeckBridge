@@ -1,5 +1,7 @@
 """tools/install.sh, the standalone installer (milestone 6). Runs the real script with stand-in curl, codesign,
-open, pgrep, pkill and sleep; ditto, plutil and shasum are the real system tools."""
+open, pgrep, pkill, sleep, uname and sysctl; ditto, plutil and shasum are the real system tools.
+Milestone 8: uname and sysctl are faked so the arch tests run the same on either Mac, and default to an Apple
+Silicon Mac so the milestone 6 and 7 cases keep testing exactly what they did."""
 from __future__ import annotations
 
 import hashlib
@@ -52,24 +54,36 @@ fi
 exec /usr/bin/ditto "$@"
 ''',
     "sleep": "#!/bin/bash\nexit 0\n",
+    # which Mac this is: FAKE_UNAME_M (default arm64), and FAKE_TRANSLATED=1 for a Rosetta shell
+    "uname": '#!/bin/bash\n[ "$1" = -m ] && { echo "${FAKE_UNAME_M:-arm64}"; exit 0; }\nexec /usr/bin/uname "$@"\n',
+    "sysctl": r"""#!/bin/bash
+for a in "$@"; do [ "$a" = sysctl.proc_translated ] && { echo "${FAKE_TRANSLATED:-0}"; exit 0; }; done
+exec /usr/sbin/sysctl "$@"
+""",
 }
 
 
-def make_app(parent: Path, version: str, bundle_id: str = BUNDLE_ID) -> Path:
+def make_app(parent: Path, version: str, bundle_id: str = BUNDLE_ID, arch: str = "arm64") -> Path:
     app = parent / "LoupedeckBridge.app"
     (app / "Contents" / "MacOS").mkdir(parents=True)
     (app / "Contents" / "Info.plist").write_text(
         '<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict>'
         f"<key>CFBundleIdentifier</key><string>{bundle_id}</string>"
-        f"<key>LBVersion</key><string>{version}</string></dict></plist>")
+        f"<key>LBVersion</key><string>{version}</string>"
+        f"<key>LBArch</key><string>{arch}</string></dict></plist>")
     return app
 
 
-def publish(server: Path, tmp: Path, version: str, bundle_id: str = BUNDLE_ID) -> None:
-    """A fake GitHub release: the zip, its .sha256, and the 'latest' API answer."""
-    src = tmp / f"src-{version}"
-    app = make_app(src, version, bundle_id)
-    name = f"LoupedeckBridge-v{version}-macos-arm64.zip"
+def publish(server: Path, tmp: Path, version: str, bundle_id: str = BUNDLE_ID, arch: str = "arm64",
+            says_arch: "str | None" = None) -> None:
+    """A fake GitHub release: the zip, its .sha256, and the 'latest' API answer.
+
+    `arch` names the download; `says_arch` is what the app inside claims (default: the same), so a release
+    serving one Mac's app under the other's name can be tested.
+    """
+    src = tmp / f"src-{version}-{arch}"
+    app = make_app(src, version, bundle_id, arch=says_arch or arch)
+    name = f"LoupedeckBridge-v{version}-macos-{arch}.zip"
     subprocess.run(["ditto", "-c", "-k", "--keepParent", str(app), str(server / name)], check=True)
     digest = hashlib.sha256((server / name).read_bytes()).hexdigest()
     (server / f"{name}.sha256").write_text(f"{digest}  {name}\n")
@@ -283,3 +297,56 @@ def test_downloads_are_size_capped(tmp_path):
     zip_fetch = [l for l in Path(env["FAKE_LOG"]).read_text().splitlines()
                  if l.startswith("curl") and l.endswith("macos-arm64.zip")]
     assert zip_fetch and "--max-filesize" in zip_fetch[0], zip_fetch
+
+
+# ---- milestone 8: which Mac's download ---------------------------------------------------------------------
+
+@pytest.mark.parametrize("arch", ["arm64", "x86_64"])
+def test_installs_the_arch_it_is_running_on(tmp_path, arch):
+    env, server, apps, _ = rig(tmp_path)
+    publish(server, tmp_path, "0.7.0", arch=arch)
+    result = install({**env, "FAKE_UNAME_M": arch})
+    assert result.returncode == 0, result.stderr
+    assert installed_version(apps) == "0.7.0"
+    assert f"macos-{arch}.zip" in Path(env["FAKE_LOG"]).read_text()
+
+
+def test_refuses_a_bundle_built_for_the_other_arch(tmp_path):
+    # The download is named for this Mac but holds the other Mac's app: nothing is replaced.
+    env, server, apps, home = rig(tmp_path)
+    make_app(apps, "0.6.2", arch="x86_64")
+    publish(server, tmp_path, "0.7.0", arch="x86_64", says_arch="arm64")
+    result = install({**env, "FAKE_UNAME_M": "x86_64"})
+    assert result.returncode == 1, result.stdout
+    assert "arm64" in result.stderr and "x86_64" in result.stderr, result.stderr
+    assert installed_version(apps) == "0.6.2" and not list((home / ".Trash").iterdir())
+
+
+def test_rosetta_gets_the_apple_silicon_build(tmp_path):
+    # uname -m says x86_64 in a translated shell on an Apple Silicon Mac; that Mac wants the arm64 build.
+    env, server, apps, _ = rig(tmp_path)
+    publish(server, tmp_path, "0.7.0", arch="arm64")
+    result = install({**env, "FAKE_UNAME_M": "x86_64", "FAKE_TRANSLATED": "1"})
+    assert result.returncode == 0, result.stderr
+    assert installed_version(apps) == "0.7.0"
+    assert "macos-arm64.zip" in Path(env["FAKE_LOG"]).read_text()
+
+
+def test_lb_arch_overrides_detection(tmp_path):
+    env, server, apps, _ = rig(tmp_path)
+    publish(server, tmp_path, "0.7.0", arch="arm64")
+    result = install({**env, "FAKE_UNAME_M": "x86_64", "LB_ARCH": "arm64"})
+    assert result.returncode == 0, result.stderr
+    assert installed_version(apps) == "0.7.0"
+
+
+def test_unknown_arch_is_refused(tmp_path):
+    env, server, apps, _ = rig(tmp_path)
+    publish(server, tmp_path, "0.7.0")
+    result = install({**env, "LB_ARCH": "ppc64"})
+    assert result.returncode == 1, result.stdout
+    assert "ppc64" in result.stderr, result.stderr
+    assert not (apps / "LoupedeckBridge.app").exists()
+    log = Path(env["FAKE_LOG"])
+    # refused before any download: the fakes never ran, so there may be no log at all
+    assert "curl" not in (log.read_text() if log.exists() else "")
