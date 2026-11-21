@@ -1,12 +1,12 @@
 #!/bin/bash
 # Build the self-contained release app (milestone 6): LoupedeckBridge.app with its own Python 3.12 and this
-# repo's code, for Apple Silicon Macs on macOS 14 or later.
+# repo's code, for the Mac it's run on (Apple Silicon or Intel), on macOS 14 or later.
 #   tools/build_release_app.sh OUT_DIR [--sign IDENTITY]
 # It's signed ad hoc unless --sign names an identity (the release workflow signs the tested build itself,
 # with tools/sign_release_app.sh). Package it with tools/package_release.sh.
 #
-# Downloads: the Python in tools/python-standalone.lock (once, into .cache/; its SHA-256 is checked on every
-# build) and the wheels in tools/release-requirements.txt (pip checks their hashes).
+# Downloads: the Python in tools/python-standalone.lock (Intel: -intel.lock) once, into .cache/, its SHA-256
+# checked on every build, and the wheels in tools/release-requirements.txt (Intel: -intel.txt; pip checks hashes).
 # The app pins the release key that tools/install.sh pins (LB_SIGNER_SHA256 overrides it: CI's rehearsal).
 set -euo pipefail
 
@@ -22,7 +22,14 @@ while [ $# -gt 0 ]; do
     *) usage ;;
   esac
 done
-[ "$(uname -m)" = arm64 ] || { echo "The release app is built on, and for, Apple Silicon." >&2; exit 1; }
+# Built natively, for the Mac it runs on: an Intel app's Python can't be run (and so can't be tested) on an
+# Apple Silicon Mac, or the other way round, so neither is ever cross-built.
+ARCH="$(uname -m)"
+case "$ARCH" in
+  arm64)  LOCK="python-standalone.lock";       REQUIREMENTS="release-requirements.txt" ;;
+  x86_64) LOCK="python-standalone-intel.lock"; REQUIREMENTS="release-requirements-intel.txt" ;;
+  *) echo "The release app is built natively, for arm64 or x86_64 (this is $ARCH)." >&2; exit 1 ;;
+esac
 
 NAME="LoupedeckBridge"
 BUNDLE_ID="io.github.megamattmiller.loupedeckbridge"
@@ -33,8 +40,8 @@ APP="$OUT/$NAME.app"
 RES="$APP/Contents/Resources"
 VERSION="$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' "$REPO/bridge/__init__.py")"
 SIGNER="${LB_SIGNER_SHA256-$(sed -n 's/^PINNED_SIGNER_SHA256_DEFAULT="\(.*\)"$/\1/p' "$REPO/tools/install.sh")}"
-url="$(sed -n 's/^url=//p' "$REPO/tools/python-standalone.lock")"
-sha="$(sed -n 's/^sha256=//p' "$REPO/tools/python-standalone.lock")"
+url="$(sed -n 's/^url=//p' "$REPO/tools/$LOCK")"
+sha="$(sed -n 's/^sha256=//p' "$REPO/tools/$LOCK")"
 [ -n "$VERSION" ] && [ -n "$url" ] && [ -n "$sha" ] || { echo "couldn't read the version or the Python lock" >&2; exit 1; }
 
 # ---- the Python: downloaded once, checked every time ----------------------------
@@ -47,7 +54,7 @@ if [ ! -f "$tarball" ]; then
 fi
 if [ "$(shasum -a 256 "$tarball" | awk '{print $1}')" != "$sha" ]; then
   rm -f "$tarball"
-  echo "The Python download didn't match tools/python-standalone.lock's SHA-256, so it was deleted." >&2
+  echo "The Python download didn't match tools/$LOCK's SHA-256, so it was deleted." >&2
   exit 1
 fi
 
@@ -59,7 +66,7 @@ STDLIB="$RES/python/lib/python3.12"
 
 # ---- its packages: exactly the locked wheels ------------------------------------
 PYTHONDONTWRITEBYTECODE=1 "$PY" -E -m pip install --quiet --no-cache-dir --disable-pip-version-check \
-  --only-binary=:all: --no-deps --require-hashes -r "$REPO/tools/release-requirements.txt"
+  --only-binary=:all: --no-deps --require-hashes -r "$REPO/tools/$REQUIREMENTS"
 
 # ---- the code ---------------------------------------------------------------------
 cp -R "$REPO/bridge" "$REPO/config" "$RES/app/"
@@ -77,7 +84,7 @@ find "$RES" \( -name .DS_Store -o -name '*.pyc' -o -name '*.a' \) -type f -delet
 "$PY" -E -m compileall -q -j 0 --invalidation-mode unchecked-hash "$STDLIB" "$RES/app" >/dev/null
 
 # ---- the launcher and Info.plist --------------------------------------------------
-swiftc -O -target "arm64-apple-macos$MIN_MACOS" "$REPO"/macos/launcher/*.swift -o "$APP/Contents/MacOS/$NAME"
+swiftc -O -target "$ARCH-apple-macos$MIN_MACOS" "$REPO"/macos/launcher/*.swift -o "$APP/Contents/MacOS/$NAME"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -94,6 +101,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSUIElement</key><true/>
   <key>LBRuntime</key><string>bundled</string>
   <key>LBVersion</key><string>$VERSION</string>
+  <key>LBArch</key><string>$ARCH</string>
   <key>LBIsDev</key><false/>
   <key>LBSignerSHA256</key><string>$SIGNER</string>
 </dict>
@@ -101,4 +109,4 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 PLIST
 
 "$REPO/tools/sign_release_app.sh" "$APP" ${identity:+"$identity"}
-echo "built $APP (v$VERSION, $(du -sh "$APP" | awk '{print $1}'))"
+echo "built $APP (v$VERSION, $ARCH, $(du -sh "$APP" | awk '{print $1}'))"

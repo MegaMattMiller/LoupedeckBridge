@@ -78,3 +78,40 @@ def test_install_ps1_is_ascii():
     data = (REPO / "tools" / "install.ps1").read_bytes()
     odd = sorted({line for line, text in enumerate(data.splitlines(), 1) if any(b > 127 for b in text)})
     assert not odd, f"tools/install.ps1 has non-ASCII bytes on lines {odd}"
+
+
+# ---- milestone 8: the Intel Mac release -------------------------------------------------------------------
+
+def mac_lock(name: str) -> "dict[str, str]":
+    return dict(line.split("=", 1) for line in (REPO / "tools" / name).read_text(encoding="utf-8").splitlines()
+                if line and not line.startswith("#"))
+
+
+def test_intel_python_lock():
+    lock = mac_lock("python-standalone-intel.lock")
+    assert lock["url"].startswith("https://github.com/astral-sh/python-build-standalone/releases/download/")
+    assert re.search(r"/cpython-3\.12\.\d+%2B\d{8}-x86_64-apple-darwin-install_only\.tar\.gz$", lock["url"])
+    assert re.fullmatch(r"[0-9a-f]{64}", lock["sha256"])
+
+
+def test_both_mac_pythons_are_the_same_build():
+    # Two Macs on different Pythons would be two different products, so the locks may differ only in the arch.
+    arm = mac_lock("python-standalone.lock")["url"]
+    intel = mac_lock("python-standalone-intel.lock")["url"]
+    assert arm != intel
+    assert arm.replace("aarch64-apple-darwin", "ARCH") == intel.replace("x86_64-apple-darwin", "ARCH")
+
+
+def test_intel_release_requirements_pin_what_requirements_pins():
+    release = REPO / "tools" / "release-requirements-intel.txt"
+    wanted, locked = pins(REPO / "requirements.txt"), pins(release)
+    assert wanted and all(locked.get(name) == version for name, version in wanted.items()), (wanted, locked)
+    for line in release.read_text().splitlines():
+        if line.strip() and not line.startswith("#"):
+            assert re.search(r"--hash=sha256:[0-9a-f]{64}", line), line
+
+
+def test_both_macs_pin_the_same_package_versions():
+    arm = pins(REPO / "tools" / "release-requirements.txt")
+    intel = pins(REPO / "tools" / "release-requirements-intel.txt")
+    assert arm == intel, (arm, intel)

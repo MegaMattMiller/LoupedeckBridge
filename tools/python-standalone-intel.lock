@@ -1,0 +1,7 @@
+# The Python inside the Intel Mac release app (tools/build_release_app.sh on an x86_64 host):
+# python-build-standalone's CPython 3.12, install_only, for Intel Macs. The Intel half of
+# tools/python-standalone.lock: both Macs must stay on the same CPython version and the same build date, or
+# they'd be two different products (tests/test_release_lock.py checks). The build refuses a download whose
+# SHA-256 differs.
+url=https://github.com/astral-sh/python-build-standalone/releases/download/20261026/cpython-3.12.16%2B20261026-x86_64-apple-darwin-install_only.tar.gz
+sha256=a962e47df522889eaa7ff0d6a56203f1079f68aabb65ffdbe8455f362bc769f3

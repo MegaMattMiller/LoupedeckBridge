@@ -98,6 +98,23 @@ def test_everything_is_precompiled():
     assert result.stdout.split()[0] == "0", result.stdout
 
 
+def test_bundle_is_built_for_one_arch():
+    """Milestone 8: each Mac's release is a thin build for its own arch, and says which in its Info.plist."""
+    info = plistlib.loads((APP / "Contents" / "Info.plist").read_bytes())
+    arch = info["LBArch"]
+    assert arch in ("arm64", "x86_64"), arch
+    launcher = APP / "Contents" / "MacOS" / "LoupedeckBridge"
+    result = subprocess.run(["lipo", "-info", str(launcher)], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    # thin, not fat: "Non-fat file: <path> is architecture: <arch>"
+    assert result.stdout.startswith("Non-fat file:"), result.stdout
+    assert result.stdout.rstrip().endswith(f"is architecture: {arch}"), result.stdout
+    # and the Python inside it is that Mac's Python too
+    machine = run_bundled("-c", "import platform; print(platform.machine())")
+    assert machine.returncode == 0, machine.stderr
+    assert machine.stdout.strip() == arch, machine.stdout
+
+
 def test_signature_is_valid():
     result = subprocess.run(["codesign", "--verify", "--strict", str(APP)], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
