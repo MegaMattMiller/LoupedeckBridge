@@ -71,6 +71,7 @@ def test_signing_key_exists_in_one_step_only():
 
 def test_test_tools_are_hash_pinned():
     for name, text in (("release.yml", job(RELEASE, "build")), ("ci.yml", job(CI, "release-build")),
+                       ("release.yml", job(RELEASE, "build-intel")), ("ci.yml", job(CI, "release-build-intel")),
                        ("release.yml", job(RELEASE, "build-windows")), ("ci.yml", job(CI, "release-build-windows"))):
         assert "requirements-dev.txt" not in text, f"{name}: unpinned test tools in the release build's job"
         assert "--require-hashes" in text and "tools/release-test-requirements.txt" in text, name
@@ -152,11 +153,72 @@ def test_verify_windows_runs_the_app_check_and_install_ps1():
 def test_publish_needs_both_platforms():
     publish = job(RELEASE, "publish")
     needs = re.search(r"needs: \[([^\]]*)\]", publish).group(1)
-    assert {"build", "build-windows", "sign", "verify-windows"} <= {n.strip() for n in needs.split(",")}
-    for name in ("macos-arm64.zip", "macos-arm64.zip.sha256", "windows-x64.zip", "windows-x64.zip.sha256",
-                 "windows-x64.zip.p7s"):
+    assert {"build", "build-intel", "build-windows", "sign", "verify-intel",
+            "verify-windows"} <= {n.strip() for n in needs.split(",")}
+    for name in ("macos-arm64.zip", "macos-arm64.zip.sha256", "macos-x86_64.zip", "macos-x86_64.zip.sha256",
+                 "windows-x64.zip", "windows-x64.zip.sha256", "windows-x64.zip.p7s"):
         assert name in publish, name
     assert "contents: write" in publish and "secrets." not in publish
+
+
+# ---- milestone 8: the Intel Mac release ---------------------------------------------------------------------
+
+def test_intel_build_runs_on_an_intel_runner():
+    build = job(RELEASE, "build-intel")
+    assert "runs-on: macos-15-intel" in build
+    assert "unsigned-app-intel" in build
+    # the same discipline as the other builds: saved before any test code, and unchanged by the tests
+    saved = [i for i, s in enumerate(steps(build)) if "upload-artifact" in s]
+    tested = [i for i, s in enumerate(steps(build)) if "pytest" in s]
+    assert saved and tested and max(saved) < min(tested), "the Intel build must be saved before any test code runs"
+
+
+def test_sign_needs_every_build_and_signs_both_macs():
+    sign = job(RELEASE, "sign")
+    needs = re.search(r"needs: \[([^\]]*)\]", sign).group(1)
+    assert {"build", "build-intel", "build-windows"} <= {n.strip() for n in needs.split(",")}
+    assert "unsigned-app-intel" in sign
+    key_step = next(s for s in steps(sign) if "import_signing_identity.sh" in s)
+    assert "dist/LoupedeckBridge.app" in key_step and "dist-intel/LoupedeckBridge.app" in key_step, \
+        "both Macs are signed in the one approved key step"
+
+
+def test_the_intel_app_is_only_executed_on_an_intel_runner():
+    # An Intel binary can't be run on the arm64 signing runner at all, so running one anywhere but an Intel
+    # runner is a broken release. codesign and plutil read a bundle without executing it; what matters is
+    # invoking the launcher. Checked per line, because the sign job legitimately mentions dist-intel in the
+    # same step as the Apple Silicon app's own --check-signature.
+    for name, text in (("release.yml", RELEASE), ("ci.yml", CI)):
+        for each in outline(text)["jobs"]:
+            body = job(text, each)
+            if "runs-on: macos-15-intel" in body:
+                continue
+            for line in body.splitlines():
+                assert not ("Contents/MacOS/LoupedeckBridge" in line and "dist-intel" in line), \
+                    f"{name}: {each} runs the Intel launcher but isn't on an Intel runner: {line.strip()}"
+    verify = job(RELEASE, "verify-intel")
+    assert "runs-on: macos-15-intel" in verify
+    # and it really does run that app, on what it unzipped from the Intel download
+    assert "macos-x86_64.zip" in verify
+    assert any("Contents/MacOS/LoupedeckBridge" in line and "--check-signature" in line
+               for line in verify.splitlines()), "verify-intel must run the Intel app's own check"
+    needs = re.search(r"needs: \[([^\]]*)\]", verify).group(1)
+    assert {"build-intel", "sign"} <= {n.strip() for n in needs.split(",")}
+    assert "secrets." not in verify
+
+
+def test_sign_checks_both_macs_against_the_pinned_key():
+    accept = next(s for s in steps(job(RELEASE, "sign")) if "PINNED_SIGNER_SHA256_DEFAULT" in s)
+    assert "extract-certificates" in accept
+    for app in ("dist/LoupedeckBridge.app", "dist-intel/LoupedeckBridge.app"):
+        assert app in accept, f"{app} isn't compared with the pinned key"
+
+
+def test_ci_builds_the_intel_release_too():
+    intel = job(CI, "release-build-intel")
+    assert "runs-on: macos-15-intel" in intel
+    assert "tools/build_release_app.sh" in intel and "pytest" in intel
+    assert "tests/test_release_bundle.py" in intel
 
 
 def test_only_sign_uses_the_release_environment():
@@ -180,9 +242,11 @@ def test_workflows_are_laid_out_as_github_reads_them():
     release, ci = outline(RELEASE), outline(CI)
     assert list(release) == ["name", "on", "permissions", "concurrency", "jobs"], list(release)
     assert release["concurrency"] == ["group", "cancel-in-progress"], "a job outside `jobs:` is no job at all"
-    assert release["jobs"] == ["build", "build-windows", "sign", "verify-windows", "publish"]
+    assert release["jobs"] == ["build", "build-intel", "build-windows", "sign", "verify-intel",
+                               "verify-windows", "publish"]
     assert list(ci) == ["name", "on", "permissions", "jobs"], list(ci)
-    assert ci["jobs"] == ["suite", "suite-windows", "release-build", "release-build-windows"]
+    assert ci["jobs"] == ["suite", "suite-windows", "release-build", "release-build-intel",
+                          "release-build-windows"]
 
 
 def test_windows_jobs_use_no_macos_only_tools():

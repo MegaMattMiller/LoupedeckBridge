@@ -96,6 +96,71 @@ jobs:
             || { echo "::error::running the tests changed the build"; exit 1; }
 
 
+  build-intel:
+    name: Build and test (Intel Mac)
+    runs-on: macos-15-intel
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      commit: ${{ steps.commit.outputs.sha }}
+      zip_sha256: ${{ steps.save.outputs.zip_sha256 }}
+    steps:
+      - name: Which version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+          REF: ${{ github.ref }}
+        run: |
+          version="${INPUT_VERSION:-$REF_NAME}"
+          version="${version#v}"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::'$version' isn't a version like 0.5.0"; exit 1; }
+          [ "$REF" = "refs/tags/v$version" ] || { echo "::error::run this from the tag v$version, not $REF"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: refs/tags/v${{ steps.version.outputs.version }}
+          persist-credentials: false
+      - name: Which commit (the sign job checks every build built the same one)
+        id: commit
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: The version and changelog match
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: python3 tools/check_release.py "$VERSION"
+      - name: Build the Intel release app (unsigned)
+        run: tools/build_release_app.sh dist
+      - name: It really is an Intel build
+        run: |
+          arch="$(plutil -extract LBArch raw dist/LoupedeckBridge.app/Contents/Info.plist)"
+          [ "$arch" = x86_64 ] || { echo "::error::this runner built a $arch app, not x86_64"; exit 1; }
+      - name: Save the build (zipped, so its links and permissions survive) before any test code runs
+        id: save
+        run: |
+          ditto -c -k --keepParent dist/LoupedeckBridge.app unsigned.zip
+          echo "zip_sha256=$(shasum -a 256 unsigned.zip | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          find dist -type f -print0 | sort -z | xargs -0 shasum -a 256 > "$RUNNER_TEMP/build-manifest"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: unsigned-app-intel
+          path: unsigned.zip
+          retention-days: 3
+          if-no-files-found: error
+      - name: Test the build with its own Python
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          # a venv that shares the bundle's packages, so the suite tests those; the test tools go in the venv
+          dist/LoupedeckBridge.app/Contents/Resources/python/bin/python3 -m venv --system-site-packages --without-pip .venv
+          .venv/bin/python -m pip install --disable-pip-version-check --require-hashes --only-binary=:all: --no-deps \
+            -r tools/release-test-requirements.txt
+          .venv/bin/python -m pytest -q
+          LB_RELEASE_APP="$PWD/dist/LoupedeckBridge.app" .venv/bin/python -m pytest -q tests/test_release_bundle.py
+      - name: The tests left the build exactly as it was saved
+        run: |
+          find dist -type f -print0 | sort -z | xargs -0 shasum -a 256 | diff -q "$RUNNER_TEMP/build-manifest" - >/dev/null \
+            || { echo "::error::running the tests changed the build"; exit 1; }
+
+
   build-windows:
     name: Build and test (Windows)
     runs-on: windows-2025
@@ -174,7 +239,7 @@ jobs:
 
   sign:
     name: Sign (after your approval)
-    needs: [build, build-windows]
+    needs: [build, build-intel, build-windows]
     runs-on: macos-15
     environment: release
     steps:
@@ -182,13 +247,15 @@ jobs:
         with:
           ref: ${{ needs.build.outputs.commit }}
           persist-credentials: false
-      - name: The tag still points at the commit that was built and tested, by both builds
+      - name: The tag still points at the commit that was built and tested, by every build
         env:
           VERSION: ${{ needs.build.outputs.version }}
           COMMIT: ${{ needs.build.outputs.commit }}
+          INTEL_COMMIT: ${{ needs.build-intel.outputs.commit }}
           WINDOWS_COMMIT: ${{ needs.build-windows.outputs.commit }}
         run: |
           [ "$WINDOWS_COMMIT" = "$COMMIT" ] || { echo "::error::the Windows build is of $WINDOWS_COMMIT, the Mac's of $COMMIT"; exit 1; }
+          [ "$INTEL_COMMIT" = "$COMMIT" ] || { echo "::error::the Intel build is of $INTEL_COMMIT, the Apple Silicon one's of $COMMIT"; exit 1; }
           tagged="$(git ls-remote "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" "refs/tags/v$VERSION" "refs/tags/v$VERSION^{}" \
             | awk '$2 ~ /\^\{\}$/ {peeled=$1} $2 !~ /\^\{\}$/ {plain=$1} END {print (peeled != "" ? peeled : plain)}')"
           [ "$tagged" = "$COMMIT" ] || { echo "::error::v$VERSION points at ${tagged:-nothing} now, not the built $COMMIT"; exit 1; }
@@ -202,6 +269,17 @@ jobs:
           [ "$(shasum -a 256 unsigned.zip | awk '{print $1}')" = "$ZIP_SHA256" ] \
             || { echo "::error::the downloaded build isn't the one the build job saved"; exit 1; }
           ditto -x -k unsigned.zip dist
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: unsigned-app-intel
+          path: unsigned-intel          # not the working directory: it holds the other Mac's unsigned.zip
+      - name: Unpack the saved Intel build, after the same byte-for-byte check
+        env:
+          ZIP_SHA256: ${{ needs.build-intel.outputs.zip_sha256 }}
+        run: |
+          [ "$(shasum -a 256 unsigned-intel/unsigned.zip | awk '{print $1}')" = "$ZIP_SHA256" ] \
+            || { echo "::error::the downloaded Intel build isn't the one its build job saved"; exit 1; }
+          ditto -x -k unsigned-intel/unsigned.zip dist-intel
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
         with:
           name: unsigned-windows
@@ -231,18 +309,26 @@ jobs:
           OPENSSL=/usr/bin/openssl tools/sign_windows_zip.sh "windows-zip/$ZIP_NAME" "$RUNNER_TEMP/id.p12" "$RUNNER_TEMP/p12-password"
           rm -f "$RUNNER_TEMP/id.p12" "$RUNNER_TEMP/p12-password"
           tools/sign_release_app.sh dist/LoupedeckBridge.app "LoupedeckBridge Release"
-      - name: The updater and tools/install.sh will accept it
+          tools/sign_release_app.sh dist-intel/LoupedeckBridge.app "LoupedeckBridge Release"
+      - name: The updater and tools/install.sh will accept both Macs
         run: |
+          # This runner is Apple Silicon, so only that app can be run here; the Intel app's own check is
+          # verify-intel's job. The signature and certificate checks below execute nothing.
           app=dist/LoupedeckBridge.app
           "$app/Contents/MacOS/LoupedeckBridge" --check-signature "$app"
           pinned="$(sed -n 's/^PINNED_SIGNER_SHA256_DEFAULT="\(.*\)"$/\1/p' tools/install.sh)"
-          codesign --verify --strict -R="identifier \"io.github.megamattmiller.loupedeckbridge\"" "$app"
-          codesign -d --extract-certificates="$RUNNER_TEMP/cert" "$app"
-          signer="$(shasum -a 256 "$RUNNER_TEMP/cert0" | awk '{print $1}')"
-          [ -n "$pinned" ] && [ "$signer" = "$pinned" ] || { echo "::error::signed with $signer, but tools/install.sh pins '$pinned'"; exit 1; }
+          [ -n "$pinned" ] || { echo "::error::tools/install.sh pins no release key"; exit 1; }
+          for app in dist/LoupedeckBridge.app dist-intel/LoupedeckBridge.app; do
+            codesign --verify --strict -R="identifier \"io.github.megamattmiller.loupedeckbridge\"" "$app"
+            rm -f "$RUNNER_TEMP/cert0"
+            codesign -d --extract-certificates="$RUNNER_TEMP/cert" "$app"
+            signer="$(shasum -a 256 "$RUNNER_TEMP/cert0" | awk '{print $1}')"
+            [ "$signer" = "$pinned" ] || { echo "::error::$app is signed with $signer, but tools/install.sh pins '$pinned'"; exit 1; }
+          done
       - name: Package both platforms' downloads
         run: |
           tools/package_release.sh dist/LoupedeckBridge.app out
+          tools/package_release.sh dist-intel/LoupedeckBridge.app out
           cp windows-zip/* out/
           (cd windows-zip && for f in *.zip; do shasum -a 256 "$f" > "../out/$f.sha256"; done)
           ls -l out
@@ -255,6 +341,45 @@ jobs:
       - name: Make sure the keychain is gone
         if: always()
         run: security delete-keychain "$RUNNER_TEMP/release.keychain-db" 2>/dev/null || true
+
+  verify-intel:
+    name: Check the signed Intel release on an Intel Mac
+    needs: [build-intel, sign]
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ needs.build-intel.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: signed-release
+          path: signed
+      - name: The Intel app's own check and tools/install.sh accept it (the real pins)
+        env:
+          VERSION: ${{ needs.build-intel.outputs.version }}
+        run: |
+          # The one place an Intel binary may be run: the signing runner is Apple Silicon.
+          ditto -x -k "signed/LoupedeckBridge-v$VERSION-macos-x86_64.zip" unzipped
+          app=unzipped/LoupedeckBridge.app
+          [ -d "$app" ] || { echo "::error::the Intel download holds no LoupedeckBridge.app"; exit 1; }
+          arch="$(plutil -extract LBArch raw "$app/Contents/Info.plist")"
+          [ "$arch" = x86_64 ] || { echo "::error::the Intel download says it's $arch"; exit 1; }
+          "$app/Contents/MacOS/LoupedeckBridge" --check-signature "$app"
+          pinned="$(sed -n 's/^PINNED_SIGNER_SHA256_DEFAULT="\(.*\)"$/\1/p' tools/install.sh)"
+          codesign --verify --strict -R="identifier \"io.github.megamattmiller.loupedeckbridge\"" "$app"
+          codesign -d --extract-certificates="$RUNNER_TEMP/cert" "$app"
+          signer="$(shasum -a 256 "$RUNNER_TEMP/cert0" | awk '{print $1}')"
+          [ -n "$pinned" ] && [ "$signer" = "$pinned" ] || { echo "::error::signed with $signer, but tools/install.sh pins '$pinned'"; exit 1; }
+      - name: A changed byte is refused
+        run: |
+          ditto unzipped/LoupedeckBridge.app "$RUNNER_TEMP/tampered/LoupedeckBridge.app"
+          printf '#' >> "$RUNNER_TEMP/tampered/LoupedeckBridge.app/Contents/Resources/app/bridge/__init__.py"
+          if unzipped/LoupedeckBridge.app/Contents/MacOS/LoupedeckBridge --check-signature \
+              "$RUNNER_TEMP/tampered/LoupedeckBridge.app"; then
+            echo "::error::the Intel app's check accepted a changed app"; exit 1
+          fi
+
 
   verify-windows:
     name: Check the signed Windows release on Windows
@@ -276,7 +401,7 @@ jobs:
 
   publish:
     name: Publish
-    needs: [build, build-windows, sign, verify-windows]
+    needs: [build, build-intel, build-windows, sign, verify-intel, verify-windows]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -289,16 +414,19 @@ jobs:
         with:
           name: signed-release
           path: out
-      - name: Both platforms' downloads are there, and match their .sha256 (the Mac apps' update check needs the Mac zip)
+      - name: Every download is there, and matches its .sha256 (each Mac's update check needs its own zip)
         env:
           VERSION: ${{ needs.build.outputs.version }}
         run: |
+          # Both Macs' zips must be in every release: an installed app looks for its own arch's name and
+          # quietly finds no update without it.
           for f in "LoupedeckBridge-v$VERSION-macos-arm64.zip" "LoupedeckBridge-v$VERSION-macos-arm64.zip.sha256" \
+                   "LoupedeckBridge-v$VERSION-macos-x86_64.zip" "LoupedeckBridge-v$VERSION-macos-x86_64.zip.sha256" \
                    "LoupedeckBridge-v$VERSION-windows-x64.zip" "LoupedeckBridge-v$VERSION-windows-x64.zip.sha256" \
                    "LoupedeckBridge-v$VERSION-windows-x64.zip.p7s"; do
             [ -f "out/$f" ] || { echo "::error::$f is missing, so nothing is published"; exit 1; }
           done
-          [ "$(ls out | wc -l)" -eq 5 ] || { echo "::error::expected exactly five downloads: $(ls out)"; exit 1; }
+          [ "$(ls out | wc -l)" -eq 7 ] || { echo "::error::expected exactly seven downloads: $(ls out)"; exit 1; }
           (cd out && sha256sum -c ./*.sha256)
       - name: Publish
         env:

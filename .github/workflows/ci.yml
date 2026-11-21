@@ -1,6 +1,8 @@
 # Tests on every push and pull request. No secrets, read-only.
-#   suite:          the whole test suite with Python 3.9 (the oldest the bridge supports)
+#   suite:          the whole test suite with Python 3.9 (the oldest the bridge supports), on both Macs
 #   suite-windows:  the same on Windows (milestone 7)
+#   release-build-intel: (milestone 8) builds the Intel release with its bundled Python, runs the suite with it,
+#                   and packages it. The signing rehearsal stays on Apple Silicon: signing is arch-independent
 #   release-build-windows: (milestone 7) builds the Windows release with its bundled Python, runs the suite with it,
 #                   signs it with a throwaway identity, and checks it the way friends' PCs will
 #                   (tools/check_windows_release.ps1); and checks a LibreSSL signature from the Mac job passes too
@@ -20,8 +22,12 @@ permissions:
 
 jobs:
   suite:
-    name: Suite (Python 3.9)
-    runs-on: macos-15
+    name: Suite (Python 3.9, ${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15, macos-15-intel]      # Apple Silicon and Intel (milestone 8)
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -122,6 +128,35 @@ jobs:
           LB_PINNED_SIGNER_SHA256="$LB_SIGNER_SHA256" tools/install.sh "v$version"
           app="$RUNNER_TEMP/Applications/LoupedeckBridge.app"
           "$app/Contents/MacOS/LoupedeckBridge" --check-signature "$app"
+
+  release-build-intel:
+    name: Intel release build
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the Intel release app
+        run: tools/build_release_app.sh dist
+      - name: It really is an Intel build
+        run: |
+          arch="$(plutil -extract LBArch raw dist/LoupedeckBridge.app/Contents/Info.plist)"
+          [ "$arch" = x86_64 ] || { echo "::error::this runner built a $arch app, not x86_64"; exit 1; }
+      - name: Test the build with its own Python
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          # a venv that shares the bundle's packages, so the suite tests those; the test tools go in the venv
+          dist/LoupedeckBridge.app/Contents/Resources/python/bin/python3 -m venv --system-site-packages --without-pip .venv
+          .venv/bin/python -m pip install --disable-pip-version-check --require-hashes --only-binary=:all: --no-deps \
+            -r tools/release-test-requirements.txt
+          .venv/bin/python -m pytest -q
+          LB_RELEASE_APP="$PWD/dist/LoupedeckBridge.app" .venv/bin/python -m pytest -q tests/test_release_bundle.py
+      - name: Package it, as a release does (the ad hoc signature is enough to name the zip)
+        run: |
+          tools/package_release.sh dist/LoupedeckBridge.app out
+          ls out | grep -q "macos-x86_64.zip$" || { echo "::error::the Intel zip isn't named for x86_64: $(ls out)"; exit 1; }
+
 
   release-build-windows:
     name: Windows release build and signing rehearsal
