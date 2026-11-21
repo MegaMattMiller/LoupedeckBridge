@@ -115,3 +115,23 @@ def test_both_macs_pin_the_same_package_versions():
     arm = pins(REPO / "tools" / "release-requirements.txt")
     intel = pins(REPO / "tools" / "release-requirements-intel.txt")
     assert arm == intel, (arm, intel)
+
+
+def test_the_compiled_wheels_differ_between_the_macs():
+    """python-rtmidi and websockets are compiled, so each Mac needs its own wheel.
+
+    Copy-pasting the Apple Silicon hashes into the Intel file would fail at build time (pip
+    --require-hashes), but much later and far less clearly than here.
+    """
+    def hashes(name: str) -> "dict[str, str]":
+        out = {}
+        for line in (REPO / "tools" / name).read_text().splitlines():
+            match = re.match(r"^([A-Za-z0-9_.-]+)==\S+\s+--hash=sha256:([0-9a-f]{64})", line.strip())
+            if match:
+                out[match.group(1).lower()] = match.group(2)
+        return out
+    arm, intel = hashes("release-requirements.txt"), hashes("release-requirements-intel.txt")
+    for compiled in ("python-rtmidi", "websockets"):
+        assert arm[compiled] != intel[compiled], f"{compiled} has the same wheel hash for both Macs"
+    for pure in ("mido", "packaging"):
+        assert arm[pure] == intel[pure], f"{pure} is py3-none-any, so both Macs share its wheel"

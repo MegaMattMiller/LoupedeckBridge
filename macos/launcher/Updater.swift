@@ -43,7 +43,8 @@ final class Updater {
         pinnedSHA256 = info["LBSignerSHA256"] as? String ?? ""
         userAgent = "LoupedeckBridge/\(version)"
         // What earlier runs found and announced (start at login relaunches the app every day).
-        available = ReleaseInfo.restore(defaults.dictionary(forKey: "availableRelease"), newerThan: version)
+        available = ReleaseInfo.restore(defaults.dictionary(forKey: "availableRelease"), newerThan: version,
+                                        arch: runningArch)
         notice = UpdateNotice(lastAnnounced: defaults.string(forKey: "announcedVersion").flatMap(Version.init))
         if available == nil { defaults.removeObject(forKey: "availableRelease") }   // installed, or unreadable
     }
@@ -225,6 +226,11 @@ final class Updater {
         }
         if let expected = expected, let version = version, version != expected {
             throw Failure(step: .verify, reason: "it says it's v\(version), not v\(expected)")
+        }
+        // As tools/install.sh does: the download says which Mac it's for, and that's checked, not trusted.
+        // A wrong-arch app can't launch, so installing one would leave no working LoupedeckBridge at all.
+        if let arch = plist?["LBArch"] as? String, arch != runningArch {
+            throw Failure(step: .verify, reason: "it's the \(arch) build, not \(runningArch)")
         }
     }
 

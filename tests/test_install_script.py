@@ -63,15 +63,20 @@ exec /usr/sbin/sysctl "$@"
 }
 
 
-def make_app(parent: Path, version: str, bundle_id: str = BUNDLE_ID, arch: str = "arm64") -> Path:
+def make_app(parent: Path, version: str, bundle_id: str = BUNDLE_ID, arch: "str | None" = "arm64") -> Path:
+    """arch=None leaves LBArch out, as every release before v0.7.0 does."""
     app = parent / "LoupedeckBridge.app"
     (app / "Contents" / "MacOS").mkdir(parents=True)
     (app / "Contents" / "Info.plist").write_text(
         '<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict>'
         f"<key>CFBundleIdentifier</key><string>{bundle_id}</string>"
         f"<key>LBVersion</key><string>{version}</string>"
-        f"<key>LBArch</key><string>{arch}</string></dict></plist>")
+        + (f"<key>LBArch</key><string>{arch}</string>" if arch is not None else "")
+        + "</dict></plist>")
     return app
+
+
+OMIT = "omit"          # publish(says_arch=OMIT): a pre-v0.7.0 bundle, with no LBArch
 
 
 def publish(server: Path, tmp: Path, version: str, bundle_id: str = BUNDLE_ID, arch: str = "arm64",
@@ -82,7 +87,7 @@ def publish(server: Path, tmp: Path, version: str, bundle_id: str = BUNDLE_ID, a
     serving one Mac's app under the other's name can be tested.
     """
     src = tmp / f"src-{version}-{arch}"
-    app = make_app(src, version, bundle_id, arch=says_arch or arch)
+    app = make_app(src, version, bundle_id, arch=None if says_arch == OMIT else (says_arch or arch))
     name = f"LoupedeckBridge-v{version}-macos-{arch}.zip"
     subprocess.run(["ditto", "-c", "-k", "--keepParent", str(app), str(server / name)], check=True)
     digest = hashlib.sha256((server / name).read_bytes()).hexdigest()
@@ -350,3 +355,33 @@ def test_unknown_arch_is_refused(tmp_path):
     log = Path(env["FAKE_LOG"])
     # refused before any download: the fakes never ran, so there may be no log at all
     assert "curl" not in (log.read_text() if log.exists() else "")
+
+
+def test_installs_a_release_from_before_LBArch(tmp_path):
+    # Every release before v0.7.0 is Apple Silicon and has no LBArch. README documents `install.sh v0.5.0`,
+    # and --allow-older going back, so those must stay installable.
+    env, server, apps, _ = rig(tmp_path)
+    publish(server, tmp_path, "0.6.2", arch="arm64", says_arch=OMIT)
+    result = install({**env, "FAKE_UNAME_M": "arm64"}, "v0.6.2")
+    assert result.returncode == 0, result.stderr
+    assert installed_version(apps) == "0.6.2"
+
+
+def test_an_intel_mac_refuses_a_release_from_before_LBArch(tmp_path):
+    # There is no Intel build before v0.7.0, so a nameless-arch bundle must not be installed on an Intel Mac.
+    env, server, apps, _ = rig(tmp_path)
+    publish(server, tmp_path, "0.6.2", arch="x86_64", says_arch=OMIT)
+    result = install({**env, "FAKE_UNAME_M": "x86_64"}, "v0.6.2")
+    assert result.returncode == 1, result.stdout
+    assert not (apps / "LoupedeckBridge.app").exists()
+
+
+def test_the_refusal_names_the_arch_it_found(tmp_path):
+    # plutil writes "Could not extract value" to stdout, so a naive capture puts that text in the message.
+    env, server, apps, _ = rig(tmp_path)
+    make_app(apps, "0.6.2", arch="x86_64")
+    publish(server, tmp_path, "0.7.0", arch="x86_64", says_arch="arm64")
+    result = install({**env, "FAKE_UNAME_M": "x86_64"})
+    assert result.returncode == 1
+    assert "Could not extract" not in result.stderr, result.stderr
+    assert "arm64" in result.stderr and "x86_64" in result.stderr, result.stderr

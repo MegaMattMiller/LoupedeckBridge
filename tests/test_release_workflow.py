@@ -44,6 +44,20 @@ def steps(job_text: str) -> "list[str]":
     return job_text.split("\n      - ")[1:]
 
 
+def compares_commits(sign_steps: "list[str]", env_var: str) -> bool:
+    """A step that both receives the other build's commit AND compares it with this one's.
+
+    Asserting only on the `env:` entry passes even if the comparison line is deleted (found while
+    mutation-testing the milestone 8 guards), so the `[ "$X" = "$COMMIT" ]` line must be there too.
+    """
+    for step in sign_steps:
+        if f"{env_var}: ${{{{ needs." not in step or "needs.build.outputs.commit" not in step:
+            continue
+        if any(f'"${env_var}"' in line and '"$COMMIT"' in line and "[" in line for line in step.splitlines()):
+            return True
+    return False
+
+
 def test_build_is_saved_before_any_test_code_runs():
     build = job(RELEASE, "build")
     assert build.index("actions/upload-artifact") < build.index("pip install"), \
@@ -102,8 +116,13 @@ def test_run_workflow_needs_the_matching_tag():
 
 
 def test_publish_checks_the_signing_identifier_like_the_app():
-    accept = next(s for s in steps(job(RELEASE, "sign")) if "--check-signature" in s)
-    assert '-R="identifier \\"io.github.megamattmiller.loupedeckbridge\\""' in accept
+    # Across the sign job, not within one step: milestone 8 split the launcher's own check away from the
+    # certificate checks, so that a step which runs a launcher need never mention the Intel build.
+    sign = job(RELEASE, "sign")
+    assert "--check-signature" in sign
+    assert '-R="identifier \\"io.github.megamattmiller.loupedeckbridge\\""' in sign
+    # Each verify job's own check is covered by its own test (verify-windows reaches it through
+    # check_windows_release.ps1, not inline).
 
 
 def test_rehearsal_proves_tampering_and_another_key_are_refused():
@@ -134,7 +153,7 @@ def test_sign_signs_exactly_the_saved_windows_build():
 def test_both_builds_are_the_same_commit():
     build_windows, sign = job(RELEASE, "build-windows"), steps(job(RELEASE, "sign"))
     assert "commit: ${{ steps.commit.outputs.sha }}" in build_windows
-    assert any("needs.build-windows.outputs.commit" in s and "needs.build.outputs.commit" in s for s in sign)
+    assert compares_commits(sign, "WINDOWS_COMMIT"), "the Windows build's commit must be compared with the Mac's"
 
 
 def test_windows_zip_is_signed_in_the_key_step():
@@ -186,16 +205,21 @@ def test_sign_needs_every_build_and_signs_both_macs():
 def test_the_intel_app_is_only_executed_on_an_intel_runner():
     # An Intel binary can't be run on the arm64 signing runner at all, so running one anywhere but an Intel
     # runner is a broken release. codesign and plutil read a bundle without executing it; what matters is
-    # invoking the launcher. Checked per line, because the sign job legitimately mentions dist-intel in the
-    # same step as the Apple Silicon app's own --check-signature.
+    # invoking the launcher.
+    #
+    # Checked per STEP, not per line: `for app in dist/… dist-intel/…` on one line and
+    # `"$app/Contents/MacOS/LoupedeckBridge"` on the next would slip past a per-line check, and that idiom is
+    # already in the sign job. So a step that invokes a launcher may not mention the Intel build at all.
     for name, text in (("release.yml", RELEASE), ("ci.yml", CI)):
         for each in outline(text)["jobs"]:
             body = job(text, each)
             if "runs-on: macos-15-intel" in body:
                 continue
-            for line in body.splitlines():
-                assert not ("Contents/MacOS/LoupedeckBridge" in line and "dist-intel" in line), \
-                    f"{name}: {each} runs the Intel launcher but isn't on an Intel runner: {line.strip()}"
+            for step in steps(body):
+                if "Contents/MacOS/LoupedeckBridge" in step:
+                    assert "dist-intel" not in step, (
+                        f"{name}: {each} isn't on an Intel runner, and a step that runs a launcher mentions "
+                        f"the Intel build: {step.splitlines()[0]}")
     verify = job(RELEASE, "verify-intel")
     assert "runs-on: macos-15-intel" in verify
     # and it really does run that app, on what it unzipped from the Intel download
@@ -212,6 +236,32 @@ def test_sign_checks_both_macs_against_the_pinned_key():
     assert "extract-certificates" in accept
     for app in ("dist/LoupedeckBridge.app", "dist-intel/LoupedeckBridge.app"):
         assert app in accept, f"{app} isn't compared with the pinned key"
+
+
+def test_sign_signs_exactly_the_saved_intel_build():
+    # The Windows and Apple Silicon builds each have this guard; the third build needs it too.
+    sign = steps(job(RELEASE, "sign"))
+    check = next(i for i, s in enumerate(sign) if "needs.build-intel.outputs.zip_sha256" in s)
+    signing = next(i for i, s in enumerate(sign) if "import_signing_identity.sh" in s)
+    assert check < signing, "the Intel build must be checked byte for byte before the key is used"
+
+
+def test_every_build_is_the_same_commit():
+    intel, sign = job(RELEASE, "build-intel"), steps(job(RELEASE, "sign"))
+    assert "commit: ${{ steps.commit.outputs.sha }}" in intel
+    assert compares_commits(sign, "INTEL_COMMIT"), \
+        "the Intel build's commit must be compared with the Apple Silicon one's"
+
+
+def test_the_publish_gate_counts_exactly_the_files_it_lists():
+    # The list and the count are written separately, so they can drift: -eq 5 with seven names would publish
+    # a release missing two downloads.
+    publish = job(RELEASE, "publish")
+    listed = re.findall(r'"LoupedeckBridge-v\$VERSION-[a-z0-9_.-]+"', publish)
+    count = re.search(r'wc -l\)" -eq (\d+)', publish)
+    assert count, "the publish gate must count the downloads"
+    assert len(set(listed)) == int(count.group(1)), \
+        f"the gate lists {len(set(listed))} downloads but demands {count.group(1)}"
 
 
 def test_ci_builds_the_intel_release_too():

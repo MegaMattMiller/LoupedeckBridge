@@ -27,14 +27,18 @@ CHECKS = ["never_connected_never_alerts", "drop_alerts_after_debounce", "quick_r
           "update_cancels_a_pending_restart", "failed_update_restarts_the_bridge", "second_update_request_is_ignored",
           "quit_during_an_update_just_quits", "signature_accepts_the_pinned_certificate",
           "signature_refuses_another_certificate", "signature_refuses_another_identifier", "signature_needs_a_pinned_key",
-          "signature_refuses_unsigned_ad_hoc_and_changed_apps"]
+          "signature_refuses_unsigned_ad_hoc_and_changed_apps",
+          # milestone 8: each Mac updates from its own download
+          "release_parse_picks_the_running_arch", "release_parse_needs_its_own_arch",
+          "release_parse_still_needs_the_sha256", "asset_name_per_arch", "running_arch_is_one_of_two",
+          "saved_update_for_the_other_arch_is_not_restored"]
 
 pytestmark = pytest.mark.skipif(sys.platform != "darwin" or shutil.which("swiftc") is None,
                                 reason="needs macOS and swiftc")
 
 
 @pytest.fixture(scope="module")
-def results(tmp_path_factory):
+def policy_run(tmp_path_factory):
     binary = tmp_path_factory.mktemp("policies") / "policy-tests"
     build = subprocess.run(["swiftc", "-parse-as-library", str(LAUNCHER / "Policies.swift"),
                             str(LAUNCHER / "BridgeProcess.swift"), str(LAUNCHER / "Signature.swift"), str(LAUNCHER / "Download.swift"),
@@ -49,7 +53,24 @@ def results(tmp_path_factory):
         status, _, rest = line.partition(" ")
         name, _, why = rest.partition(":")
         found[name] = (status, why.strip())
-    return found
+    return found, run.returncode
+
+
+@pytest.fixture(scope="module")
+def results(policy_run):
+    return policy_run[0]
+
+
+def test_every_swift_check_is_asserted(policy_run):
+    """A check missing from CHECKS runs but is never looked at, so it could never fail the suite.
+
+    Milestone 8 review: five new checks in PolicyTests.swift were invisible this way, and one of them had
+    taken over a case that CHECKS did cover.
+    """
+    found, returncode = policy_run
+    missing = [name for name in found if name not in CHECKS]
+    assert not missing, f"add these to CHECKS, or they can never fail: {missing}"
+    assert returncode == 0, "the Swift test binary itself reported failure"
 
 
 @pytest.mark.parametrize("name", CHECKS)

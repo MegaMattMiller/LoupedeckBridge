@@ -108,8 +108,14 @@ new_id="$(plutil -extract CFBundleIdentifier raw "$new/Contents/Info.plist" 2>/d
 new_version="$(plutil -extract LBVersion raw "$new/Contents/Info.plist" 2>/dev/null || true)"
 [ "$new_id" = "$BUNDLE_ID" ] || fail "it isn't the LoupedeckBridge release ($new_id)"
 [ "$new_version" = "$want" ] || fail "it says it's v$new_version, not v$want"
-new_arch="$(plutil -extract LBArch raw "$new/Contents/Info.plist" 2>/dev/null || true)"
-[ "$new_arch" = "$arch" ] || fail "it's the ${new_arch:-unknown} build, not $arch"
+# plutil writes "Could not extract value" to stdout, so take its exit status, not its output, as the answer.
+new_arch="$(plutil -extract LBArch raw "$new/Contents/Info.plist" 2>/dev/null)" || new_arch=""
+if [ -z "$new_arch" ]; then
+  # Releases before v0.7.0 have no LBArch, and every one of them is Apple Silicon.
+  [ "$arch" = arm64 ] || fail "v$new_version has no $arch build (only Apple Silicon releases predate v0.7.0)"
+else
+  [ "$new_arch" = "$arch" ] || fail "it's the $new_arch build, not $arch"
+fi
 
 codesign --verify --strict -R="identifier \"$BUNDLE_ID\"" "$new" 2>/dev/null \
   || fail "its signature isn't valid for $BUNDLE_ID"

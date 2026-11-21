@@ -340,6 +340,17 @@ enum PolicyTests {
             return ReleaseInfo.assetName(for: v, arch: "x86_64") == "LoupedeckBridge-v0.7.0-macos-x86_64.zip" ? nil : "x86_64"
         }
 
+        check("saved_update_for_the_other_arch_is_not_restored") {
+            // A wrong-arch app can't launch at all, so a saved update must name this Mac's own download.
+            // It can happen: the user moves to the other architecture in place (install.sh LB_ARCH, or a
+            // Migration Assistant transfer) while an update is pending.
+            guard let arm = ReleaseInfo.parse(Data(sampleRelease.utf8), arch: "arm64") else { return "didn't parse" }
+            if ReleaseInfo.restore(arm.saved, newerThan: Version("0.5.0")!, arch: "x86_64") != nil {
+                return "restored the other Mac's download"
+            }
+            return ReleaseInfo.restore(arm.saved, newerThan: Version("0.5.0")!, arch: "arm64") != nil ? nil : "own arch not restored"
+        }
+
         check("running_arch_is_one_of_two") {
             // Compile-time, so this also proves the constant resolved for whichever Mac built the test binary.
             ["arm64", "x86_64"].contains(runningArch) ? nil : "runningArch is \(runningArch)"
@@ -385,12 +396,12 @@ enum PolicyTests {
 
         check("found_update_survives_a_relaunch") {
             guard let found = ReleaseInfo.parse(Data(sampleRelease.utf8), arch: runningArch) else { return "sample didn't parse" }
-            if ReleaseInfo.restore(found.saved, newerThan: Version("0.5.0")!) != found { return "not restored" }
-            if ReleaseInfo.restore(found.saved, newerThan: Version("0.6.0")!) != nil { return "restored once installed" }
+            if ReleaseInfo.restore(found.saved, newerThan: Version("0.5.0")!, arch: runningArch) != found { return "not restored" }
+            if ReleaseInfo.restore(found.saved, newerThan: Version("0.6.0")!, arch: runningArch) != nil { return "restored once installed" }
             var http = found.saved
             http["zip"] = "http://example.com/x.zip"
             for bad: Any? in [nil, ["version": "x"], http, "garbage"]
-                where ReleaseInfo.restore(bad, newerThan: Version("0.5.0")!) != nil { return "restored \(String(describing: bad))" }
+                where ReleaseInfo.restore(bad, newerThan: Version("0.5.0")!, arch: runningArch) != nil { return "restored \(String(describing: bad))" }
             return nil
         }
 

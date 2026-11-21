@@ -1,18 +1,24 @@
 # Build, test, sign and publish a release, when a version tag (v0.6.0) is pushed (tools/release.sh), or
 # from "Run workflow" with a version whose tag is already pushed (select that tag as the ref: the
-# `release` environment only accepts v* tags). One release carries both platforms' downloads (milestone 7).
-#   build:          (macOS) checks bridge.__version__ and CHANGELOG.md match the tag, builds the release app, saves
-#                   that exact build, then runs the suite with its bundled Python (test tools pinned by hash)
+# `release` environment only accepts v* tags). One release carries every platform's downloads: both kinds of Mac
+# (milestone 8) and Windows (milestone 7).
+#   build:          (Apple Silicon) checks bridge.__version__ and CHANGELOG.md match the tag, builds the release app,
+#                   saves that exact build, then runs the suite with its bundled Python (test tools pinned by hash)
+#   build-intel:    (Intel Mac) the same for the Intel release. Built natively, never cross-built, because the
+#                   bundled Python has to be run to be tested
 #   build-windows:  (Windows) the same for the Windows release: builds and zips it, saves that exact zip, then runs
 #                   the suite with its bundled Python
-#   sign:           (macOS) in the `release` environment, which has the signing key and a required reviewer: it
-#                   waits for your approval, checks it has both saved builds byte for byte, and signs both in one
-#                   step that deletes the key's keychain and files when it ends (the Mac app with codesign, the
-#                   Windows zip with a detached .p7s, tools/sign_windows_zip.sh); then checks the updater and
-#                   tools/install.sh will accept the Mac app
+#   sign:           (Apple Silicon) in the `release` environment, which has the signing key and a required reviewer:
+#                   it waits for your approval, checks every saved build byte for byte and that all three are of the
+#                   same commit, and signs them all in one step that deletes the key's keychain and files when it
+#                   ends (each Mac app with codesign, the Windows zip with a detached .p7s,
+#                   tools/sign_windows_zip.sh); then checks the updater and tools/install.sh will accept both Macs.
+#                   Only the Apple Silicon app's launcher may run here — an Intel binary can't run on this runner
+#   verify-intel:   (Intel Mac, no secrets) the Intel app's own check and tools/install.sh's pins accept the signed
+#                   Intel zip, and refuse a changed byte. The one place an Intel binary is run
 #   verify-windows: (Windows, no secrets) the tray app's own check and tools/install.ps1 accept the signed zip, and
 #                   refuse a changed byte and another key (tools/check_windows_release.ps1)
-#   publish:        only if all five downloads are there: the GitHub release, with the changelog section as notes
+#   publish:        only if all seven downloads are there: the GitHub release, with the changelog section as notes
 # Only GitHub's own actions, pinned to commits. No pull_request triggers here.
 name: Release
 
@@ -310,12 +316,16 @@ jobs:
           rm -f "$RUNNER_TEMP/id.p12" "$RUNNER_TEMP/p12-password"
           tools/sign_release_app.sh dist/LoupedeckBridge.app "LoupedeckBridge Release"
           tools/sign_release_app.sh dist-intel/LoupedeckBridge.app "LoupedeckBridge Release"
-      - name: The updater and tools/install.sh will accept both Macs
+      # Kept as two steps on purpose: this runner is Apple Silicon, so the only app whose launcher may run
+      # here is that one, and a step that runs a launcher must therefore never mention the Intel build at all.
+      # tests/test_release_workflow.py enforces exactly that, per step.
+      - name: The Apple Silicon updater will accept its app
         run: |
-          # This runner is Apple Silicon, so only that app can be run here; the Intel app's own check is
-          # verify-intel's job. The signature and certificate checks below execute nothing.
           app=dist/LoupedeckBridge.app
           "$app/Contents/MacOS/LoupedeckBridge" --check-signature "$app"
+      - name: Both Macs are signed with the key tools/install.sh pins
+        run: |
+          # codesign and shasum read the bundles; nothing here executes either app, so the Intel one is fine.
           pinned="$(sed -n 's/^PINNED_SIGNER_SHA256_DEFAULT="\(.*\)"$/\1/p' tools/install.sh)"
           [ -n "$pinned" ] || { echo "::error::tools/install.sh pins no release key"; exit 1; }
           for app in dist/LoupedeckBridge.app dist-intel/LoupedeckBridge.app; do

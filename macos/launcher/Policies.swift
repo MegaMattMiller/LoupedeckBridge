@@ -303,11 +303,14 @@ struct ReleaseInfo: Equatable {
         ["version": version.description, "zip": zipURL.absoluteString, "sha256": sha256URL.absoluteString]
     }
 
-    /// A saved release, if it's still newer than the running version (nil once installed, or if unreadable).
-    static func restore(_ saved: Any?, newerThan current: Version) -> ReleaseInfo? {
+    /// A saved release, if it's still newer than the running version and is this Mac's own download
+    /// (nil once installed, or if unreadable). The arch is checked because a saved update outlives a
+    /// relaunch, and a Mac can change architecture in place — a wrong-arch app wouldn't launch at all.
+    static func restore(_ saved: Any?, newerThan current: Version, arch: String) -> ReleaseInfo? {
         guard let fields = saved as? [String: String], let version = fields["version"].flatMap(Version.init),
               version > current,
               let zipURL = fields["zip"].flatMap(URL.init(string:)), zipURL.scheme == "https",
+              zipURL.lastPathComponent == assetName(for: version, arch: arch),
               let shaURL = fields["sha256"].flatMap(URL.init(string:)), shaURL.scheme == "https" else { return nil }
         return ReleaseInfo(version: version, zipURL: zipURL, sha256URL: shaURL)
     }
