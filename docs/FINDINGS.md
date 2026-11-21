@@ -434,6 +434,66 @@ Checked on the user's Windows PC: Windows 11 (10.0.26200), x64.
   - With no "last check" left, the installed tray checked GitHub every minute while the suite ran.
   - A test now checks that the tests set every place `install.ps1` changes.
 
+## Milestone 8: Intel Macs (2026-11-21)
+Built and checked on the user's Intel Mac. **Not yet live-checked:** the device and Lightroom on this Mac, an
+installed signed release, and an update from the menu — those are the milestone's last two tasks, and
+`macos-15-intel` itself is only proved once CI runs on the branch.
+
+**The Mac:**
+- **iMac19,1** (27" 2019), Intel Core i5-8500, **macOS 15.7.9** (24G830). Not Rosetta: `hw.optional.arm64`
+  doesn't exist on it. Xcode installed: Apple Swift 6.2.4, clang 17.0.0, both targeting `x86_64-apple-macosx15.0`.
+- `/usr/bin/python3` is 3.9.6, as on the Apple Silicon Mac. A fresh `.venv` installed `mido`, `python-rtmidi` and
+  `websockets` from native x86_64 wheels with no trouble.
+
+**The repo's code needed no changes at all.** On this Mac, before anything was touched:
+- the whole suite passed: 381 passed, 135 skipped;
+- `tools/bridgectl build` produced a working thin x86_64 `LoupedeckBridge Dev.app` — the dev build has no arch
+  gate, and `swiftc` with no `-target` builds for the host;
+- the Swift launcher's own checks passed natively: 50 passed.
+Only the release and distribution layer pinned arm64 (six places, listed in the design doc). So this milestone
+changed no bridge behaviour.
+
+**Verified before the design, so the plan didn't rest on guesses:**
+- The Intel Python is in the **same python-build-standalone release already pinned** (20261026), same CPython
+  **3.12.16**: `cpython-3.12.16+20261026-x86_64-apple-darwin-install_only.tar.gz`, SHA-256
+  `a962e47df522889eaa7ff0d6a56203f1079f68aabb65ffdbe8455f362bc769f3`. Taken from that release's `SHA256SUMS`,
+  whose aarch64 line matches `tools/python-standalone.lock` exactly. There are no per-asset `.sha256` files;
+  `SHA256SUMS` is the one to read.
+- Both compiled wheels have cp312 Intel builds: `python_rtmidi-1.5.8-cp312-cp312-macosx_10_9_x86_64.whl` and
+  `websockets-15.0.1-cp312-cp312-macosx_10_13_x86_64.whl`. The other pins are `py3-none-any`, so both Macs share
+  them. (This is why there are two `release-requirements` files and not one.)
+- `swiftc -O -target x86_64-apple-macos14.0 macos/launcher/*.swift` compiles with **no errors and no warnings**,
+  and the binary's `LC_BUILD_VERSION` reads `minos 14.0`. No availability guards were needed, so `MIN_MACOS`
+  stays `14.0` for both Macs.
+- The launcher cross-compiles both ways: from this Intel Mac, `-target arm64-apple-macos14.0` also builds clean.
+  Only the bundled Python can't be cross-built *and tested*, which is why neither Mac's app is cross-built.
+
+**The Intel release app, built here (v0.6.2 during the work):**
+- 77 MB as a bundle, **28 MB** zipped — so `install.sh`'s 200 MB cap and the "about 30 MB" note still hold.
+- Its bundled **Python 3.12.16 (x86_64) ran the whole suite: 385 passed**, through a venv sharing the bundle's
+  packages, exactly as CI does it.
+- `tools/package_release.sh` named it `LoupedeckBridge-v0.6.2-macos-x86_64.zip` from the app's own `LBArch`, and
+  its `.sha256` verified.
+
+**Decisions worth remembering:**
+- **Two arch-specific zips, not a universal app.** python-build-standalone ships no universal2 build, so a
+  universal app would mean `lipo`-merging two CPython trees dylib by dylib, roughly doubling the app, with
+  nothing upstream to lean on.
+- **The arm64 asset name can never change.** Apps from v0.5.0 onwards ask for
+  `LoupedeckBridge-v<ver>-macos-arm64.zip` by name, for ever. The updater takes the arch as a parameter, and the
+  running app's arch is a compile-time constant (`#if arch(...)`), so it can't disagree with its own binary.
+- **Rosetta:** `uname -m` reports `x86_64` in a translated shell on an Apple Silicon Mac, so `install.sh` also
+  reads `sysctl.proc_translated` and installs the arm64 build there. The test rig fakes `uname` and `sysctl`, or
+  the arch tests would pass vacuously on one Mac and fail on the other.
+- **CI runners:** the Intel image is **`macos-15-intel`** (macOS 15 on x86_64, available since 2025-09-19).
+  `macos-13`, the old Intel image, was retired on 2025-12-04. **`macos-15-intel` retires in August 2027, and
+  GitHub will offer no x86_64 macOS image after that** — so the Intel release has someone else's expiry date on
+  it. When it comes, the choices are a self-hosted Intel runner (this iMac), dropping the Intel release, or
+  revisiting the universal app.
+- **An Intel app can't be run on the arm64 signing runner,** and the sign job executes the app it signs
+  (`--check-signature`). Hence `verify-intel` on an Intel runner, the counterpart of `verify-windows`. The sign
+  job still checks both Macs' signatures and certificates, which execute nothing.
+
 ## API notes the handoff didn't capture
 - **How object handles come about:** `addAdjustmentChangeObserver(param?)` and `addHapticsObserver()` return a GUID/object. Later notifications arrive as extra responses for that same original `requestId` (this is the "one request, many responses" case). Call `close` on the handle when done.
 - **Tracking:** `startTracking(param)` turns itself off **2 s** after the last change, or as soon as a *different* parameter is adjusted. `stopTracking()` commits **one** history state. `setMultipleAdjustmentThreshold` defaults to **0.5 s** and has no effect if it's larger than the tracking delay.

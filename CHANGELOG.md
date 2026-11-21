@@ -3,6 +3,22 @@
 Each release's section here becomes its GitHub release notes (`tools/check_release.py`). Versions are
 `bridge/__init__.py`'s `__version__`.
 
+## v0.7.0 — 2026-11-21
+
+Intel Macs. One release now carries a download for each kind of Mac, and each one installs and updates itself
+from its own.
+
+- **Intel Macs (macOS 14 or later):** everything the Apple Silicon version does, from the same `install.sh`
+  command and the same signed releases, with updates from the menu bar. `install.sh` works out which Mac it's on
+  and fetches that Mac's download; run from a Rosetta terminal on an Apple Silicon Mac, it still installs the
+  Apple Silicon build.
+- **Apple Silicon Macs are unaffected.** Their download keeps its name, so every app already installed keeps
+  updating exactly as before, with nothing to do.
+- **Releases** carry seven downloads: each Mac's zip and `.sha256`, and the Windows zip, its `.sha256` and its
+  `.p7s`. Both Mac apps are built and tested on their own kind of Mac, then signed with the one release key in
+  the one step you approve. Nothing is published unless every download is there, because an app looks for its
+  own Mac's zip by name and would otherwise quietly find no update.
+
 ## v0.6.2 — 2026-11-18
 
 The review's smaller fixes for Windows, and the first update to install from the tray.

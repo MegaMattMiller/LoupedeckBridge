@@ -2,8 +2,8 @@
 
 A local bridge so a Loupedeck+ controls Adobe Lightroom (the cloud-based desktop app, **not** Lightroom
 Classic, though both may be installed). Python bridge (Loupedeck+ MIDI in, Lightroom's controller WebSocket
-API out), plus a menu-bar app on macOS and a tray app on Windows. Mac releases since v0.5.0, Windows since v0.6.1
-(milestone 7). See README.md.
+API out), plus a menu-bar app on macOS and a tray app on Windows. Mac releases since v0.5.0 (Apple Silicon) and v0.7.0
+(Intel, milestone 8), Windows since v0.6.1 (milestone 7). See README.md.
 
 ## Start here, not with new probes
 - `docs/FINDINGS.md`: everything verified so far: the device's MIDI, Lightroom's API, macOS permissions,
@@ -69,8 +69,10 @@ about 4 minutes here, mostly `tests/test_install_ps1.py`: run it in the backgrou
 - **Rebuilding the dev app** (ad hoc signature) can lose its Accessibility grant: remove and re-add it in
   System Settings. Releases keep their grants, because every one is signed with the same key.
 - While a Lightroom Allow dialog is open, Lightroom answers no client.
-- GitHub's "latest release" must always include the Mac download (`LoupedeckBridge-v<ver>-macos-arm64.zip`), or
-  the Mac apps' update check quietly finds nothing (release.yml's publish job refuses without all five files).
+- GitHub's "latest release" must always include **both** Mac downloads
+  (`LoupedeckBridge-v<ver>-macos-arm64.zip` and `…-macos-x86_64.zip`), or that kind of Mac's update check quietly
+  finds nothing: every app looks for its own architecture's zip by name, for ever (release.yml's publish job
+  refuses without all seven files). Never rename either one.
 - A release run's Sign job shows "queued" while it waits for the user's approval. After a flaky failure,
   `gh run rerun <id> --failed` (ask first) reruns only the failed jobs.
 - **Windows:**

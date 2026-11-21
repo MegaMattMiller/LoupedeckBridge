@@ -7,15 +7,19 @@ Loupedeck's own software only supports Lightroom Classic. Lightroom 10 has an ex
 WebSocket API, so this is a small local Python bridge: Loupedeck+ MIDI in → Lightroom API calls out,
 over `127.0.0.1` only.
 
-**Status:** releases for Apple Silicon Macs on macOS 14 or later (since v0.5.0) and for Windows 10 and 11, 64-bit
-(since v0.6.1; checked on Windows 11): dials, dial clicks, Lightroom buttons and presets, real keyboard keys and
+**Status:** releases for Macs on macOS 14 or later — Apple Silicon since v0.5.0, Intel since v0.7.0 — and for
+Windows 10 and 11, 64-bit (since v0.6.1; checked on Windows 11): dials, dial clicks, Lightroom buttons and presets, real keyboard keys and
 shortcuts, a settings page for presets and for remapping any control (with an Fn layer), and a menu-bar or tray
 app with alerts, Start at login and updates. See the
 [design](docs/superpowers/specs/2026-11-16-loupedeck-bridge-design.md), the
-[Windows design](docs/superpowers/specs/2026-11-17-m7-windows-design.md), [CHANGELOG.md](CHANGELOG.md) and
+[Windows design](docs/superpowers/specs/2026-11-17-m7-windows-design.md), the
+[Intel Mac design](docs/superpowers/specs/2026-11-21-m8-intel-macs-design.md), [CHANGELOG.md](CHANGELOG.md) and
 [docs/FINDINGS.md](docs/FINDINGS.md) for everything verified so far.
 
 ## Install on a Mac
+
+Apple Silicon or Intel, macOS 14 or later. The installer works out which Mac you're on and fetches that
+Mac's download.
 
 1. In Lightroom: **Preferences → Interface → Enable external controllers**, then restart Lightroom.
 2. Quit the Loupedeck / Logi software so it doesn't grab the device.
@@ -29,6 +33,9 @@ app with alerts, Start at login and updates. See the
    You can read `install.sh` first; it's short. It downloads the newest release, checks it, puts
    **LoupedeckBridge.app** in `/Applications` and starts it. In a copy of this repo,
    `tools/bridgectl install` does the same.
+
+   If you run it from a Rosetta terminal on an Apple Silicon Mac, it still installs the Apple Silicon build.
+   `LB_ARCH=arm64` or `LB_ARCH=x86_64` forces one.
 4. On the first start, allow:
    - **Notifications**, for the alerts.
    - **Accessibility:** click *Open System Settings* and turn on **LoupedeckBridge** (keyboard keys need it).
@@ -37,7 +44,8 @@ app with alerts, Start at login and updates. See the
 
 Before it replaces anything, `install.sh` checks:
 - the download's SHA-256
-- that it holds exactly one LoupedeckBridge.app, with the release's bundle id and the version asked for
+- that it holds exactly one LoupedeckBridge.app, with the release's bundle id, the version asked for, and
+  the architecture of the Mac it's installing on
 - that it's validly signed with the **LoupedeckBridge release key** (the certificate's SHA-256 is pinned
   in the script)
 
@@ -288,8 +296,8 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 - **The release app** locally: `tools/build_release_app.sh OUT_DIR` (it downloads the pinned Python into
   `.cache/` the first time), then `LB_RELEASE_APP=OUT_DIR/LoupedeckBridge.app .venv/bin/python -m pytest -q
   tests/test_release_bundle.py`.
-- **CI** (`.github/workflows/ci.yml`) runs on every push: the suite on Python 3.9 on macOS and Windows; then each
-  release built and tested with its own Python, and a signing rehearsal with a throwaway key (sign, check, package,
+- **CI** (`.github/workflows/ci.yml`) runs on every push: the suite on Python 3.9 on both kinds of Mac and on
+  Windows; then each release built and tested with its own Python, on its own kind of machine, and a signing rehearsal with a throwaway key (sign, check, package,
   install, and a changed byte refused). It also checks that a signature made by macOS's LibreSSL, as the release
   signs the Windows zip, passes the tray app's check.
 
@@ -318,13 +326,15 @@ py -m venv .venv; .venv\Scripts\pip install -r requirements-dev.txt
 2. `tools/release.sh X.Y.Z` (on the Mac, or in Git Bash on Windows). It checks that you're on an up-to-date, clean
    `main`, that the version and changelog match, that `install.sh` and `install.ps1` pin the same release key, and
    that the tests pass. Then it tags `vX.Y.Z` and asks before pushing the tag.
-3. GitHub builds and tests that tag for both systems (`.github/workflows/release.yml`), then waits. In the run on
+3. GitHub builds and tests that tag on each kind of Mac and on Windows (`.github/workflows/release.yml`), then
+   waits. In the run on
    GitHub's Actions page, **Review deployments** → approve `release`.
-4. In one step it signs the tested Mac app and the tested Windows zip (a detached `.p7s`) with the release key. It
-   checks that the Mac updater and `install.sh` will accept the Mac app, then, on Windows, that the tray app and
-   `install.ps1` accept the Windows zip. It publishes the release only with all five downloads (each zip, its
-   `.sha256`, and the Windows `.p7s`): the Mac apps' update check needs the Mac zip in the newest release. Installed
-   apps see it within a day.
+4. In one step it signs both tested Mac apps and the tested Windows zip (a detached `.p7s`) with the release key.
+   It checks that the Mac updater and `install.sh` will accept them, then, on an Intel Mac that the Intel app
+   accepts its own download, and on Windows that the tray app and `install.ps1` accept the Windows zip. It
+   publishes the release only with all seven downloads (each of the three zips and its `.sha256`, and the Windows
+   `.p7s`): each Mac app's update check looks for its own Mac's zip by name in the newest release. Installed apps
+   see it within a day.
 
 **The release key** lives only in this repo's GitHub `release` environment (secrets `MAC_SIGNING_P12` and
 `MAC_SIGNING_P12_PASSWORD`). Only `v*` tags can use that environment, and only after you approve the run.
@@ -341,6 +351,7 @@ the key they were signed with, so a new key means reinstalling everywhere with `
 5. ✅ Start at login, plus a menu-bar status icon and alerts
 6. ✅ Mac releases: a self-contained app built and signed on GitHub, installed with one command, updated from the menu
 7. ✅ Windows: the bridge, a tray app, and releases for friends installed with one PowerShell command
+8. ✅ Intel Macs: a second Mac download in every release, built and tested on an Intel Mac, installed and updated the same way
 
 ## Layout
 
@@ -369,7 +380,8 @@ the key they were signed with, so a new key means reinstalling everywhere with `
 | `tools/python-standalone-windows.lock`, `tools/release-requirements-windows.txt` | The Windows release's pinned Python and packages |
 | `tools/build_mac_app.sh`, `tools/build_release_app.sh` | The dev app; the release app with its own Python |
 | `tools/sign_release_app.sh`, `tools/package_release.sh` | Signing and zipping a release |
-| `tools/python-standalone.lock`, `tools/release-requirements.txt` | The release's pinned Python and packages |
+| `tools/python-standalone.lock`, `tools/release-requirements.txt` | The Apple Silicon release's pinned Python and packages |
+| `tools/python-standalone-intel.lock`, `tools/release-requirements-intel.txt` | The Intel release's pinned Python and packages |
 | `tools/release.sh`, `tools/check_release.py` | Tagging a release; version and changelog checks |
 | `tools/make_signing_identity.sh`, `tools/import_signing_identity.sh` | The release key; its temporary keychain on GitHub |
 | `.github/workflows/` | CI, and the release build |
