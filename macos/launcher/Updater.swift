@@ -90,9 +90,9 @@ final class Updater {
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         URLSession.shared.dataTask(with: request) { data, response, error in
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-            let release = status == 200 ? data.flatMap(ReleaseInfo.parse) : nil
+            let release = status == 200 ? data.flatMap { ReleaseInfo.parse($0, arch: runningArch) } : nil
             let why = error?.localizedDescription
-                ?? (status == 200 ? "GitHub's answer had no Mac release in it" : "GitHub answered \(status)")
+                ?? (status == 200 ? "GitHub's answer had no \(runningArch) Mac release in it" : "GitHub answered \(status)")
             DispatchQueue.main.async { self.checked(release, why: why, manual: manual) }
         }.resume()
     }
@@ -185,7 +185,7 @@ final class Updater {
         let scratch = fm.temporaryDirectory.appendingPathComponent("LoupedeckBridge-update-\(UUID().uuidString)")
         do {
             try? fm.createDirectory(at: scratch, withIntermediateDirectories: true)
-            let name = ReleaseInfo.assetName(for: release.version)
+            let name = ReleaseInfo.assetName(for: release.version, arch: runningArch)
             let zip = try fetch(release.zipURL, to: scratch.appendingPathComponent(name), limit: maxDownload,
                                 userAgent: userAgent)
             let sums = try fetch(release.sha256URL, to: scratch.appendingPathComponent(name + ".sha256"), limit: 4096,

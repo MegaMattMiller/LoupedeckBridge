@@ -259,16 +259,29 @@ struct Version: Comparable, CustomStringConvertible {
     var description: String { parts.map(String.init).joined(separator: ".") }
 }
 
+/// The architecture this build runs on, decided at compile time so it can never disagree with the binary
+/// it's in. Each release carries one download per architecture (milestone 8).
+#if arch(arm64)
+let runningArch = "arm64"
+#elseif arch(x86_64)
+let runningArch = "x86_64"
+#else
+#error("LoupedeckBridge is released for arm64 and x86_64 only")
+#endif
+
 /// The newest release, from GitHub's "latest release" JSON. Only a full release (not a draft or pre-release)
-/// with both `LoupedeckBridge-v<ver>-macos-arm64.zip` and its `.sha256` counts.
+/// carrying **this Mac's** `LoupedeckBridge-v<ver>-macos-<arch>.zip` and its `.sha256` counts: a release with
+/// only the other Mac's downloads is no update for this one.
 struct ReleaseInfo: Equatable {
     let version: Version
     let zipURL: URL
     let sha256URL: URL
 
-    static func assetName(for version: Version) -> String { "LoupedeckBridge-v\(version)-macos-arm64.zip" }
+    static func assetName(for version: Version, arch: String) -> String {
+        "LoupedeckBridge-v\(version)-macos-\(arch).zip"
+    }
 
-    static func parse(_ data: Data) -> ReleaseInfo? {
+    static func parse(_ data: Data, arch: String) -> ReleaseInfo? {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let tag = json["tag_name"] as? String, let version = Version(tag),
               (json["draft"] as? Bool) != true, (json["prerelease"] as? Bool) != true,
@@ -280,7 +293,7 @@ struct ReleaseInfo: Equatable {
                 urls[name] = url
             }
         }
-        let zip = assetName(for: version)
+        let zip = assetName(for: version, arch: arch)
         guard let zipURL = urls[zip], let shaURL = urls[zip + ".sha256"] else { return nil }
         return ReleaseInfo(version: version, zipURL: zipURL, sha256URL: shaURL)
     }

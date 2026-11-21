@@ -283,28 +283,74 @@ enum PolicyTests {
             return d.description == "0.5.0" ? nil : "description \(d)"
         }
 
-        let sampleRelease = """
-        {"tag_name": "v0.6.0", "draft": false, "prerelease": false, "assets": [
-          {"name": "LoupedeckBridge-v0.6.0-macos-arm64.zip",
-           "browser_download_url": "https://github.com/o/r/releases/download/v0.6.0/LoupedeckBridge-v0.6.0-macos-arm64.zip"},
-          {"name": "LoupedeckBridge-v0.6.0-macos-arm64.zip.sha256",
-           "browser_download_url": "https://github.com/o/r/releases/download/v0.6.0/LoupedeckBridge-v0.6.0-macos-arm64.zip.sha256"}]}
-        """
+        // One release carries both Macs' downloads (milestone 8).
+        func releaseJSON(_ arches: [String]) -> String {
+            let assets = arches.flatMap { arch in
+                ["LoupedeckBridge-v0.6.0-macos\(arch == "" ? "" : "-" + arch).zip",
+                 "LoupedeckBridge-v0.6.0-macos\(arch == "" ? "" : "-" + arch).zip.sha256"]
+            }.map { name in
+                """
+                {"name": "\(name)",
+                 "browser_download_url": "https://github.com/o/r/releases/download/v0.6.0/\(name)"}
+                """
+            }.joined(separator: ",\n")
+            return """
+            {"tag_name": "v0.6.0", "draft": false, "prerelease": false, "assets": [
+            \(assets)]}
+            """
+        }
+        let sampleRelease = releaseJSON(["arm64", "x86_64"])
+        let armOnlyRelease = releaseJSON(["arm64"])
 
         check("release_parse_accepts_a_real_shape") {
-            guard let r = ReleaseInfo.parse(Data(sampleRelease.utf8)) else { return "not parsed" }
+            guard let r = ReleaseInfo.parse(Data(sampleRelease.utf8), arch: "arm64") else { return "not parsed" }
             if r.version != Version("0.6.0") { return "version \(r.version)" }
             if !r.zipURL.absoluteString.hasSuffix("LoupedeckBridge-v0.6.0-macos-arm64.zip") { return "zip \(r.zipURL)" }
             return r.sha256URL.absoluteString.hasSuffix(".zip.sha256") ? nil : "sha \(r.sha256URL)"
         }
 
+        // ---- milestone 8: each Mac updates from its own download -------------------
+        check("release_parse_picks_the_running_arch") {
+            for arch in ["arm64", "x86_64"] {
+                guard let r = ReleaseInfo.parse(Data(sampleRelease.utf8), arch: arch) else { return "not parsed \(arch)" }
+                let want = "LoupedeckBridge-v0.6.0-macos-\(arch).zip"
+                if !r.zipURL.absoluteString.hasSuffix(want) { return "\(arch) got \(r.zipURL)" }
+                if !r.sha256URL.absoluteString.hasSuffix(want + ".sha256") { return "\(arch) sha \(r.sha256URL)" }
+            }
+            return nil
+        }
+
+        check("release_parse_needs_its_own_arch") {
+            // An older release carries only the arm64 pair: no update for an Intel Mac, rather than a wrong one.
+            if ReleaseInfo.parse(Data(armOnlyRelease.utf8), arch: "x86_64") != nil { return "took the other Mac's zip" }
+            return ReleaseInfo.parse(Data(armOnlyRelease.utf8), arch: "arm64") != nil ? nil : "arm64 didn't parse"
+        }
+
+        check("release_parse_still_needs_the_sha256") {
+            for arch in ["arm64", "x86_64"] {
+                let noSha = sampleRelease.replacingOccurrences(of: "-macos-\(arch).zip.sha256", with: "-macos-\(arch).zip.txt")
+                if ReleaseInfo.parse(Data(noSha.utf8), arch: arch) != nil { return "accepted \(arch) without its .sha256" }
+            }
+            return nil
+        }
+
+        check("asset_name_per_arch") {
+            let v = Version("0.7.0")!
+            if ReleaseInfo.assetName(for: v, arch: "arm64") != "LoupedeckBridge-v0.7.0-macos-arm64.zip" { return "arm64" }
+            return ReleaseInfo.assetName(for: v, arch: "x86_64") == "LoupedeckBridge-v0.7.0-macos-x86_64.zip" ? nil : "x86_64"
+        }
+
+        check("running_arch_is_one_of_two") {
+            // Compile-time, so this also proves the constant resolved for whichever Mac built the test binary.
+            ["arm64", "x86_64"].contains(runningArch) ? nil : "runningArch is \(runningArch)"
+        }
+
         check("release_parse_rejects_garbage") {
-            let noSha = sampleRelease.replacingOccurrences(of: ".zip.sha256\"", with: ".zip.txt\"")
-            let bad = ["", "{}", "{\"message\":\"API rate limit exceeded\"}", "not json", noSha,
+            let bad = ["", "{}", "{\"message\":\"API rate limit exceeded\"}", "not json",
                        sampleRelease.replacingOccurrences(of: "\"draft\": false", with: "\"draft\": true"),
                        sampleRelease.replacingOccurrences(of: "\"prerelease\": false", with: "\"prerelease\": true"),
                        sampleRelease.replacingOccurrences(of: "v0.6.0\", \"draft", with: "latest\", \"draft")]
-            for (i, text) in bad.enumerated() where ReleaseInfo.parse(Data(text.utf8)) != nil { return "accepted case \(i)" }
+            for (i, text) in bad.enumerated() where ReleaseInfo.parse(Data(text.utf8), arch: "arm64") != nil { return "accepted case \(i)" }
             return nil
         }
 
@@ -338,7 +384,7 @@ enum PolicyTests {
         }
 
         check("found_update_survives_a_relaunch") {
-            guard let found = ReleaseInfo.parse(Data(sampleRelease.utf8)) else { return "sample didn't parse" }
+            guard let found = ReleaseInfo.parse(Data(sampleRelease.utf8), arch: runningArch) else { return "sample didn't parse" }
             if ReleaseInfo.restore(found.saved, newerThan: Version("0.5.0")!) != found { return "not restored" }
             if ReleaseInfo.restore(found.saved, newerThan: Version("0.6.0")!) != nil { return "restored once installed" }
             var http = found.saved
