@@ -510,6 +510,14 @@ changed no bridge behaviour.
     machine updates), and a one-time "newer defaults exist" note.
 - **On this PC, Lightroom named all 1,572 presets in under 7 s** (16 requests in flight), against ~27 s measured
   on the Mac in milestone 3.
+- **The live check on two machines (2026-11-22).** Dev builds of this branch ran on the Mac and the PC, with
+  Syncthing syncing only `mapping.json`. The user reported that all three checks passed:
+  - **A change from the Mac:** once synced, Reload from file on the PC switched the Loupedeck and the page to it.
+    The PC's log says "reloaded mapping.json (changed)".
+  - **A save on the PC before reloading** (a preset on P5) kept the Mac's change on both machines. The save had
+    already brought the Mac's change in, so the PC's next two Reloads found the file unchanged.
+  - **A broken `mapping.json`:** Reload kept the layout in use and said why. Once the file was fixed, Reload
+    brought it back with no restart.
 
 ## API notes the handoff didn't capture
 - **How object handles come about:** `addAdjustmentChangeObserver(param?)` and `addHapticsObserver()` return a GUID/object. Later notifications arrive as extra responses for that same original `requestId` (this is the "one request, many responses" case). Call `close` on the handle when done.
