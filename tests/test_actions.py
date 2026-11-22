@@ -668,3 +668,15 @@ def test_col_is_fixed_whatever_it_maps_to(tmp_path):
     assert d.five_mode == "keys"
     assert "rating3" not in [m for m, _ in s.calls]
     assert d.banked("shift") == "shift" and d.banked("c1") == "c1"
+
+
+def test_key_held_through_a_reload_is_released(tmp_path):
+    # Milestone 9 (Review Focus 1): a reload changes the button's action while it holds Shift; its release still
+    # lets Shift go (held keys are remembered by the physical control).
+    kb = FakeKeyboard()
+    d, _, _ = setup(tmp_path, {"c3": {"press": {"type": "key", "key": "shift"}}}, keyboard=kb)
+    run(d.handle(Press("c3")))
+    (tmp_path / "m.json").write_text(json.dumps({"version": 1, "controls": {"c3": {"press": NONE}}}), encoding="utf-8")
+    assert d.mapping.reload() is True
+    run(d.handle(Release("c3")))
+    assert kb.events == [("down", "shift"), ("up", "shift")]

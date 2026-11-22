@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from bridge.hardware import HardwareMap
-from bridge.mapping import DEFAULT_PATH, Mapping, MappingNotWritable
+from bridge.mapping import DEFAULT_PATH, Mapping, MappingNotWritable, MappingUnreadable
 
 REPO = Path(__file__).resolve().parent.parent
 NONE = {"type": "none"}
@@ -415,3 +415,93 @@ def test_mapping_reads_utf8_with_bom(tmp_path):
     m = Mapping.load(user)
     assert m.warnings == []
     assert m.press_action("p1")["name"] == "Café ☕ ★"
+
+
+# ---- milestone 9: reload the layout from its file, and saves that re-read it ---------------------------------------
+
+def test_reload_picks_up_a_changed_file(tmp_path):
+    user = write(tmp_path / "m.json", {"p1": {"press": NONE}})
+    m = Mapping.load(user)
+    write(user, {"p1": {"press": PRESET}})          # e.g. Syncthing brought it from another machine
+    assert m.reload() is True
+    assert m.press_action("p1") == PRESET
+
+
+def test_reload_of_an_unchanged_file_says_so(tmp_path):
+    m = Mapping.load(write(tmp_path / "m.json", {"p1": {"press": PRESET}}))
+    assert m.reload() is False
+    assert m.press_action("p1") == PRESET
+
+
+def test_reload_keeps_the_layout_when_the_file_is_unreadable(tmp_path):
+    user = write(tmp_path / "m.json", {"p1": {"press": PRESET}})
+    m = Mapping.load(user)
+    user.write_text("{not json", encoding="utf-8")
+    with pytest.raises(MappingUnreadable) as e:
+        m.reload()
+    assert "m.json couldn't be read (" in str(e.value) and "the layout in use was kept" in str(e.value)
+    assert m.press_action("p1") == PRESET and m.writable
+    assert user.read_text(encoding="utf-8") == "{not json"
+
+
+def test_reload_after_a_fix_makes_the_file_writable(tmp_path):
+    user = tmp_path / "m.json"
+    user.write_text("{not json", encoding="utf-8")
+    m = Mapping.load(user)
+    assert not m.writable
+    write(user, {"p1": {"press": PRESET}})
+    assert m.reload() is True
+    assert m.writable and m.press_action("p1") == PRESET
+
+
+def test_reload_recreates_a_missing_file_from_the_default(tmp_path):
+    user = write(tmp_path / "m.json", {"p1": {"press": PRESET}})
+    m = Mapping.load(user)
+    user.unlink()
+    assert m.reload() is True
+    default = json.loads(DEFAULT_PATH.read_text(encoding="utf-8-sig"))["controls"]
+    assert json.loads(user.read_text(encoding="utf-8"))["controls"] == default
+    assert m.press_action("p1") == default["p1"]["press"]
+
+
+def test_reload_reads_a_file_saved_with_a_bom(tmp_path):
+    user = write(tmp_path / "m.json", {"p1": {"press": NONE}})
+    m = Mapping.load(user)
+    user.write_text(json.dumps({"controls": {"p1": {"press": PRESET}}}), encoding="utf-8-sig")   # Notepad
+    assert m.reload() is True
+    assert m.press_action("p1") == PRESET
+
+
+def test_save_applies_the_change_to_the_file_on_disk(tmp_path):
+    user = write(tmp_path / "m.json", {"p2": {"press": NONE}, "p3": {"press": NONE}})
+    a = Mapping.load(user)
+    Mapping.load(user).set_press_action("p2", PRESET)        # another writer (a sync) since a read the file
+    assert a.set_press_action("p3", {**PRESET, "id": "B"}) is True
+    saved = json.loads(user.read_text(encoding="utf-8"))["controls"]
+    assert saved["p2"]["press"] == PRESET and saved["p3"]["press"]["id"] == "B"
+    assert a.press_action("p2") == PRESET
+
+
+def test_save_without_outside_changes_returns_false(tmp_path):
+    m = Mapping.load(write(tmp_path / "m.json", {"p3": {"press": NONE}}))
+    assert m.set_press_action("p3", PRESET) is False
+    assert m.set_action("p3", "press", NONE) is False         # its own last save isn't an outside change
+
+
+def test_save_refused_when_the_file_became_unreadable(tmp_path):
+    user = write(tmp_path / "m.json", {"p3": {"press": NONE}})
+    m = Mapping.load(user)
+    user.write_text("{not json", encoding="utf-8")
+    with pytest.raises(MappingNotWritable) as e:
+        m.set_press_action("p3", PRESET)
+    assert "then click Reload from file" in str(e.value)
+    assert user.read_text(encoding="utf-8") == "{not json"
+
+
+def test_save_refused_when_the_file_was_deleted(tmp_path):
+    user = write(tmp_path / "m.json", {"p3": {"press": NONE}})
+    m = Mapping.load(user)
+    user.unlink()
+    with pytest.raises(MappingNotWritable):
+        m.set_press_action("p3", PRESET)
+    assert not user.exists()

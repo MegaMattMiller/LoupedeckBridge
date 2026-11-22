@@ -28,7 +28,22 @@ LAYERS = ("normal", "fn")
 
 
 class MappingNotWritable(Exception):
-    """The user's mapping.json couldn't be read at load, so it must not be overwritten."""
+    """The user's mapping.json can't be read right now, so it must not be overwritten."""
+
+
+class MappingUnreadable(Exception):
+    """A reload found the user's mapping.json unreadable; the layout in use was kept."""
+
+
+_READ_ERRORS = (OSError, ValueError, KeyError, TypeError)
+
+
+def _read_doc(path: Path) -> dict:
+    """The user's file, parsed. Raises one of _READ_ERRORS when it can't be read or has no "controls" object."""
+    doc = json.loads(path.read_text(encoding="utf-8-sig"))
+    if not isinstance(doc["controls"], dict):
+        raise ValueError("'controls' isn't an object")
+    return doc
 
 
 def _is_call(obj) -> bool:
@@ -153,23 +168,12 @@ class Mapping:
     @classmethod
     def load(cls, user_path: Path, default_path: Path = DEFAULT_PATH) -> "Mapping":
         warnings: List[str] = []
-        # mapping.base.json = the default the user's file started from; it tells which controls
-        # the user never changed (those follow new defaults) from the ones they did.
-        base_path = user_path.with_name(user_path.stem + ".base.json")
-        if not user_path.exists():
-            user_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(default_path, user_path)
-            shutil.copyfile(default_path, base_path)
-            log.info("created %s from the default layout", user_path)
-        else:
-            cls._follow_new_default(user_path, base_path, default_path, warnings)
+        cls._prepare_file(user_path, default_path, warnings)
         doc: Optional[dict] = None
         try:
-            doc = json.loads(user_path.read_text(encoding="utf-8-sig"))
+            doc = _read_doc(user_path)
             raw = doc["controls"]
-            if not isinstance(raw, dict):
-                raise ValueError("'controls' isn't an object")
-        except (OSError, ValueError, KeyError, TypeError) as e:
+        except _READ_ERRORS as e:
             msg = f"{user_path.name} couldn't be read ({e}); using the default layout. Your file was left as is."
             log.error(msg)
             warnings.append(msg)
@@ -180,6 +184,40 @@ class Mapping:
         for w in warnings:
             log.warning(w)
         return cls(controls, warnings, path=user_path, doc=doc, default_path=default_path)
+
+    @classmethod
+    def _prepare_file(cls, user_path: Path, default_path: Path, warnings: List[str]) -> None:
+        """What a start does before reading the file: create it from the default, or follow a new default."""
+        # mapping.base.json = the default the user's file started from; it tells which controls
+        # the user never changed (those follow new defaults) from the ones they did.
+        base_path = user_path.with_name(user_path.stem + ".base.json")
+        if not user_path.exists():
+            user_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(default_path, user_path)
+            shutil.copyfile(default_path, base_path)
+            log.info("created %s from the default layout", user_path)
+        else:
+            cls._follow_new_default(user_path, base_path, default_path, warnings)
+
+    def reload(self) -> bool:
+        """Read the file again, as a start does (recreated from the default if missing, following a new default),
+        for a layout synced from another machine or edited by hand. Returns whether it differs from the layout in
+        use. A file that can't be read changes nothing: MappingUnreadable says why."""
+        name = self.path.name if self.path else "mapping.json"
+        warnings: List[str] = []
+        try:
+            if self.path is None:
+                raise OSError("there's no file")
+            self._prepare_file(self.path, self.default_path, warnings)
+            doc = _read_doc(self.path)
+        except _READ_ERRORS as e:
+            raise MappingUnreadable(f"{name} couldn't be read ({e}); the layout in use was kept") from e
+        changed = doc != self._doc
+        self._doc, self._controls = doc, _parse(doc["controls"], warnings)
+        self.warnings = warnings
+        for w in warnings:
+            log.warning(w)
+        return changed
 
     @staticmethod
     def _follow_new_default(user_path: Path, base_path: Path, default_path: Path, warnings: List[str]) -> None:
@@ -216,14 +254,15 @@ class Mapping:
 
     @property
     def writable(self) -> bool:
-        """False when the user's file couldn't be read (it's then never overwritten)."""
+        """False until the user's file has been read (it's never overwritten while it can't be)."""
         return self._doc is not None and self.path is not None
 
-    def set_press_action(self, control: str, action: dict) -> None:
-        """Change one control's normal press action and save the file (atomically)."""
-        self.set_action(control, "press", action)
+    def set_press_action(self, control: str, action: dict) -> bool:
+        """Change one control's normal press action and save the file (atomically). Like every save, it returns
+        whether the file had changed on disk since it was last read (the save brought those changes in)."""
+        return self.set_action(control, "press", action)
 
-    def set_action(self, control: str, slot: str, action: Optional[dict], layer: str = "normal") -> None:
+    def set_action(self, control: str, slot: str, action: Optional[dict], layer: str = "normal") -> bool:
         """Change one slot ("turn"/"press") of one layer ("normal"/"fn") and save the file.
 
         action=None (Fn layer only) means "same as normal": the Fn slot is removed."""
@@ -255,9 +294,9 @@ class Mapping:
                 else:
                     entry.pop(FN_KEY, None)
             controls[control] = entry
-        self._edit(change)
+        return self._edit(change)
 
-    def reset_control(self, control: str, keep_normal_press: bool = False) -> None:
+    def reset_control(self, control: str, keep_normal_press: bool = False) -> bool:
         """Give one control its default actions (both layers); optionally keep its normal press."""
         default = self._default_controls()
 
@@ -270,9 +309,9 @@ class Mapping:
                 controls.pop(control, None)
             else:
                 controls[control] = new
-        self._edit(change)
+        return self._edit(change)
 
-    def restore_defaults(self, keep_normal_press: Iterable[str] = ()) -> None:
+    def restore_defaults(self, keep_normal_press: Iterable[str] = ()) -> bool:
         """The whole default layout, except the normal press of the listed controls (e.g. P1–P8)."""
         default = self._default_controls()
 
@@ -283,22 +322,31 @@ class Mapping:
             controls.update(copy.deepcopy(default))
             for c, press in kept.items():
                 controls[c] = {**controls.get(c, {}), "press": press}
-        self._edit(change)
+        return self._edit(change)
 
     def _default_controls(self) -> dict:
         return json.loads(self.default_path.read_text(encoding="utf-8-sig"))["controls"]
 
-    def _edit(self, change: Callable[[dict], None]) -> None:
-        """Apply change() to a copy of the file and keep it only once it's saved: a failed save
-        (full disk) must not leave a change in memory that the next successful save would write too."""
-        if self._doc is None or self.path is None:
+    def _edit(self, change: Callable[[dict], None]) -> bool:
+        """Apply change() to the file as it is on disk now, never to the copy read earlier: a change synced in
+        since then must not be undone. The result is kept only once it's saved: a failed save (full disk) must not
+        leave a change in memory that the next successful save would write too. Returns whether the file had
+        changed since it was last read."""
+        try:
+            if self.path is None:
+                raise OSError("there's no file")
+            fresh = _read_doc(self.path)
+        except _READ_ERRORS:
             raise MappingNotWritable(f"{self.path.name if self.path else 'mapping.json'} couldn't be read, so "
-                                     "it won't be overwritten; fix or delete it, then restart the bridge")
-        doc = {**self._doc, "controls": dict(self._doc["controls"])}
+                                     "it won't be overwritten; fix or delete it, then click Reload from file in "
+                                     "the settings page") from None
+        brought_in = fresh != self._doc
+        doc = {**fresh, "controls": dict(fresh["controls"])}
         change(doc["controls"])
         _write_atomic(self.path, _dumps(doc))
         self._doc = doc
         self._controls = _parse(doc["controls"], [])
+        return brought_in
 
     def turn_action(self, control: str, fn: bool = False) -> dict:
         return self._action(control, "turn", fn)
