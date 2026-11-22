@@ -621,3 +621,109 @@ def test_page_shows_version(tmp_path):
             return await rig.http_get("/")
     status, _, body = asyncio.run(main())
     assert status == 200 and f"v{bridge.__version__}" in body and re.fullmatch(r"\d+\.\d+\.\d+", bridge.__version__)
+
+
+# ---- milestone 9: Reload from file, and saves that bring in outside changes ----------------------------------------
+
+WARM = {"type": "preset", "id": "ID-WARM", "name": "Warm"}
+
+
+def rewrite(rig, **presses):
+    """Another writer (e.g. Syncthing) changes the file under the running bridge."""
+    doc = json.loads(rig.path.read_text(encoding="utf-8-sig"))
+    for control, action in presses.items():
+        doc["controls"].setdefault(control, {})["press"] = action
+    rig.path.write_text(json.dumps(doc), encoding="utf-8")
+
+
+def test_reload_sends_the_new_layout_to_every_tab(tmp_path):
+    async def main():
+        async with Rig(tmp_path) as rig:
+            async with rig.connect() as a, rig.connect() as b:
+                await rig.hello(a)
+                await rig.hello(b)
+                rewrite(rig, p2=WARM)
+                await a.send(json.dumps({"op": "reload"}))
+                assert slot(await rig.next(b, "state"), "p2")["id"] == "ID-WARM"
+                await rig.next(b, "layout")
+                assert await rig.next(a, "reloaded") == {"type": "reloaded", "changed": True, "file": "m.json"}
+            assert rig.mapping.press_action("p2") == WARM
+    asyncio.run(main())
+
+
+def test_reload_of_an_unchanged_file_says_so(tmp_path):
+    async def main():
+        async with Rig(tmp_path) as rig:
+            async with rig.connect() as ws:
+                await rig.hello(ws)
+                await ws.send(json.dumps({"op": "reload"}))
+                assert (await rig.next(ws, "reloaded"))["changed"] is False
+    asyncio.run(main())
+
+
+def test_reload_of_an_unreadable_file_keeps_the_layout(tmp_path):
+    async def main():
+        async with Rig(tmp_path) as rig:
+            async with rig.connect() as ws:
+                await rig.hello(ws)
+                before = rig.mapping.press_action("p1")
+                rig.path.write_text("{not json", encoding="utf-8")
+                await ws.send(json.dumps({"op": "reload"}))
+                assert "the layout in use was kept" in (await rig.next(ws, "error"))["message"]
+                assert rig.mapping.press_action("p1") == before
+                await ws.send(json.dumps({"op": "assign", "slot": "p1", "id": "ID-WARM", "name": "Warm"}))
+                assert "couldn't be read" in (await rig.next(ws, "error"))["message"]
+            assert rig.path.read_text(encoding="utf-8") == "{not json"
+    asyncio.run(main())
+
+
+def test_reload_after_fixing_the_file_makes_it_writable(tmp_path):
+    async def main():
+        async with Rig(tmp_path, mapping_text="{not json") as rig:
+            async with rig.connect() as ws:
+                assert (await rig.hello(ws))["writable"] is False
+                rig.path.write_text(json.dumps({"controls": {"p1": {"press": {"type": "none"}}}}), encoding="utf-8")
+                await ws.send(json.dumps({"op": "reload"}))
+                assert (await rig.next(ws, "state"))["writable"] is True
+                await ws.send(json.dumps({"op": "assign", "slot": "p1", "id": "ID-WARM", "name": "Warm"}))
+                assert slot(await rig.next(ws, "state"), "p1")["id"] == "ID-WARM"
+            assert json.loads(rig.path.read_text(encoding="utf-8"))["controls"]["p1"]["press"]["id"] == "ID-WARM"
+    asyncio.run(main())
+
+
+def test_reload_works_while_lightroom_is_closed(tmp_path):
+    async def main():
+        async with Rig(tmp_path, connected=False) as rig:
+            async with rig.connect() as ws:
+                await rig.hello(ws)
+                rewrite(rig, p2=WARM)
+                await ws.send(json.dumps({"op": "reload"}))
+                assert (await rig.next(ws, "reloaded"))["changed"] is True
+            assert rig.mapping.press_action("p2") == WARM
+    asyncio.run(main())
+
+
+def test_a_save_brings_in_outside_changes(tmp_path):
+    async def main():
+        async with Rig(tmp_path) as rig:
+            async with rig.connect() as ws:
+                await rig.hello(ws)
+                rewrite(rig, p3=WARM)                      # synced in, not reloaded yet
+                await ws.send(set_op("c3", "fn", "press", {"kind": "command", "id": "rating_3"}))
+                assert slot(await rig.next(ws, "state"), "p3") == {"slot": "p3", "id": "ID-WARM", "name": "Warm",
+                                                                   "status": "ok"}
+            saved = json.loads(rig.path.read_text(encoding="utf-8"))["controls"]
+            assert saved["p3"]["press"] == WARM and saved["c3"]["fn"]["press"]["message"] == "rating3"
+    asyncio.run(main())
+
+
+def test_page_has_a_reload_button(tmp_path):
+    async def main():
+        async with Rig(tmp_path) as rig:
+            return (await rig.http_get("/"))[2], (await rig.http_get("/app.js"))[2]
+    html, js = asyncio.run(main())
+    assert 'id="reload"' in html and "Reload from file" in html
+    assert html.index('id="reload"') > html.index("</nav>")      # beside the tabs, not inside the tablist
+    for text in ('op: "reload"', '"reloaded"', "Reloaded the layout from", "hasn't changed since it was read",
+                 "then click Reload from file."):
+        assert text in js, text

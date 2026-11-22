@@ -13,10 +13,13 @@
     <p id="five-mode" class="chip" role="status" title="What the five buttons next to --/Col do. --/Col switches Ratings and Colours; Fn + --/Col turns Keys on and off." hidden></p>
     <p id="status" class="status" role="status"><span class="dot"></span><span id="status-text">Connecting…</span></p>
   </header>
-  <nav class="tabs" role="tablist" aria-label="Settings">
-    <button id="tab-btn-presets" type="button" role="tab" aria-controls="tab-presets" aria-selected="true">Presets</button>
-    <button id="tab-btn-remap" type="button" role="tab" aria-controls="tab-remap" aria-selected="false">Buttons &amp; dials</button>
-  </nav>
+  <div class="tabbar">
+    <nav class="tabs" role="tablist" aria-label="Settings">
+      <button id="tab-btn-presets" type="button" role="tab" aria-controls="tab-presets" aria-selected="true">Presets</button>
+      <button id="tab-btn-remap" type="button" role="tab" aria-controls="tab-remap" aria-selected="false">Buttons &amp; dials</button>
+    </nav>
+    <button id="reload" type="button" class="link" title="Read mapping.json again, e.g. after Syncthing brought a change from another machine">Reload from file</button>
+  </div>
   <p id="notice" class="notice" hidden></p>
   <main id="tab-presets" role="tabpanel" aria-labelledby="tab-btn-presets">
     <section class="slots" aria-labelledby="slots-title">

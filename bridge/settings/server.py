@@ -29,7 +29,7 @@ from bridge import __version__
 from bridge.commands import CommandCatalog
 from bridge.hardware import Event, HardwareMap, Press, Release, Turn
 from bridge.lightroom import LightroomError
-from bridge.mapping import FN_KEY, LAYERS, MappingNotWritable
+from bridge.mapping import FN_KEY, LAYERS, MappingNotWritable, MappingUnreadable
 from bridge.settings import layout
 
 log = logging.getLogger("settings")
@@ -155,6 +155,8 @@ class SettingsServer:
             return await ws.send(json.dumps({"type": "presets", "items": [list(i) for i in items]}))
         if op in ("set", "reset", "restore_defaults"):
             return await self._remap(ws, op, msg)
+        if op == "reload":
+            return await self._reload(ws)
         if op not in ("assign", "clear"):
             return await self._error(ws, f"unknown request {op!r}")
         slot = msg.get("slot")
@@ -182,14 +184,14 @@ class SettingsServer:
         """The Buttons & dials tab's changes. Everything is checked here; the page is never trusted."""
         try:
             if op == "restore_defaults":
-                self.mapping.restore_defaults(keep_normal_press=SLOTS)  # presets live on the Presets tab
+                brought_in = self.mapping.restore_defaults(keep_normal_press=SLOTS)  # presets live on the Presets tab
                 log.info("restored the default layout (P1–P8 presets kept)")
             else:
                 control = msg.get("control")
                 if not isinstance(control, str) or control not in self.controls or control == FN_KEY:
                     raise ValueError(f"there's no control {control!r} to change here")
                 if op == "reset":
-                    self.mapping.reset_control(control, keep_normal_press=control in SLOTS)
+                    brought_in = self.mapping.reset_control(control, keep_normal_press=control in SLOTS)
                     log.info("%s: reset to the default", control)
                 else:
                     layer, slot = msg.get("layer"), msg.get("slot")
@@ -202,7 +204,7 @@ class SettingsServer:
                     action = self.commands.action_for(msg.get("choice"), slot)
                     if action is None and layer != "fn":
                         raise ValueError("'Same as normal' is only for the Fn layer")
-                    self.mapping.set_action(control, slot, action, layer=layer)
+                    brought_in = self.mapping.set_action(control, slot, action, layer=layer)
                     label = "same as normal" if action is None else self.commands.describe(action)["label"]
                     log.info("%s %s%s: %s", control, slot, " (Fn)" if layer == "fn" else "", label)
         except (MappingNotWritable, ValueError) as e:
@@ -211,9 +213,31 @@ class SettingsServer:
             return await self._error(ws, "couldn't read that request")
         except OSError as e:
             return await self._error(ws, self._save_error(e))
+        if brought_in:  # the file had changed since it was read (e.g. synced in): the presets and every tab follow
+            return await self._refresh()
         await self._broadcast(self._layout())
         if op == "restore_defaults":
             await self._broadcast(self._state())
+
+    async def _reload(self, ws) -> None:
+        """Reload from file: the layout as mapping.json has it now, e.g. after Syncthing brought a change from another
+        machine. A file that can't be read leaves the layout in use as it is."""
+        name = self.mapping.path.name if self.mapping.path else "mapping.json"
+        try:
+            changed = self.mapping.reload()
+        except MappingUnreadable as e:
+            log.warning("%s", e)
+            return await self._error(ws, str(e))
+        log.info("reloaded %s (%s)", name, "changed" if changed else "unchanged")
+        await self._refresh()
+        # last: the page's state handler clears its notice line, and this is what it shows there
+        await ws.send(json.dumps({"type": "reloaded", "changed": changed, "file": name}))
+
+    async def _refresh(self) -> None:
+        """After the layout changed as a whole: look the P1–P8 presets up again, and update every tab."""
+        await self.dispatcher.reload_presets()
+        await self._broadcast(self._state())
+        await self._broadcast(self._layout())
 
     def _save_error(self, e: OSError) -> str:
         name = self.mapping.path.name if self.mapping.path else "mapping.json"

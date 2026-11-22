@@ -37,9 +37,10 @@ function setStatus(kind, text) {
   $("status-text").textContent = text;
 }
 
-function notice(text) {
+function notice(text, kind) {
   const n = $("notice");
   n.textContent = text || "";
+  n.dataset.kind = kind || "warn";
   n.hidden = !text;
 }
 
@@ -57,6 +58,7 @@ function connect() {
     else if (msg.type === "progress") onProgress(msg.done, msg.total);
     else if (msg.type === "error") onError(msg.message);
     else if (msg.type === "used") onUsed(msg);
+    else if (msg.type === "reloaded") onReloaded(msg);
     else if (msg.type === "catalog" || msg.type === "layout" || msg.type === "fn") toRemap(msg);
   });
   ws.addEventListener("close", (e) => {
@@ -109,7 +111,7 @@ function onState(msg) {
   setStatus(msg.lightroom ? "ok" : "warn",
     msg.lightroom ? "Connected to the bridge and Lightroom" : "Connected to the bridge · waiting for Lightroom");
   if (!msg.writable) {
-    notice("Your mapping.json couldn't be read, so changes can't be saved. Fix or delete it, then restart the bridge.");
+    notice("Your mapping.json couldn't be read, so changes can't be saved. Fix or delete it, then click Reload from file.");
   } else {
     notice("");
   }
@@ -120,6 +122,11 @@ function onState(msg) {
   renderSlots();
   renderResults();
   if (typeof Remap !== "undefined") Remap.render();  // e.g. the file became (un)writable
+}
+
+// Reload from file's answer. It comes after the new state and layout, whose state message clears the notice line.
+function onReloaded(msg) {
+  notice(msg.changed ? `Reloaded the layout from ${msg.file}.` : `${msg.file} hasn't changed since it was read.`, "info");
 }
 
 // Messages for the Buttons & dials tab (remap.js).
@@ -237,4 +244,5 @@ showTab(startTab);
 $("search").addEventListener("input", renderResults);
 $("retry").addEventListener("click", () => requestPresets(false));
 $("refresh").addEventListener("click", () => requestPresets(true));
+$("reload").addEventListener("click", () => send({ op: "reload" }));
 connect();

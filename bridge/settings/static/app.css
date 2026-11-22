@@ -49,6 +49,7 @@ header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content:
 .status[data-kind="warn"] .dot { background: var(--warn); }
 
 .notice { background: var(--warn-soft); color: var(--warn); border-radius: 8px; padding: 10px 14px; margin: 0 0 16px; }
+.notice[data-kind="info"] { background: var(--accent-soft); color: var(--text); }
 
 main { display: grid; grid-template-columns: minmax(260px, 360px) 1fr; gap: 20px; align-items: start; }
 @media (max-width: 720px) { main { grid-template-columns: 1fr; } }
@@ -99,7 +100,13 @@ footer { margin-top: 18px; font-size: 12px; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* ---- tabs ---- */
-.tabs { display: flex; gap: 4px; margin: -6px 0 16px; border-bottom: 1px solid var(--line); }
+/* The tab row, with Reload from file at its right. On a narrow screen the button moves above the tabs
+   (wrap-reverse), so the tabs keep their underline. */
+.tabbar { display: flex; flex-wrap: wrap-reverse; align-items: flex-end; justify-content: space-between; gap: 0 16px;
+          margin: -6px 0 16px; border-bottom: 1px solid var(--line); }
+.tabbar > .link { padding: 8px 0; margin-left: auto; }
+.tabbar > .link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.tabs { display: flex; gap: 4px; }
 .tabs [role="tab"] {
   background: none; border: none; border-bottom: 2px solid transparent; padding: 8px 14px; cursor: pointer;
   color: var(--dim); margin-bottom: -1px;
