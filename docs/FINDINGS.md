@@ -494,6 +494,23 @@ changed no bridge behaviour.
   (`--check-signature`). Hence `verify-intel` on an Intel runner, the counterpart of `verify-windows`. The sign
   job still checks both Macs' signatures and certificates, which execute nothing.
 
+## Milestone 9: layout sync (2026-11-22)
+- **Lightroom gives a synced preset the same id on every machine.**
+  - A one-off script listed every preset on a Mac (Apple Silicon) and on the Windows PC, both with Lightroom 10.0
+    (build `20261029-1525-df1be3b`). It used the installed release's Python and the bridge's saved client ID, and
+    read only.
+  - Both had the same 1,572 ids and names, in the same order. So a synced layout finds its P1–P8 presets by id
+    everywhere, and nothing is stored per machine.
+  - Four names are each used by several presets on both machines: Heavy, Light, Medium and None.
+- **Sync only `mapping.json`, never `mapping.base.json`.** The base file is how a machine tells which controls the
+  user never changed.
+  - Synced from a newer version, it makes an older one reset those controls to its own older defaults at each
+    start, and the two machines take turns.
+  - Kept per machine, the worst case is an action the older version doesn't know yet (it does nothing until that
+    machine updates), and a one-time "newer defaults exist" note.
+- **On this PC, Lightroom named all 1,572 presets in under 7 s** (16 requests in flight), against ~27 s measured
+  on the Mac in milestone 3.
+
 ## API notes the handoff didn't capture
 - **How object handles come about:** `addAdjustmentChangeObserver(param?)` and `addHapticsObserver()` return a GUID/object. Later notifications arrive as extra responses for that same original `requestId` (this is the "one request, many responses" case). Call `close` on the handle when done.
 - **Tracking:** `startTracking(param)` turns itself off **2 s** after the last change, or as soon as a *different* parameter is adjusted. `stopTracking()` commits **one** history state. `setMultipleAdjustmentThreshold` defaults to **0.5 s** and has no effect if it's larger than the tracking delay.

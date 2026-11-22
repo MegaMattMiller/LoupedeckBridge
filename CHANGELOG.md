@@ -3,6 +3,19 @@
 Each release's section here becomes its GitHub release notes (`tools/check_release.py`). Versions are
 `bridge/__init__.py`'s `__version__`.
 
+## v0.8.0 — 2026-11-22
+
+One layout on several machines: the settings page reloads it from its file, and a save never undoes a change
+synced in from another machine.
+
+- **Reload from file** in the settings page reads `mapping.json` again, without a restart. The Loupedeck and every
+  open page switch to it at once. A file that can't be read leaves the layout in use as it is. Once it's fixed,
+  Reload brings it back, with no restart needed any more.
+- **Saves apply to the file as it is on disk,** never to the copy read at start. So a change synced in from
+  another machine, or made by hand, survives your next edit.
+- **The README explains syncing a layout with Syncthing:** which file, the ignore patterns, and the one step for a
+  machine joining.
+
 ## v0.7.0 — 2026-11-21
 
 Intel Macs. One release now carries a download for each kind of Mac, and each one installs and updates itself

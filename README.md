@@ -146,6 +146,11 @@ Changes save to your `mapping.json` straight away and work without a restart. Pr
 the Loupedeck lights up its slot on the page. A slot whose preset was deleted, or whose name now
 matches several presets, is marked so you can assign it again.
 
+**Reload from file** (beside the tabs) reads `mapping.json` again, after a change synced in from another machine
+(see [Syncing a layout between machines](#syncing-a-layout-between-machines)) or a hand edit. The Loupedeck and
+every open page switch to it at once, and the page says whether the file had changed. A file that can't be read
+leaves the layout in use as it is, and the page says why.
+
 The page is local only:
 - It only answers on 127.0.0.1, and only to requests addressed to it.
 - Changes need a secret that only the page itself has, so other websites open in your browser can't
@@ -189,6 +194,27 @@ The **Buttons & dials** tab changes what any control does. Changes save and work
 - The page can't create keyboard keys or shortcuts; keys you already have (e.g. Shift) can be replaced,
   and Reset brings them back.
 - `tools/lr_check_commands.py` checks the command list against Lightroom (on a test photo).
+
+## Syncing a layout between machines
+
+To use one layout on several machines, sync its file with a folder-sync tool such as
+[Syncthing](https://syncthing.net/). Share the bridge's layout folder:
+- **Mac:** `~/Library/Application Support/loupedeck-lr-bridge/`
+- **Windows:** `%APPDATA%\loupedeck-lr-bridge\`
+
+On each machine, give it these ignore patterns (Syncthing never syncs them, so set them on every machine):
+```
+!/mapping.json
+*
+```
+- **Sync only `mapping.json`.** On the Mac the same folder holds that Mac's Lightroom client ID, which must stay
+  there. Each machine keeps its own `mapping.base.json`, so one on an older version can't reset the controls you
+  never changed to its older defaults.
+- **Before a machine joins,** quit LoupedeckBridge there and move its own `mapping.json` aside, so the first sync
+  brings your layout instead of keeping whichever file is newer.
+- **After a change arrives,** click **Reload from file** in that machine's settings page. A change you save there
+  before reloading is added to the synced file, never written over it.
+- **Presets on P1–P8 work on every machine:** Lightroom gives a synced preset the same id everywhere.
 
 ## The menu-bar app
 
@@ -352,6 +378,7 @@ the key they were signed with, so a new key means reinstalling everywhere with `
 6. ✅ Mac releases: a self-contained app built and signed on GitHub, installed with one command, updated from the menu
 7. ✅ Windows: the bridge, a tray app, and releases for friends installed with one PowerShell command
 8. ✅ Intel Macs: a second Mac download in every release, built and tested on an Intel Mac, installed and updated the same way
+9. ✅ Layout sync: Reload from file in the settings page, and saves that never undo a change synced in from another machine
 
 ## Layout
 
