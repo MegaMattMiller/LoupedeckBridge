@@ -210,8 +210,12 @@ On each machine, give it these ignore patterns (Syncthing never syncs them, so s
 - **Sync only `mapping.json`.** On the Mac the same folder holds that Mac's Lightroom client ID, which must stay
   there. Each machine keeps its own `mapping.base.json`, so one on an older version can't reset the controls you
   never changed to its older defaults.
-- **Before a machine joins,** quit LoupedeckBridge there and move its own `mapping.json` aside, so the first sync
-  brings your layout instead of keeping whichever file is newer.
+- **Set the ignore patterns when you add or accept the folder** (Syncthing's Ignore Patterns tab), before its first
+  sync. Otherwise that first sync can carry the Mac's other files across.
+- **Before a machine joins,** quit LoupedeckBridge there and move its own `mapping.json` aside. Start it again only
+  once your `mapping.json` has arrived, and turn off its Start at login until then, in case the machine restarts. If
+  it starts first, it makes a fresh default layout, and Syncthing would let that newer file replace your layout on
+  every machine.
 - **After a change arrives,** click **Reload from file** in that machine's settings page. A change you save there
   before reloading is added to the synced file, never written over it.
 - **Presets on P1–P8 work on every machine:** Lightroom gives a synced preset the same id everywhere.
